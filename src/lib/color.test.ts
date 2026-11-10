@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { averageColor, colorFromText, hslToRgb, textColorOn } from './color';
-import { cleanTitle, searchUrl, wrapSearchUrls } from './covers';
+import { cleanTitle, pinterestVariants, searchUrl, wrapSearchUrls } from './covers';
 
 describe('color', () => {
   it('picks light text on dark backgrounds and dark text on light ones', () => {
@@ -32,6 +32,15 @@ describe('cover lookup helpers', () => {
     const url = new URL(searchUrl({ title: 'Dune (Dune #1)', authors: 'Frank Herbert, Someone Else' }));
     expect(url.searchParams.get('title')).toBe('Dune');
     expect(url.searchParams.get('author')).toBe('Frank Herbert');
+  });
+
+  it('lists larger Pinterest versions, originals first, and nothing for other links', () => {
+    expect(pinterestVariants('https://i.pinimg.com/736x/1b/65/d7/abc.jpg')).toEqual([
+      'https://i.pinimg.com/originals/1b/65/d7/abc.png',
+      'https://i.pinimg.com/originals/1b/65/d7/abc.jpg',
+      'https://i.pinimg.com/1200x/1b/65/d7/abc.jpg',
+    ]);
+    expect(pinterestVariants('https://example.com/736x/abc.jpg')).toEqual([]);
   });
 
   it('builds full-wrap search links from cleaned title and first author', () => {

@@ -21,7 +21,9 @@ export function Sheet(props: Props) {
   const { pages, settings, cols, coverOf, customCovers, zoom, activeId, guidesHidden, onToggleGuides } = props;
   const paper = PAPER[settings.paper];
   return (
-    <div className="sheet" style={{ zoom, '--guide-opacity': settings.guideOpacity } as CSSProperties}>
+    <div className="sheet" style={
+        { zoom, '--guide-opacity': settings.guideOpacity, '--guide-width': `${settings.guideWidth}mm` } as CSSProperties
+      }>
       <style>{`@page { size: ${paper.w}mm ${paper.h}mm; margin: 0; }`}</style>
       {pages.map((page, i) => (
         <section

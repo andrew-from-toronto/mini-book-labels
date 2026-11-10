@@ -24,6 +24,7 @@ const DEFAULT_SETTINGS: Settings = {
   margin: 10,
   gap: 2,
   guideOpacity: 1,
+  guideWidth: 0.15,
 };
 
 const clamp = (v: number, min: number, max: number) => Math.round(Math.min(max, Math.max(min, v)));

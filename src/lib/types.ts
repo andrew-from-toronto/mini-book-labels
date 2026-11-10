@@ -58,4 +58,6 @@ export interface Settings {
   gap: number;
   /** Opacity (0 to 1) of the on-screen back / spine / front alignment guides. */
   guideOpacity: number;
+  /** Thickness in mm of the alignment guide lines, which are centred on the folds. */
+  guideWidth: number;
 }

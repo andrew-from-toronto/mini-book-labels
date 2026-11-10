@@ -312,6 +312,14 @@ export function BookList({
                       Use
                     </button>
                   </div>
+                  {custom && cover?.image && (
+                    <span className="muted find">
+                      {cover.upgraded === 'original' && "Upgraded to Pinterest's original upload: "}
+                      {cover.upgraded === 'larger' && "Upgraded to Pinterest's larger 1200 px copy: "}
+                      {!cover.upgraded && 'Image loaded: '}
+                      {cover.image.naturalWidth} x {cover.image.naturalHeight} px.
+                    </span>
+                  )}
                   <input
                     type="file"
                     accept="image/*"

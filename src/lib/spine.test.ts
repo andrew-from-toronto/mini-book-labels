@@ -32,6 +32,14 @@ describe('detectSpine', () => {
     expect(spine.right).toBeCloseTo(0.55, 1);
   });
 
+  it('prefers the centred spine over a stronger edge on the front cover', () => {
+    const lum = artwork(90, 110, 100);
+    for (let y = 0; y < H; y++) for (let x = 118; x < W; x++) lum[y * W + x] = 220;
+    const spine = detectSpine(lum, W, H)!;
+    expect(spine.left).toBeCloseTo(0.45, 1);
+    expect(spine.right).toBeCloseTo(0.55, 2);
+  });
+
   it('finds a spine that sits slightly off centre', () => {
     const spine = detectSpine(artwork(96, 112, 100), W, H)!;
     expect(spine.left).toBeCloseTo(0.48, 1);

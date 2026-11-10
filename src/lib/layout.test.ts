@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { gridFor, paginate } from './layout';
 import type { Settings } from './types';
 
-const settings: Settings = { height: 30, width: 20, spine: 5, style: 'edge', paper: 'letter', margin: 10, gap: 2, guideOpacity: 1 };
+const settings: Settings = { height: 30, width: 20, spine: 5, style: 'edge', paper: 'letter', margin: 10, gap: 2, guideOpacity: 1, guideWidth: 0.15 };
 
 describe('gridFor', () => {
   it('packs 45 x 30 mm labels onto Letter', () => {

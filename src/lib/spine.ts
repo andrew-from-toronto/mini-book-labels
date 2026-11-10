@@ -3,6 +3,8 @@ import type { WrapSpine } from './types';
 /** Weakest luminance step (0 to 255) across a column that counts as a fold line. */
 const MIN_EDGE = 3;
 const ANALYSIS_WIDTH = 400;
+/** How many columns inside or outside an edge to sample, clear of the edge's own blur. */
+const INSET = 2;
 
 /**
  * Finds the spine in back + spine + front artwork from row-major luminance values, by its fold
@@ -24,6 +26,13 @@ function detectByEdges(lum: ArrayLike<number>, w: number, h: number): WrapSpine 
     column.sort();
     score[x] = Math.abs(column[h >> 1]);
   }
+  // Each column's typical brightness, to compare what lies just inside the two edges.
+  const median = new Float32Array(w);
+  for (let x = 0; x < w; x++) {
+    for (let y = 0; y < h; y++) column[y] = lum[y * w + x];
+    column.sort();
+    median[x] = column[h >> 1];
+  }
 
   let best: { sum: number; l: number; r: number } | null = null;
   for (let l = Math.floor(w * 0.3); l < w / 2; l++) {
@@ -33,7 +42,16 @@ function detectByEdges(lum: ArrayLike<number>, w: number, h: number): WrapSpine 
       const width = (r - l) / w;
       const offCentre = Math.abs((l + r) / 2 - w / 2) / w;
       if (width < 0.02 || width > 0.3 || offCentre > 0.06) continue;
-      const sum = score[l] + score[r];
+      // A spine is one band, so the columns just inside its two edges look alike. An edge paired
+      // with a bold letter edge on the front cover has spine on one side and background on the other.
+      const innerGap = Math.abs(median[l + INSET] - median[r - INSET]);
+      const stepL = Math.abs(median[l + INSET] - median[l - INSET]);
+      const stepR = Math.abs(median[r - INSET] - median[r + INSET]);
+      const band = innerGap <= Math.max(8, 0.35 * Math.min(stepL, stepR)) ? 1 : 0.4;
+      // A pair is only as convincing as its weaker edge, and the covers are the same width, so the
+      // spine should sit in the middle. The small sum term settles ties on the sharper edge.
+      const sum =
+        Math.min(score[l], score[r]) * (1 - offCentre / 0.06) * band + 0.01 * (score[l] + score[r]);
       if (!best || sum > best.sum) best = { sum, l, r };
     }
   }

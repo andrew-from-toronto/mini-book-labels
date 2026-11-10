@@ -93,6 +93,17 @@ export function SettingsPanel({ settings, onChange }: Props) {
           onChange={(e) => onChange({ ...settings, guideOpacity: Number(e.target.value) })}
         />
       </label>
+      <label>
+        Alignment guide width: {settings.guideWidth.toFixed(2)} mm, centred on the fold
+        <input
+          type="range"
+          min={0.02}
+          max={0.6}
+          step={0.01}
+          value={settings.guideWidth}
+          onChange={(e) => onChange({ ...settings, guideWidth: Number(e.target.value) })}
+        />
+      </label>
     </div>
   );
 }

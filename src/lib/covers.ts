@@ -13,8 +13,24 @@ export interface CoverResult {
   spineFrom?: 'artwork' | 'pages';
   /** The page count behind a 'pages' estimate. */
   pages?: number;
+  /** Set when a pasted link was swapped for a bigger version of the same image. */
+  upgraded?: 'original' | 'larger';
   /** For user-supplied images: stray borders found at the edges, or null if there are none. */
   detectedCrop?: Crop | null;
+}
+
+/**
+ * Larger versions of a Pinterest image, best first. Pinterest keeps every image under the same path
+ * at several widths (236x, 474x, 736x, 1200x) plus the upload itself under /originals/, where the
+ * file extension is the uploader's and often differs from the resized copies (commonly .png).
+ * Links copied from a pin are usually the 736x copy. Empty for links that are not Pinterest images.
+ */
+export function pinterestVariants(url: string): string[] {
+  const match = url.match(/^(https?:\/\/i\.pinimg\.com)\/(?:\d+x\d*|originals)\/(.+)\.(\w+)$/);
+  if (!match) return [];
+  const [, host, path, ext] = match;
+  const originals = [...new Set(['png', ext, 'jpg'])].map((e) => `${host}/originals/${path}.${e}`);
+  return [...originals, `${host}/1200x/${path}.${ext}`];
 }
 
 /** Re-serves any image with CORS headers so its pixels can be read. Hosts like Pinterest send none. */
@@ -106,17 +122,28 @@ async function resolve(book: Book, custom: CustomCover | undefined): Promise<Cov
   if (custom) {
     try {
       // Last resort is an unreadable image: it still displays, but colours and the spine cannot be sampled.
-      const image = await loadImage(custom.url)
-        .catch(() => (/^https?:/.test(custom.url) ? loadImage(proxiedUrl(custom.url)) : Promise.reject()))
-        .catch(() => loadImage(custom.url, false));
-      const detectedCrop = detectImageTrim(image);
-      if (!custom.wrap) return { image, source: 'custom', detectedCrop };
+      const load = (url: string) =>
+        loadImage(url)
+          .catch(() => (/^https?:/.test(url) ? loadImage(proxiedUrl(url)) : Promise.reject()))
+          .catch(() => loadImage(url, false));
+      let image: HTMLImageElement | null = null;
+      let upgraded: CoverResult['upgraded'];
+      // Pinterest sends no CORS headers, so its variants are probed through the proxy only.
+      for (const variant of pinterestVariants(custom.url)) {
+        image = await loadImage(proxiedUrl(variant)).catch(() => null);
+        if (!image) continue;
+        if (variant !== custom.url) upgraded = variant.includes('/originals/') ? 'original' : 'larger';
+        break;
+      }
+      image ??= await load(custom.url);
+      const found = { image, upgraded, detectedCrop: detectImageTrim(image) };
+      if (!custom.wrap) return { ...found, source: 'custom' };
       const inArtwork = detectImageSpine(image);
-      if (inArtwork) return { image, source: 'wrap', detectedSpine: inArtwork, spineFrom: 'artwork', detectedCrop };
+      if (inArtwork) return { ...found, source: 'wrap', detectedSpine: inArtwork, spineFrom: 'artwork' };
       const pages = await lookupPages(book).catch(() => null);
       return pages
-        ? { image, source: 'wrap', detectedSpine: spineFromPages(pages), spineFrom: 'pages', pages, detectedCrop }
-        : { image, source: 'wrap', detectedSpine: null, detectedCrop };
+        ? { ...found, source: 'wrap', detectedSpine: spineFromPages(pages), spineFrom: 'pages', pages }
+        : { ...found, source: 'wrap', detectedSpine: null };
     } catch {
       /* fall through to the automatic lookup */
     }

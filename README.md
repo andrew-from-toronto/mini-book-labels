@@ -18,7 +18,7 @@ Front covers come from [Open Library Covers](https://openlibrary.org/dev/docs/ap
 
 If you have complete artwork for a book (one image with back, spine and front, as often found on Pinterest), use Replace cover, tick "Image is the full wrap" and paste the image link or upload the file. The same panel has search links to Pinterest and Google Images for the book. The app finds the spine in the artwork (by its fold lines, or by the empty gutter beside the spine text; failing both, it estimates the width from the book's page count), then stretches the back, spine and front each onto the matching part of the label. If it gets the spine wrong, two sliders set its width and position by hand. Thin stray borders on images you supply (a white scan margin, a grey line along one edge) are trimmed automatically, unless the cover itself is mostly that colour; sliders let you trim by hand instead.
 
-Pasted image links that the browser is not allowed to read (Pinterest, for example) are reloaded through the [wsrv.nl](https://wsrv.nl) image proxy so the spine and colours can be detected. Only the image address is sent there.
+Pasted image links that the browser is not allowed to read (Pinterest, for example) are reloaded through the [wsrv.nl](https://wsrv.nl) image proxy so the spine and colours can be detected. Only the image address is sent there. Pinterest links are also upgraded to the original upload where it can be found, or else the 1200 px wide copy, before loading.
 
 StoryGraph has no public API, which is why this uses the CSV export.
 
