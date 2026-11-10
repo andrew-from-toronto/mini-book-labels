@@ -1,14 +1,15 @@
 import { useEffect, useReducer } from 'react';
 import { resolveCover, type CoverResult } from './covers';
-import type { Book } from './types';
+import type { Book, CustomCover } from './types';
 
 const results = new Map<string, CoverResult>();
 const pending = new Set<string>();
 
-const keyFor = (book: Book, custom?: string) => `${book.title}|${book.authors}|${book.isbn}|${custom ?? ''}`;
+const keyFor = (book: Book, custom?: CustomCover) =>
+  `${book.title}|${book.authors}|${book.isbn}|${custom ? `${custom.wrap}|${custom.url}` : ''}`;
 
 /** Returns a lookup that yields undefined while a book's cover is still loading. */
-export function useCovers(books: Book[], customCovers: Record<string, string>) {
+export function useCovers(books: Book[], customCovers: Record<string, CustomCover>) {
   const [, bump] = useReducer((n: number) => n + 1, 0);
 
   useEffect(() => {

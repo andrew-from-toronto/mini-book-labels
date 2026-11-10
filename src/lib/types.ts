@@ -11,6 +11,20 @@ export interface Book {
   lastRead: string | null;
 }
 
+/** Where the spine sits in wrap artwork, as fractions of the image width. */
+export interface WrapSpine {
+  left: number;
+  right: number;
+}
+
+/** A user-supplied image: either a front cover, or complete back + spine + front artwork. */
+export interface CustomCover {
+  url: string;
+  wrap: boolean;
+  /** For wraps: a manual spine position, overriding the detected one. */
+  spine?: WrapSpine;
+}
+
 export type SortKey = 'rating' | 'date-read' | 'title';
 
 export interface Filters {

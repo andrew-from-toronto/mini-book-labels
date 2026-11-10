@@ -1,6 +1,6 @@
 import { averageColor, colorFromText, css, hashString, mulberry32, textColorOn, type Rgb } from './color';
 import { firstAuthor } from './covers';
-import type { Book, LabelStyle, Settings } from './types';
+import type { Book, LabelStyle, Settings, WrapSpine } from './types';
 
 /** About 610 DPI, enough for crisp spine text on a home printer. */
 const PX_PER_MM = 24;
@@ -157,6 +157,8 @@ export function drawLabel(
   cover: HTMLImageElement | null,
   dims: Pick<Settings, 'height' | 'width' | 'spine'>,
   style: LabelStyle,
+  /** Set when the cover image is complete back + spine + front artwork. Nothing is generated. */
+  wrapSpine?: WrapSpine,
 ) {
   const coverW = Math.round(dims.width * PX_PER_MM);
   const spineW = Math.round(dims.spine * PX_PER_MM);
@@ -165,6 +167,18 @@ export function drawLabel(
   canvas.width = frontX + coverW;
   canvas.height = h;
   const ctx = canvas.getContext('2d')!;
+  if (cover && wrapSpine) {
+    // Artwork panels rarely share the label's proportions, so each is stretched onto its own
+    // label panel. Cropping instead would cut off titles that run edge to edge.
+    const iw = cover.naturalWidth;
+    const ih = cover.naturalHeight;
+    const l = iw * wrapSpine.left;
+    const r = iw * wrapSpine.right;
+    ctx.drawImage(cover, 0, 0, l, ih, 0, 0, coverW, h);
+    ctx.drawImage(cover, l, 0, r - l, ih, coverW, 0, spineW, h);
+    ctx.drawImage(cover, r, 0, iw - r, ih, frontX, 0, coverW, h);
+    return;
+  }
   const fallback = colorFromText(book.title);
 
   let ink: Rgb;

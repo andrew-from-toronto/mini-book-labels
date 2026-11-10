@@ -1,4 +1,4 @@
-import type { PaperKey, Settings } from './types';
+import type { PaperKey, Settings, WrapSpine } from './types';
 
 export const PAPER: Record<PaperKey, { w: number; h: number; label: string }> = {
   letter: { w: 215.9, h: 279.4, label: 'Letter' },
@@ -9,6 +9,12 @@ export const PAPER: Record<PaperKey, { w: number; h: number; label: string }> = 
 export const FOOTER = 6;
 
 export const labelWidth = (s: Settings) => 2 * s.width + s.spine;
+
+/** Assumes wrap artwork has the label's own proportions: the fallback when no spine is detected. */
+export function defaultWrapSpine(s: Settings): WrapSpine {
+  const half = s.spine / labelWidth(s) / 2;
+  return { left: 0.5 - half, right: 0.5 + half };
+}
 
 export function gridFor(s: Settings) {
   const p = PAPER[s.paper];

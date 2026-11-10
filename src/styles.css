@@ -37,6 +37,12 @@ body {
 .preview {
   overflow: auto;
   padding: 24px;
+  cursor: grab;
+  user-select: none;
+}
+
+.preview.panning {
+  cursor: grabbing;
 }
 
 h1 {
@@ -263,10 +269,67 @@ button.link {
   margin: 8px 0 2px 24px;
 }
 
+.add-isbn {
+  margin: 12px 0 8px;
+}
+
+.find {
+  font-size: 0.8rem;
+}
+
+.zoombar {
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  width: max-content;
+  margin-bottom: 12px;
+  padding: 6px 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+/* max-content plus auto margins keeps a zoomed sheet scrollable; centring with justify-content clips its left side. */
 .sheet {
   display: grid;
   gap: 24px;
-  justify-content: center;
+  width: max-content;
+  margin: 0 auto;
+}
+
+.label-wrap {
+  position: relative;
+}
+
+.label-wrap.guided {
+  outline: 0.4mm solid #ff00c8;
+  z-index: 1;
+}
+
+.guide {
+  position: absolute;
+  top: -1.5mm;
+  bottom: -1.5mm;
+  width: 0.3mm;
+  margin-left: -0.15mm;
+  background: #ff00c8;
+  box-shadow: 0 0 0 0.12mm #fff;
+}
+
+.guide-tag {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  padding: 0 0.5mm;
+  background: #ff00c8;
+  color: #fff;
+  font-size: 1.5mm;
+  line-height: 1.4;
 }
 
 .page {
@@ -321,8 +384,20 @@ button.link {
     background: #fff;
   }
 
-  .controls {
+  .controls,
+  .zoombar,
+  .guides {
     display: none;
+  }
+
+  .label-wrap.guided {
+    outline: none;
+  }
+
+  .sheet {
+    zoom: 1 !important;
+    width: auto;
+    margin: 0;
   }
 
   .app {

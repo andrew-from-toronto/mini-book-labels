@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { averageColor, colorFromText, hslToRgb, textColorOn } from './color';
-import { cleanTitle, searchUrl } from './covers';
+import { cleanTitle, searchUrl, wrapSearchUrls } from './covers';
 
 describe('color', () => {
   it('picks light text on dark backgrounds and dark text on light ones', () => {
@@ -32,5 +32,10 @@ describe('cover lookup helpers', () => {
     const url = new URL(searchUrl({ title: 'Dune (Dune #1)', authors: 'Frank Herbert, Someone Else' }));
     expect(url.searchParams.get('title')).toBe('Dune');
     expect(url.searchParams.get('author')).toBe('Frank Herbert');
+  });
+
+  it('builds full-wrap search links from cleaned title and first author', () => {
+    const { pinterest } = wrapSearchUrls({ title: 'Dune (Dune #1)', authors: 'Frank Herbert, Someone Else' });
+    expect(new URL(pinterest).searchParams.get('q')).toBe('Dune Frank Herbert full book cover spine back');
   });
 });

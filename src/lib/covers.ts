@@ -1,11 +1,17 @@
-import type { Book } from './types';
+import { detectImageSpine } from './spine';
+import type { Book, CustomCover, WrapSpine } from './types';
 
-export type CoverSource = 'isbn' | 'search' | 'custom' | 'generated';
+export type CoverSource = 'isbn' | 'search' | 'custom' | 'wrap' | 'generated';
 
 export interface CoverResult {
   image: HTMLImageElement | null;
   source: CoverSource;
+  /** For wraps: the spine found in the artwork, or null if none was found. */
+  detectedSpine?: WrapSpine | null;
 }
+
+/** Re-serves any image with CORS headers so its pixels can be read. Hosts like Pinterest send none. */
+export const proxiedUrl = (url: string) => `https://wsrv.nl/?url=${encodeURIComponent(url)}`;
 
 const COVERS = 'https://covers.openlibrary.org/b';
 
@@ -29,6 +35,35 @@ export function searchUrl(book: Pick<Book, 'title' | 'authors'>): string {
   return `https://openlibrary.org/search.json?${params}`;
 }
 
+export async function lookupIsbn(isbn: string): Promise<Pick<Book, 'title' | 'authors'> | null> {
+  const res = await fetch(`https://openlibrary.org/search.json?isbn=${isbn}&fields=title,author_name&limit=1`);
+  if (!res.ok) throw new Error(`Open Library returned ${res.status}`);
+  const body: { docs?: { title?: string; author_name?: string[] }[] } = await res.json();
+  const doc = body.docs?.[0];
+  return doc?.title ? { title: doc.title, authors: doc.author_name?.join(', ') ?? '' } : null;
+}
+
+/** Uploaded files become downscaled data URLs so they can be saved with the rest of the session. */
+export async function fileToDataUrl(file: File, maxSide = 1600): Promise<string> {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  return canvas.toDataURL('image/jpeg', 0.85);
+}
+
+/** Search pages where people share complete back + spine + front artwork. Opened in a tab, never fetched. */
+export function wrapSearchUrls(book: Pick<Book, 'title' | 'authors'>) {
+  const q = encodeURIComponent(`${cleanTitle(book.title)} ${firstAuthor(book.authors)} full book cover spine back`);
+  return {
+    pinterest: `https://www.pinterest.com/search/pins/?q=${q}`,
+    google: `https://www.google.com/search?tbm=isch&q=${q}`,
+  };
+}
+
 function loadImage(url: string, cors = true): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -46,12 +81,16 @@ async function searchCoverId(book: Book): Promise<number | null> {
   return body.docs?.find((d) => d.cover_i)?.cover_i ?? null;
 }
 
-async function resolve(book: Book, custom: string | undefined): Promise<CoverResult> {
+async function resolve(book: Book, custom: CustomCover | undefined): Promise<CoverResult> {
   if (custom) {
     try {
-      // Hosts without CORS headers still display fine; only colour sampling is lost.
-      const image = await loadImage(custom).catch(() => loadImage(custom, false));
-      return { image, source: 'custom' };
+      // Last resort is an unreadable image: it still displays, but colours and the spine cannot be sampled.
+      const image = await loadImage(custom.url)
+        .catch(() => (/^https?:/.test(custom.url) ? loadImage(proxiedUrl(custom.url)) : Promise.reject()))
+        .catch(() => loadImage(custom.url, false));
+      return custom.wrap
+        ? { image, source: 'wrap', detectedSpine: detectImageSpine(image) }
+        : { image, source: 'custom' };
     } catch {
       /* fall through to the automatic lookup */
     }
@@ -77,7 +116,7 @@ const MAX_PARALLEL = 4;
 let active = 0;
 const waiting: (() => void)[] = [];
 
-export function resolveCover(book: Book, custom?: string): Promise<CoverResult> {
+export function resolveCover(book: Book, custom?: CustomCover): Promise<CoverResult> {
   return new Promise((done) => {
     const run = () => {
       active++;
