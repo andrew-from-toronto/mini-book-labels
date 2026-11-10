@@ -1,5 +1,6 @@
-import { detectImageSpine } from './spine';
-import type { Book, CustomCover, WrapSpine } from './types';
+import { detectImageSpine, spineFromPages } from './spine';
+import { detectImageTrim } from './trim';
+import type { Book, Crop, CustomCover, WrapSpine } from './types';
 
 export type CoverSource = 'isbn' | 'search' | 'custom' | 'wrap' | 'generated';
 
@@ -8,6 +9,12 @@ export interface CoverResult {
   source: CoverSource;
   /** For wraps: the spine found in the artwork, or null if none was found. */
   detectedSpine?: WrapSpine | null;
+  /** How `detectedSpine` was found: in the artwork itself, or estimated from the page count. */
+  spineFrom?: 'artwork' | 'pages';
+  /** The page count behind a 'pages' estimate. */
+  pages?: number;
+  /** For user-supplied images: stray borders found at the edges, or null if there are none. */
+  detectedCrop?: Crop | null;
 }
 
 /** Re-serves any image with CORS headers so its pixels can be read. Hosts like Pinterest send none. */
@@ -41,6 +48,20 @@ export async function lookupIsbn(isbn: string): Promise<Pick<Book, 'title' | 'au
   const body: { docs?: { title?: string; author_name?: string[] }[] } = await res.json();
   const doc = body.docs?.[0];
   return doc?.title ? { title: doc.title, authors: doc.author_name?.join(', ') ?? '' } : null;
+}
+
+/** Median page count across the book's editions, or null if Open Library has none. */
+export async function lookupPages(book: Pick<Book, 'title' | 'authors' | 'isbn'>): Promise<number | null> {
+  const params = new URLSearchParams({ fields: 'number_of_pages_median', limit: '1' });
+  if (book.isbn) params.set('isbn', book.isbn);
+  else {
+    params.set('title', cleanTitle(book.title));
+    if (firstAuthor(book.authors)) params.set('author', firstAuthor(book.authors));
+  }
+  const res = await fetch(`https://openlibrary.org/search.json?${params}`);
+  if (!res.ok) return null;
+  const body: { docs?: { number_of_pages_median?: number }[] } = await res.json();
+  return body.docs?.[0]?.number_of_pages_median ?? null;
 }
 
 /** Uploaded files become downscaled data URLs so they can be saved with the rest of the session. */
@@ -88,9 +109,14 @@ async function resolve(book: Book, custom: CustomCover | undefined): Promise<Cov
       const image = await loadImage(custom.url)
         .catch(() => (/^https?:/.test(custom.url) ? loadImage(proxiedUrl(custom.url)) : Promise.reject()))
         .catch(() => loadImage(custom.url, false));
-      return custom.wrap
-        ? { image, source: 'wrap', detectedSpine: detectImageSpine(image) }
-        : { image, source: 'custom' };
+      const detectedCrop = detectImageTrim(image);
+      if (!custom.wrap) return { image, source: 'custom', detectedCrop };
+      const inArtwork = detectImageSpine(image);
+      if (inArtwork) return { image, source: 'wrap', detectedSpine: inArtwork, spineFrom: 'artwork', detectedCrop };
+      const pages = await lookupPages(book).catch(() => null);
+      return pages
+        ? { image, source: 'wrap', detectedSpine: spineFromPages(pages), spineFrom: 'pages', pages, detectedCrop }
+        : { image, source: 'wrap', detectedSpine: null, detectedCrop };
     } catch {
       /* fall through to the automatic lookup */
     }

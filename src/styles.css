@@ -23,7 +23,10 @@ body {
 
 .app {
   display: grid;
-  grid-template-columns: minmax(320px, 400px) 1fr;
+  /* Side columns grow with the window; the book list keeps whatever is left. */
+  --setup-width: clamp(300px, 21vw, 460px);
+  --preview-width: clamp(340px, 32vw, 820px);
+  grid-template-columns: var(--setup-width) 6px minmax(0, 1fr) 6px var(--preview-width);
   height: 100vh;
 }
 
@@ -34,14 +37,61 @@ body {
   border-right: 1px solid var(--line);
 }
 
+.handle {
+  background: var(--line);
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.handle:hover,
+.handle:active {
+  background: var(--accent);
+}
+
+.books {
+  overflow-y: auto;
+  padding: 20px 28px;
+}
+
 .preview {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-left: 1px solid var(--line);
+  background: var(--bg);
+}
+
+/* Expanded, the preview covers the book list and its own column, leaving the setup column usable. */
+.app.expanded .preview {
+  position: fixed;
+  inset: 0 0 0 calc(var(--setup-width) + 6px);
+  z-index: 5;
+}
+
+.preview-bar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 10px 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  font-size: 0.85rem;
+}
+
+.preview-bar .expand {
+  margin-left: auto;
+}
+
+.viewport {
+  flex: 1;
+  min-height: 0;
   overflow: auto;
-  padding: 24px;
+  padding: 16px;
   cursor: grab;
   user-select: none;
 }
 
-.preview.panning {
+.viewport.panning {
   cursor: grabbing;
 }
 
@@ -89,14 +139,30 @@ footer {
   font-size: 0.85rem;
 }
 
-.fields,
-.booklist {
+.fields {
   display: grid;
   gap: 12px;
 }
 
-.booklist {
-  margin-top: 14px;
+.booklist-head {
+  max-width: 720px;
+}
+
+.booklist-head {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.booklist-head h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.booklist-head h2 .muted {
+  margin-left: 8px;
+  font-size: 0.9rem;
+  font-weight: normal;
 }
 
 .row {
@@ -220,37 +286,171 @@ button.link {
   margin: 0;
   padding: 0;
   list-style: none;
-  max-height: 340px;
-  overflow-y: auto;
+}
+
+.matches {
+  margin-top: 6px;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 8px;
+  background: var(--panel);
 }
 
-.booklist ul:empty {
-  display: none;
-}
-
-.booklist li {
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--line);
-}
-
-.booklist li:last-child {
-  border-bottom: none;
-}
-
-.booklist li.match {
+.matches li {
   display: flex;
   gap: 8px;
   justify-content: space-between;
   align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
 }
 
-.meta {
+.matches li:last-child {
+  border-bottom: none;
+}
+
+.rows {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+/* The active card takes a full row so its cover controls have room. */
+.book.active {
+  grid-column: 1 / -1;
+}
+
+.book {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.book.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.book.off .book-head > :not(input) {
+  opacity: 0.45;
+}
+
+.book-head {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+  padding: 14px;
+  border-radius: 10px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.book-head input[type='checkbox'] {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+}
+
+.book-head .book-text {
+  width: 100%;
+  flex: none;
+}
+
+/* Every card reserves the same text block (two title lines, one author line, one meta line) so heights match. */
+.book-head .book-text strong {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  line-height: 1.3;
+  height: 2.6em;
+}
+
+.book-head .book-text > .muted,
+.book-head .book-meta {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  line-height: 1.4;
+  height: 1.4em;
+}
+
+.book-head .book-meta {
+  display: block;
+}
+
+.book-head .book-meta > * + * {
+  margin-left: 10px;
+}
+
+.book.active .book-head .book-text strong,
+.book.active .book-head .book-text > .muted {
+  display: block;
+  height: auto;
+  white-space: normal;
+}
+
+.book-hint {
+  display: none;
+}
+
+.book.active .book-head {
+  flex-direction: row;
+  gap: 16px;
+  padding-left: 42px;
+  text-align: left;
+}
+
+.book.active .book-head .book-text {
+  flex: 1;
+  width: auto;
+}
+
+.book.active .book-hint {
+  display: block;
+}
+
+.book-head:hover {
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+.book-head input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+.book-text {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.book-text strong {
+  font-size: 1rem;
+}
+
+.book-meta {
   display: flex;
   gap: 10px;
   align-items: center;
-  margin: 2px 0 0 24px;
+  font-size: 0.8rem;
+}
+
+.book-hint {
+  flex: none;
+  color: var(--accent);
+  font-size: 0.85rem;
+}
+
+.label.thumb {
+  flex: none;
+  outline: none;
+  border-radius: 3px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
 .badge {
@@ -263,10 +463,21 @@ button.link {
   color: light-dark(#9a5b00, #e8b45a);
 }
 
+fieldset.crop {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+}
+
+.crop-note {
+  grid-column: 1 / -1;
+}
+
 .cover-edit {
   display: grid;
-  gap: 6px;
-  margin: 8px 0 2px 24px;
+  gap: 8px;
+  max-width: 600px;
+  padding: 4px 14px 14px 42px;
 }
 
 .add-isbn {
@@ -275,23 +486,6 @@ button.link {
 
 .find {
   font-size: 0.8rem;
-}
-
-.zoombar {
-  position: sticky;
-  top: 0;
-  left: 0;
-  z-index: 1;
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  width: max-content;
-  margin-bottom: 12px;
-  padding: 6px 10px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  font-size: 0.85rem;
 }
 
 /* max-content plus auto margins keeps a zoomed sheet scrollable; centring with justify-content clips its left side. */
@@ -306,8 +500,16 @@ button.link {
   position: relative;
 }
 
+.label-wrap.clickable {
+  cursor: pointer;
+}
+
+.guides {
+  opacity: var(--guide-opacity, 1);
+}
+
 .label-wrap.guided {
-  outline: 0.4mm solid #ff00c8;
+  outline: 0.2mm solid rgb(255 0 200 / var(--guide-opacity, 1));
   z-index: 1;
 }
 
@@ -315,10 +517,10 @@ button.link {
   position: absolute;
   top: -1.5mm;
   bottom: -1.5mm;
-  width: 0.3mm;
-  margin-left: -0.15mm;
+  width: 0.15mm;
+  margin-left: -0.075mm;
   background: #ff00c8;
-  box-shadow: 0 0 0 0.12mm #fff;
+  box-shadow: 0 0 0 0.05mm #fff;
 }
 
 .guide-tag {
@@ -368,7 +570,7 @@ button.link {
   border-top: none;
 }
 
-@media (max-width: 800px) {
+@media (max-width: 1100px) {
   .app {
     grid-template-columns: 1fr;
     height: auto;
@@ -376,6 +578,21 @@ button.link {
 
   .controls {
     border-right: none;
+  }
+
+  .handle {
+    display: none;
+  }
+
+  .preview {
+    height: 70vh;
+    border-left: none;
+    border-top: 1px solid var(--line);
+  }
+
+  .app.expanded .preview {
+    inset: 0;
+    height: auto;
   }
 }
 
@@ -385,9 +602,19 @@ button.link {
   }
 
   .controls,
-  .zoombar,
+  .books,
+  .handle,
+  .preview-bar,
   .guides {
     display: none;
+  }
+
+  .preview,
+  .app.expanded .preview {
+    position: static;
+    display: block;
+    height: auto;
+    border: none;
   }
 
   .label-wrap.guided {
@@ -405,7 +632,7 @@ button.link {
     height: auto;
   }
 
-  .preview {
+  .viewport {
     overflow: visible;
     padding: 0;
   }

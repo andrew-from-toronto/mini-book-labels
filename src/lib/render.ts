@@ -1,29 +1,39 @@
 import { averageColor, colorFromText, css, hashString, mulberry32, textColorOn, type Rgb } from './color';
-import { firstAuthor } from './covers';
-import type { Book, LabelStyle, Settings, WrapSpine } from './types';
+import { cleanTitle, firstAuthor } from './covers';
+import type { Book, Crop, LabelStyle, Settings, WrapSpine } from './types';
 
 /** About 610 DPI, enough for crisp spine text on a home printer. */
-const PX_PER_MM = 24;
+const PRINT_PX_PER_MM = 24;
 const FONT = '"Helvetica Neue", Helvetica, Arial, sans-serif';
 const WHITE: Rgb = [250, 250, 250];
 
 type Ctx = CanvasRenderingContext2D;
 
-function drawCoverFit(ctx: Ctx, img: HTMLImageElement, x: number, y: number, w: number, h: number) {
-  const scale = Math.max(w / img.naturalWidth, h / img.naturalHeight);
+const NO_CROP: Crop = { top: 0, right: 0, bottom: 0, left: 0 };
+
+/** The part of the image left after trimming, in source pixels. */
+function sourceRect(img: HTMLImageElement, crop: Crop) {
+  const x = img.naturalWidth * crop.left;
+  const y = img.naturalHeight * crop.top;
+  return { x, y, w: img.naturalWidth * (1 - crop.right) - x, h: img.naturalHeight * (1 - crop.bottom) - y };
+}
+
+function drawCoverFit(ctx: Ctx, img: HTMLImageElement, crop: Crop, x: number, y: number, w: number, h: number) {
+  const src = sourceRect(img, crop);
+  const scale = Math.max(w / src.w, h / src.h);
   const sw = w / scale;
   const sh = h / scale;
-  ctx.drawImage(img, (img.naturalWidth - sw) / 2, (img.naturalHeight - sh) / 2, sw, sh, x, y, w, h);
+  ctx.drawImage(img, src.x + (src.w - sw) / 2, src.y + (src.h - sh) / 2, sw, sh, x, y, w, h);
 }
 
 /** Average colour of the cover's left edge, where it meets the spine. Null if the image is not CORS-readable. */
-function edgeColor(img: HTMLImageElement): Rgb | null {
+function edgeColor(img: HTMLImageElement, crop: Crop): Rgb | null {
   const c = document.createElement('canvas');
   c.width = 24;
   c.height = 36;
   const ctx = c.getContext('2d')!;
   try {
-    drawCoverFit(ctx, img, 0, 0, c.width, c.height);
+    drawCoverFit(ctx, img, crop, 0, 0, c.width, c.height);
     return averageColor(ctx.getImageData(0, 0, 2, c.height).data);
   } catch {
     return null;
@@ -93,25 +103,45 @@ function drawSpine(ctx: Ctx, book: Book, ink: Rgb, x: number, w: number, h: numb
   ctx.fillStyle = css(ink);
   ctx.textBaseline = 'middle';
 
-  let size = w * 0.5;
-  const measure = () => {
-    ctx.font = `${size * 0.8}px ${FONT}`;
-    const author = ctx.measureText(surname).width;
-    ctx.font = `bold ${size}px ${FONT}`;
-    return { author, title: ctx.measureText(book.title).width, gap: surname ? size : 0 };
+  const titleFont = (s: number) => `bold ${s}px ${FONT}`;
+  const authorFont = (s: number) => `${s * 0.8}px ${FONT}`;
+  /** Largest size up to maxSize at which the title lines plus the author fit the spine's length. */
+  const fit = (lines: string[], maxSize: number) => {
+    ctx.font = titleFont(maxSize);
+    const titleWidth = Math.max(...lines.map((l) => ctx.measureText(l).width));
+    ctx.font = authorFont(maxSize);
+    const authorWidth = surname ? ctx.measureText(surname).width + maxSize : 0;
+    return Math.min(maxSize, (maxSize * avail) / (titleWidth + authorWidth));
   };
-  let m = measure();
-  const total = m.title + m.gap + m.author;
-  if (total > avail) {
-    size *= Math.max(0.6, avail / total);
-    m = measure();
+
+  // Real spines never truncate: they drop the subtitle, shrink the type, or stack the title on two lines.
+  const title = cleanTitle(book.title) || book.title;
+  let lines = [title];
+  let size = fit(lines, w * 0.5);
+  const words = title.split(/\s+/);
+  if (size < w * 0.3 && words.length > 1) {
+    let split = 1;
+    for (let i = 2; i < words.length; i++) {
+      const imbalance = (at: number) =>
+        Math.abs(words.slice(0, at).join(' ').length - words.slice(at).join(' ').length);
+      if (imbalance(i) < imbalance(split)) split = i;
+    }
+    const stacked = [words.slice(0, split).join(' '), words.slice(split).join(' ')];
+    const stackedSize = fit(stacked, w * 0.36);
+    if (stackedSize > size) {
+      lines = stacked;
+      size = stackedSize;
+    }
   }
-  const authorMax = Math.min(m.author, avail * 0.4);
+
+  ctx.font = titleFont(size);
   ctx.textAlign = 'left';
-  ctx.fillText(truncate(ctx, book.title, avail - m.gap - authorMax), pad, 0);
-  ctx.font = `${size * 0.8}px ${FONT}`;
+  // After the rotation, local -y is the right-hand side of the spine, where the first line sits.
+  if (lines.length === 1) ctx.fillText(lines[0], pad, 0);
+  else lines.forEach((l, i) => ctx.fillText(l, pad, (i === 0 ? -1 : 1) * size * 0.55));
+  ctx.font = authorFont(size);
   ctx.textAlign = 'right';
-  ctx.fillText(truncate(ctx, surname, authorMax), h - pad, 0);
+  ctx.fillText(surname, h - pad, 0);
   ctx.restore();
 }
 
@@ -151,18 +181,27 @@ function drawBack(ctx: Ctx, ink: Rgb, seed: number, w: number, h: number) {
   }
 }
 
+export interface LabelOptions {
+  /** Set when the cover image is complete back + spine + front artwork. Nothing is generated. */
+  wrapSpine?: WrapSpine;
+  /** Trims the cover image's edges before it is used. */
+  crop?: Crop;
+  /** Canvas resolution. Lower it for on-screen thumbnails. */
+  pxPerMm?: number;
+}
+
 export function drawLabel(
   canvas: HTMLCanvasElement,
   book: Book,
   cover: HTMLImageElement | null,
   dims: Pick<Settings, 'height' | 'width' | 'spine'>,
   style: LabelStyle,
-  /** Set when the cover image is complete back + spine + front artwork. Nothing is generated. */
-  wrapSpine?: WrapSpine,
+  options: LabelOptions = {},
 ) {
-  const coverW = Math.round(dims.width * PX_PER_MM);
-  const spineW = Math.round(dims.spine * PX_PER_MM);
-  const h = Math.round(dims.height * PX_PER_MM);
+  const { wrapSpine, crop = NO_CROP, pxPerMm = PRINT_PX_PER_MM } = options;
+  const coverW = Math.round(dims.width * pxPerMm);
+  const spineW = Math.round(dims.spine * pxPerMm);
+  const h = Math.round(dims.height * pxPerMm);
   const frontX = coverW + spineW;
   canvas.width = frontX + coverW;
   canvas.height = h;
@@ -170,13 +209,13 @@ export function drawLabel(
   if (cover && wrapSpine) {
     // Artwork panels rarely share the label's proportions, so each is stretched onto its own
     // label panel. Cropping instead would cut off titles that run edge to edge.
-    const iw = cover.naturalWidth;
-    const ih = cover.naturalHeight;
-    const l = iw * wrapSpine.left;
-    const r = iw * wrapSpine.right;
-    ctx.drawImage(cover, 0, 0, l, ih, 0, 0, coverW, h);
-    ctx.drawImage(cover, l, 0, r - l, ih, coverW, 0, spineW, h);
-    ctx.drawImage(cover, r, 0, iw - r, ih, frontX, 0, coverW, h);
+    const src = sourceRect(cover, crop);
+    // Spine positions are fractions of the untrimmed image, so trimming never moves the spine.
+    const l = cover.naturalWidth * wrapSpine.left;
+    const r = cover.naturalWidth * wrapSpine.right;
+    ctx.drawImage(cover, src.x, src.y, l - src.x, src.h, 0, 0, coverW, h);
+    ctx.drawImage(cover, l, src.y, r - l, src.h, coverW, 0, spineW, h);
+    ctx.drawImage(cover, r, src.y, src.x + src.w - r, src.h, frontX, 0, coverW, h);
     return;
   }
   const fallback = colorFromText(book.title);
@@ -187,7 +226,7 @@ export function drawLabel(
     const tiny = document.createElement('canvas');
     tiny.width = 8;
     tiny.height = 12;
-    drawCoverFit(tiny.getContext('2d')!, cover, 0, 0, tiny.width, tiny.height);
+    drawCoverFit(tiny.getContext('2d')!, cover, crop, 0, 0, tiny.width, tiny.height);
     ctx.save();
     ctx.imageSmoothingQuality = 'high';
     // Mirrored so the colours next to the front cover continue from its left edge.
@@ -199,13 +238,13 @@ export function drawLabel(
     ctx.fillRect(0, 0, frontX, h);
     ink = WHITE;
   } else {
-    const base = (cover && edgeColor(cover)) ?? fallback;
+    const base = (cover && edgeColor(cover, crop)) ?? fallback;
     ctx.fillStyle = css(base);
     ctx.fillRect(0, 0, frontX, h);
     ink = textColorOn(base);
   }
 
-  if (cover) drawCoverFit(ctx, cover, frontX, 0, coverW, h);
+  if (cover) drawCoverFit(ctx, cover, crop, frontX, 0, coverW, h);
   else drawGeneratedCover(ctx, book, fallback, frontX, coverW, h);
 
   drawBack(ctx, ink, hashString(book.title), coverW, h);

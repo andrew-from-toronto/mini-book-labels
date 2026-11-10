@@ -8,6 +8,13 @@ export interface SavedState {
   settings: Settings;
   overrides: Record<string, boolean>;
   customCovers: Record<string, CustomCover>;
+  panes: Panes;
+}
+
+/** Column widths in px set by dragging the handles. Unset means the responsive default. */
+export interface Panes {
+  setup?: number;
+  preview?: number;
 }
 
 export function loadState(): Partial<SavedState> {

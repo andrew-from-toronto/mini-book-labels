@@ -17,12 +17,21 @@ export interface WrapSpine {
   right: number;
 }
 
+/** Fractions of an image to trim from each edge, for scans with borders or stray lines. */
+export interface Crop {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
 /** A user-supplied image: either a front cover, or complete back + spine + front artwork. */
 export interface CustomCover {
   url: string;
   wrap: boolean;
   /** For wraps: a manual spine position, overriding the detected one. */
   spine?: WrapSpine;
+  crop?: Crop;
 }
 
 export type SortKey = 'rating' | 'date-read' | 'title';
@@ -47,4 +56,6 @@ export interface Settings {
   paper: PaperKey;
   margin: number;
   gap: number;
+  /** Opacity (0 to 1) of the on-screen back / spine / front alignment guides. */
+  guideOpacity: number;
 }

@@ -1,17 +1,19 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { fileToDataUrl, wrapSearchUrls, type CoverResult, type CoverSource } from '../lib/covers';
-import type { Book, CustomCover, WrapSpine } from '../lib/types';
+import type { Book, Crop, CustomCover, Settings, WrapSpine } from '../lib/types';
+import { Label } from './Label';
 
 interface Props {
   books: Book[];
   listed: Book[];
   overrides: Record<string, boolean>;
   customCovers: Record<string, CustomCover>;
+  settings: Settings;
   /** Spine position used for wrap artwork when none is detected or set by hand. */
   defaultWrapSpine: WrapSpine;
-  /** Book whose cover panel is open. */
-  editing: string | null;
-  onEditing: (id: string | null) => void;
+  /** The book being worked on: its cover controls are open and the preview zooms to it. */
+  activeId: string | null;
+  onActive: (id: string | null) => void;
   coverOf: (book: Book) => CoverResult | undefined;
   onToggle: (id: string, on: boolean) => void;
   onCustomCover: (id: string, cover: CustomCover | null) => void;
@@ -27,12 +29,14 @@ const BADGE: Record<CoverSource, string> = {
 
 interface SpineControlsProps {
   spine: WrapSpine;
-  detected: boolean;
+  /** Where the automatic spine came from, if one was found. */
+  from: CoverResult['spineFrom'];
+  pages: number | undefined;
   manual: boolean;
   onChange: (spine: WrapSpine | undefined) => void;
 }
 
-function SpineControls({ spine, detected, manual, onChange }: SpineControlsProps) {
+function SpineControls({ spine, from, pages, manual, onChange }: SpineControlsProps) {
   const centre = (spine.left + spine.right) / 2;
   const width = spine.right - spine.left;
   const set = (c: number, w: number) => onChange({ left: c - w / 2, right: c + w / 2 });
@@ -42,9 +46,12 @@ function SpineControls({ spine, detected, manual, onChange }: SpineControlsProps
       <span className="muted find">
         {manual
           ? 'Spine set by hand.'
-          : detected
-            ? 'Spine found automatically. Adjust below if it is off.'
-            : 'Could not find the spine in this artwork, so it is assumed to be centred. Adjust below.'}{' '}
+          : from === 'artwork'
+            ? 'Spine found in the artwork. Adjust below if it is off.'
+            : from === 'pages'
+              ? `No spine edges visible in this artwork, so its width is estimated from the page count (${pages} pages). Adjust below if it is off.`
+              : 'Could not find the spine or a page count, so it is assumed to match your label. Adjust below.'}{' '}
+        Arrow keys nudge it finely: left and right move it, up and down change its width, Shift for bigger steps.{' '}
         {manual && (
           <button className="link" onClick={() => onChange(undefined)}>
             Back to automatic
@@ -77,14 +84,66 @@ function SpineControls({ spine, detected, manual, onChange }: SpineControlsProps
   );
 }
 
+/** Arrow-key step for the spine, as a fraction of the artwork's width (half a pixel on a 1000 px image). */
+const SPINE_NUDGE = 0.0005;
+
+const NO_CROP: Crop = { top: 0, right: 0, bottom: 0, left: 0 };
+
+interface CropControlsProps {
+  /** A trim set by hand, which overrides the detected one. */
+  manual: Crop | undefined;
+  detected: Crop | null | undefined;
+  onChange: (crop: Crop | undefined) => void;
+}
+
+function CropControls({ manual, detected, onChange }: CropControlsProps) {
+  const crop = manual ?? detected ?? NO_CROP;
+  const edge = (key: keyof Crop, label: string) => (
+    <label>
+      {label}: {(crop[key] * 100).toFixed(1)}%
+      <input
+        type="range"
+        min={0}
+        max={0.25}
+        step={0.0025}
+        value={crop[key]}
+        onChange={(e) => onChange({ ...crop, [key]: Number(e.target.value) })}
+      />
+    </label>
+  );
+
+  return (
+    <fieldset className="crop">
+      <legend>Trim edges (borders, stray lines)</legend>
+      <span className="muted find crop-note">
+        {manual
+          ? 'Trim set by hand.'
+          : detected
+            ? 'A stray border was found and trimmed automatically.'
+            : 'No stray border found.'}{' '}
+        {manual && (
+          <button className="link" onClick={() => onChange(undefined)}>
+            Back to automatic
+          </button>
+        )}
+      </span>
+      {edge('top', 'Top')}
+      {edge('bottom', 'Bottom')}
+      {edge('left', 'Left')}
+      {edge('right', 'Right')}
+    </fieldset>
+  );
+}
+
 export function BookList({
   books,
   listed,
   overrides,
   customCovers,
+  settings,
   defaultWrapSpine,
-  editing,
-  onEditing: setEditing,
+  activeId,
+  onActive,
   coverOf,
   onToggle,
   onCustomCover,
@@ -92,48 +151,133 @@ export function BookList({
   const [url, setUrl] = useState('');
   const [wrap, setWrap] = useState(false);
   const [query, setQuery] = useState('');
+  const list = useRef<HTMLUListElement>(null);
+
+  // Arrow keys nudge the active wrap's spine: left/right move it, up/down widen or narrow it.
+  useEffect(() => {
+    const book = listed.find((b) => b.id === activeId);
+    const custom = book && customCovers[book.id];
+    const cover = book && coverOf(book);
+    if (!book || !custom?.wrap || cover?.source !== 'wrap') return;
+    const spine = custom.spine ?? cover.detectedSpine ?? defaultWrapSpine;
+
+    const onKey = (e: KeyboardEvent) => {
+      // Arrow keys already mean something inside text boxes, sliders and dropdowns.
+      if (e.target instanceof Element && e.target.closest('input, textarea, select')) return;
+      const step = e.shiftKey ? SPINE_NUDGE * 10 : SPINE_NUDGE;
+      const shift: Record<string, [number, number]> = {
+        ArrowLeft: [-step, -step],
+        ArrowRight: [step, step],
+        ArrowUp: [-step / 2, step / 2],
+        ArrowDown: [step / 2, -step / 2],
+      };
+      const delta = shift[e.key];
+      if (!delta) return;
+      e.preventDefault();
+      const next = { left: spine.left + delta[0], right: spine.right + delta[1] };
+      if (next.right - next.left >= 0.005) onCustomCover(book.id, { ...custom, spine: next });
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
+  // The active card moves onto a row of its own, so bring it back into view.
+  useEffect(() => {
+    list.current?.querySelector('.book.active')?.scrollIntoView({ block: 'nearest' });
+  }, [activeId]);
 
   const listedIds = new Set(listed.map((b) => b.id));
   const q = query.trim().toLowerCase();
   const matches = q
     ? books.filter((b) => !listedIds.has(b.id) && `${b.title} ${b.authors}`.toLowerCase().includes(q)).slice(0, 8)
     : [];
+  const included = listed.filter((b) => overrides[b.id] !== false).length;
+
+  function activate(b: Book) {
+    if (activeId === b.id) {
+      onActive(null);
+      return;
+    }
+    const custom = customCovers[b.id];
+    setUrl(!custom || custom.url.startsWith('data:') ? '' : custom.url);
+    setWrap(custom?.wrap ?? false);
+    onActive(b.id);
+  }
 
   return (
     <div className="booklist">
+      <header className="booklist-head">
+        <h2>
+          Books <span className="muted">{included} on the sheet</span>
+        </h2>
+        <div className="add-missed">
+          <input
+            type="search"
+            aria-label="Add a book the filters missed"
+            placeholder="Add a book the filters missed: search your library"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          {q && matches.length === 0 && <p className="muted">Nothing else in your library matches.</p>}
+          {matches.length > 0 && (
+            <ul className="matches">
+              {matches.map((b) => (
+                <li key={b.id}>
+                  <span>
+                    <strong>{b.title}</strong> <span className="muted">{b.authors}</span>
+                  </span>
+                  <button onClick={() => onToggle(b.id, true)}>Add</button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </header>
+
       {listed.length === 0 && <p className="muted">No books match these filters.</p>}
-      <ul>
+      <ul className="rows" ref={list}>
         {listed.map((b) => {
           const cover = coverOf(b);
+          const custom = customCovers[b.id];
+          const active = activeId === b.id;
+          const on = overrides[b.id] !== false;
           return (
-            <li key={b.id}>
-              <label className="check">
+            <li key={b.id} className={`book${active ? ' active' : ''}${on ? '' : ' off'}`}>
+              <div
+                className="book-head"
+                role="button"
+                tabIndex={0}
+                aria-expanded={active}
+                onClick={() => activate(b)}
+                onKeyDown={(e) => {
+                  if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+                    e.preventDefault();
+                    activate(b);
+                  }
+                }}
+              >
                 <input
                   type="checkbox"
-                  checked={overrides[b.id] !== false}
+                  aria-label={`Include ${b.title} on the sheet`}
+                  checked={on}
+                  onClick={(e) => e.stopPropagation()}
                   onChange={(e) => onToggle(b.id, e.target.checked)}
                 />
-                <span>
-                  <strong>{b.title}</strong> <span className="muted">{b.authors}</span>
-                  {b.rating !== null && <span className="muted"> ({b.rating} stars)</span>}
-                </span>
-              </label>
-              <div className="meta">
-                <span className={`badge ${cover?.source ?? 'loading'}`}>
-                  {cover ? BADGE[cover.source] : 'loading cover'}
-                </span>
-                <button
-                  className="link"
-                  onClick={() => {
-                    setEditing(editing === b.id ? null : b.id);
-                    setUrl(customCovers[b.id]?.url.startsWith('data:') ? '' : (customCovers[b.id]?.url ?? ''));
-                    setWrap(customCovers[b.id]?.wrap ?? false);
-                  }}
-                >
-                  {editing === b.id ? 'Close' : 'Replace cover'}
-                </button>
+                <Label book={b} cover={cover} custom={custom} settings={settings} thumbHeight={110} />
+                <div className="book-text">
+                  <strong>{b.title}</strong>
+                  <span className="muted">{b.authors}</span>
+                  <span className="book-meta">
+                    {b.rating !== null && <span className="muted">{b.rating} stars</span>}
+                    <span className={`badge ${cover?.source ?? 'loading'}`}>
+                      {cover ? BADGE[cover.source] : 'loading cover'}
+                    </span>
+                  </span>
+                </div>
+                <span className="book-hint">{active ? 'Done' : 'Edit cover'}</span>
               </div>
-              {editing === b.id && (
+
+              {active && (
                 <div className="cover-edit">
                   <label className="check">
                     <input
@@ -141,8 +285,7 @@ export function BookList({
                       checked={wrap}
                       onChange={(e) => {
                         setWrap(e.target.checked);
-                        const current = customCovers[b.id];
-                        if (current) onCustomCover(b.id, { ...current, wrap: e.target.checked });
+                        if (custom) onCustomCover(b.id, { ...custom, wrap: e.target.checked });
                       }}
                     />
                     Image is the full wrap (back, spine and front)
@@ -174,18 +317,26 @@ export function BookList({
                     accept="image/*"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
-                      if (file) void fileToDataUrl(file).then((url) => onCustomCover(b.id, { url, wrap }));
+                      if (file) void fileToDataUrl(file).then((dataUrl) => onCustomCover(b.id, { url: dataUrl, wrap }));
                     }}
                   />
-                  {customCovers[b.id]?.wrap && cover?.source === 'wrap' && (
+                  {custom?.wrap && cover?.source === 'wrap' && (
                     <SpineControls
-                      spine={customCovers[b.id].spine ?? cover.detectedSpine ?? defaultWrapSpine}
-                      detected={Boolean(cover.detectedSpine)}
-                      manual={Boolean(customCovers[b.id].spine)}
-                      onChange={(spine) => onCustomCover(b.id, { ...customCovers[b.id], spine })}
+                      spine={custom.spine ?? cover.detectedSpine ?? defaultWrapSpine}
+                      from={cover.spineFrom}
+                      pages={cover.pages}
+                      manual={Boolean(custom.spine)}
+                      onChange={(spine) => onCustomCover(b.id, { ...custom, spine })}
                     />
                   )}
-                  {customCovers[b.id] && (
+                  {custom && (
+                    <CropControls
+                      manual={custom.crop}
+                      detected={cover?.detectedCrop}
+                      onChange={(crop) => onCustomCover(b.id, { ...custom, crop })}
+                    />
+                  )}
+                  {custom && (
                     <button className="link" onClick={() => onCustomCover(b.id, null)}>
                       Back to automatic cover
                     </button>
@@ -195,27 +346,6 @@ export function BookList({
             </li>
           );
         })}
-      </ul>
-
-      <label>
-        Add a book the filters missed
-        <input
-          type="search"
-          placeholder="Search your library by title or author"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </label>
-      {q && matches.length === 0 && <p className="muted">Nothing else in your library matches.</p>}
-      <ul>
-        {matches.map((b) => (
-          <li key={b.id} className="match">
-            <span>
-              <strong>{b.title}</strong> <span className="muted">{b.authors}</span>
-            </span>
-            <button onClick={() => onToggle(b.id, true)}>Add</button>
-          </li>
-        ))}
       </ul>
     </div>
   );

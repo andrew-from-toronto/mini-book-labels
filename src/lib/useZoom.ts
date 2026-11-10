@@ -1,11 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 
-const MIN = 0.5;
+const MIN = 0.1;
 const MAX = 10;
 
 /**
  * Ctrl + wheel (or trackpad pinch) zoom for a scrollable element, keeping the point under the cursor
- * in place, plus click-and-drag panning.
+ * in place, plus click-and-drag panning. `frame` jumps straight to a zoom level and centres a target.
  */
 export function useZoom(ref: RefObject<HTMLElement | null>) {
   const [zoom, setZoom] = useState(1);
@@ -26,6 +26,26 @@ export function useZoom(ref: RefObject<HTMLElement | null>) {
     setZoom(clamped);
   }
 
+  /** Zooms `content` (the element carrying the CSS zoom) and centres `target`, or scrolls to the start without one. */
+  function frame(next: number, content: HTMLElement, target?: Element | null) {
+    const el = ref.current;
+    if (!el) return;
+    const clamped = Math.min(MAX, Math.max(MIN, next));
+    // Applied to the DOM now, ahead of React's render, so the target can be measured at the new zoom.
+    content.style.zoom = String(clamped);
+    anchor.current = null;
+    current.current = clamped;
+    setZoom(clamped);
+    if (!target) {
+      el.scrollTo(0, 0);
+      return;
+    }
+    const view = el.getBoundingClientRect();
+    const box = target.getBoundingClientRect();
+    el.scrollLeft += box.left + box.width / 2 - (view.left + view.width / 2);
+    el.scrollTop += box.top + box.height / 2 - (view.top + view.height / 2);
+  }
+
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -36,15 +56,20 @@ export function useZoom(ref: RefObject<HTMLElement | null>) {
       zoomTo(current.current * (e.deltaY < 0 ? 1.15 : 1 / 1.15), e.clientX, e.clientY);
     };
 
-    let drag: { x: number; y: number; left: number; top: number } | null = null;
+    let drag: { x: number; y: number; left: number; top: number; panning: boolean } | null = null;
     const onDown = (e: PointerEvent) => {
-      if (e.button !== 0 || (e.target as Element).closest('button, a, input')) return;
-      drag = { x: e.clientX, y: e.clientY, left: el.scrollLeft, top: el.scrollTop };
-      el.setPointerCapture(e.pointerId);
-      el.classList.add('panning');
+      if (e.button !== 0) return;
+      drag = { x: e.clientX, y: e.clientY, left: el.scrollLeft, top: el.scrollTop, panning: false };
     };
     const onMove = (e: PointerEvent) => {
       if (!drag) return;
+      if (!drag.panning) {
+        // Capture only once it is clearly a drag: capturing on press would steal clicks from the labels.
+        if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 4) return;
+        drag.panning = true;
+        el.setPointerCapture(e.pointerId);
+        el.classList.add('panning');
+      }
       el.scrollLeft = drag.left - (e.clientX - drag.x);
       el.scrollTop = drag.top - (e.clientY - drag.y);
     };
@@ -76,5 +101,5 @@ export function useZoom(ref: RefObject<HTMLElement | null>) {
     anchor.current = null;
   }, [zoom, ref]);
 
-  return { zoom, zoomBy: (factor: number) => zoomTo(current.current * factor), reset: () => zoomTo(1) };
+  return { zoom, zoomBy: (factor: number) => zoomTo(current.current * factor), frame };
 }

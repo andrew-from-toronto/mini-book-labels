@@ -1,16 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { BookList } from './components/BookList';
 import { FiltersPanel } from './components/FiltersPanel';
 import { SettingsPanel } from './components/SettingsPanel';
-import { Sheet } from './components/Sheet';
+import { Preview } from './components/Preview';
 import { lookupIsbn } from './lib/covers';
 import { parseIsbn, parseStoryGraphCsv } from './lib/csv';
 import { applyFilters, selectBooks } from './lib/filter';
 import { defaultWrapSpine, gridFor, paginate } from './lib/layout';
-import { loadState, saveState } from './lib/storage';
+import { loadState, saveState, type Panes } from './lib/storage';
 import type { Book, CustomCover, Filters, Settings } from './lib/types';
 import { useCovers } from './lib/useCovers';
-import { useZoom } from './lib/useZoom';
 
 const DEFAULT_FILTERS: Filters = { statuses: ['read'], minRating: 0, from: '', to: '', sort: 'rating', count: 20 };
 /** Status given to books added by ISBN, which survive loading a new CSV. */
@@ -24,7 +23,34 @@ const DEFAULT_SETTINGS: Settings = {
   paper: 'letter',
   margin: 10,
   gap: 2,
+  guideOpacity: 1,
 };
+
+const clamp = (v: number, min: number, max: number) => Math.round(Math.min(max, Math.max(min, v)));
+
+interface HandleProps {
+  label: string;
+  /** Called with the pointer's x position while dragging. */
+  onResize: (clientX: number) => void;
+  onReset: () => void;
+}
+
+function Handle({ label, onResize, onReset }: HandleProps) {
+  return (
+    <div
+      className="handle"
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={label}
+      title="Drag to resize, double-click to reset"
+      onPointerDown={(e) => e.currentTarget.setPointerCapture(e.pointerId)}
+      onPointerMove={(e) => {
+        if (e.currentTarget.hasPointerCapture(e.pointerId)) onResize(e.clientX);
+      }}
+      onDoubleClick={onReset}
+    />
+  );
+}
 
 export function App() {
   const [saved] = useState(loadState);
@@ -35,17 +61,18 @@ export function App() {
   const [overrides, setOverrides] = useState<Record<string, boolean>>(saved.overrides ?? {});
   const [customCovers, setCustomCovers] = useState<Record<string, CustomCover>>(saved.customCovers ?? {});
 
+  const [panes, setPanes] = useState<Panes>(saved.panes ?? {});
+
   useEffect(() => {
     // Debounced: sliders change state many times a second and the library can be large.
-    const timer = setTimeout(() => saveState({ books, filters, settings, overrides, customCovers }), 300);
+    const timer = setTimeout(() => saveState({ books, filters, settings, overrides, customCovers, panes }), 300);
     return () => clearTimeout(timer);
-  }, [books, filters, settings, overrides, customCovers]);
+  }, [books, filters, settings, overrides, customCovers, panes]);
   const [isbnInput, setIsbnInput] = useState('');
   const [adding, setAdding] = useState(false);
-  /** The book whose cover panel is open; its label shows alignment guides. */
-  const [editing, setEditing] = useState<string | null>(null);
-  const previewRef = useRef<HTMLElement>(null);
-  const { zoom, zoomBy, reset } = useZoom(previewRef);
+  /** The book being worked on: its cover controls are open and the preview zooms to its label. */
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
   const { listed, selected } = useMemo(
     () => selectBooks(books, applyFilters(books, filters), overrides),
@@ -62,7 +89,7 @@ export function App() {
       const added = books.filter((b) => b.status === ADDED);
       const keep = new Set(added.map((b) => b.id));
       setBooks([...parsed, ...added]);
-      setEditing(null);
+      setActiveId(null);
       setOverrides(Object.fromEntries(added.map((b) => [b.id, true])));
       setCustomCovers((c) => Object.fromEntries(Object.entries(c).filter(([id]) => keep.has(id))));
       setError(parsed.length ? '' : 'That file has no books in it.');
@@ -78,7 +105,7 @@ export function App() {
     setSettings(DEFAULT_SETTINGS);
     setOverrides({});
     setCustomCovers({});
-    setEditing(null);
+    setActiveId(null);
     setError('');
   }
 
@@ -108,8 +135,26 @@ export function App() {
     }
   }
 
+  const layoutKey = JSON.stringify([
+    selected.map((b) => b.id),
+    settings.height,
+    settings.width,
+    settings.spine,
+    settings.paper,
+    settings.margin,
+    settings.gap,
+  ]);
+
   return (
-    <div className="app">
+    <div
+      className={expanded ? 'app expanded' : 'app'}
+      style={
+        {
+          '--setup-width': panes.setup && `${panes.setup}px`,
+          '--preview-width': panes.preview && `${panes.preview}px`,
+        } as CSSProperties
+      }
+    >
       <aside className="controls">
         <h1>Mini Book Labels</h1>
         <p className="muted">
@@ -163,22 +208,8 @@ export function App() {
         {books.length > 0 && (
           <>
             <section>
-              <h2>2. Pick books</h2>
+              <h2>2. Filters</h2>
               <FiltersPanel books={books} filters={filters} onChange={setFilters} />
-              <BookList
-                books={books}
-                listed={listed}
-                overrides={overrides}
-                customCovers={customCovers}
-                defaultWrapSpine={defaultWrapSpine(settings)}
-                editing={editing}
-                onEditing={setEditing}
-                coverOf={coverOf}
-                onToggle={(id, on) => setOverrides((o) => ({ ...o, [id]: on }))}
-                onCustomCover={(id, cover) =>
-                  setCustomCovers(({ [id]: _old, ...rest }) => (cover ? { ...rest, [id]: cover } : rest))
-                }
-              />
             </section>
 
             <section>
@@ -210,35 +241,53 @@ export function App() {
         </footer>
       </aside>
 
-      <main className="preview" ref={previewRef}>
-        {pages.length > 0 ? (
-          <>
-            <div className="zoombar">
-              <button onClick={() => zoomBy(1 / 1.25)} aria-label="Zoom out">
-                -
-              </button>
-              <button onClick={reset} title="Reset zoom">
-                {Math.round(zoom * 100)}%
-              </button>
-              <button onClick={() => zoomBy(1.25)} aria-label="Zoom in">
-                +
-              </button>
-              <span className="muted">Ctrl + scroll to zoom, drag to pan</span>
-            </div>
-            <Sheet
-              pages={pages}
-              settings={settings}
-              cols={grid.cols}
-              coverOf={coverOf}
-              customCovers={customCovers}
-              zoom={zoom}
-              guideId={editing}
-            />
-          </>
+      <Handle
+        label="Resize setup column"
+        onResize={(x) => setPanes((p) => ({ ...p, setup: clamp(x, 240, window.innerWidth * 0.4) }))}
+        onReset={() => setPanes(({ setup: _setup, ...rest }) => rest)}
+      />
+
+      <main className="books">
+        {books.length > 0 ? (
+          <BookList
+            books={books}
+            listed={listed}
+            overrides={overrides}
+            customCovers={customCovers}
+            settings={settings}
+            defaultWrapSpine={defaultWrapSpine(settings)}
+            activeId={activeId}
+            onActive={setActiveId}
+            coverOf={coverOf}
+            onToggle={(id, on) => setOverrides((o) => ({ ...o, [id]: on }))}
+            onCustomCover={(id, cover) =>
+              setCustomCovers(({ [id]: _old, ...rest }) => (cover ? { ...rest, [id]: cover } : rest))
+            }
+          />
         ) : (
-          <p className="empty muted">Your printable sheet will appear here.</p>
+          <p className="empty muted">Load your StoryGraph export or add a book by ISBN to start.</p>
         )}
       </main>
+
+      <Handle
+        label="Resize print preview"
+        onResize={(x) =>
+          setPanes((p) => ({ ...p, preview: clamp(window.innerWidth - x, 280, window.innerWidth * 0.7) }))
+        }
+        onReset={() => setPanes(({ preview: _preview, ...rest }) => rest)}
+      />
+
+      <Preview
+        pages={pages}
+        settings={settings}
+        cols={grid.cols}
+        coverOf={coverOf}
+        customCovers={customCovers}
+        activeId={activeId}
+        expanded={expanded}
+        onExpanded={setExpanded}
+        layoutKey={layoutKey}
+      />
     </div>
   );
 }
