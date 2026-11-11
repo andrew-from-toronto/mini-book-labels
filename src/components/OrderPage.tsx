@@ -103,20 +103,14 @@ export function OrderPage() {
 
   return (
     <main className="order-page">
-      <header className="order-header">
-        <a href="/" className="brand">
-          <img src="/favicon.svg" alt="" width={30} height={30} />
-          Mini Book Labels
-        </a>
-      </header>
-      <h1 className="order-title">Order blanks</h1>
-      <div className="order-body">
-        {/* A dark filament gets a light backdrop, in either theme, so it stays visible. */}
-        <div className={isDark(filamentById(colour)?.swatch ?? '#ffffff') ? 'order-preview on-light' : 'order-preview'}>
-          <Suspense fallback={<p className="muted">Loading preview...</p>}>
-            <Book3D book={undefined} cover={undefined} custom={undefined} settings={settings} filament={filamentById(colour)?.swatch} />
-          </Suspense>
-        </div>
+      <div className="order-main">
+        <header className="order-header">
+          <a href="/" className="brand">
+            <img src="/favicon.svg" alt="" width={30} height={30} />
+            Mini Book Labels
+          </a>
+        </header>
+        <h1 className="order-title">Order blanks</h1>
         {step === 'pay' ? (
           <div className="order-details">
             <PaymentStep code={code} quantity={quantity} onBack={() => setStep('review')} />
@@ -244,6 +238,12 @@ export function OrderPage() {
           </div>
         )}
       </div>
+      {/* A dark filament gets a light backdrop, in either theme, so it stays visible. */}
+      <aside className={isDark(filamentById(colour)?.swatch ?? '#ffffff') ? 'order-preview on-light' : 'order-preview'}>
+        <Suspense fallback={<p className="muted">Loading preview...</p>}>
+          <Book3D book={undefined} cover={undefined} custom={undefined} settings={settings} filament={filamentById(colour)?.swatch} />
+        </Suspense>
+      </aside>
     </main>
   );
 }

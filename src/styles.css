@@ -549,15 +549,26 @@ a.button.primary {
   font-weight: normal;
 }
 
-/* Ordering blanks: its own page, the 3D preview held in view beside the choices on wide screens. */
+/* Ordering blanks: the form down the left, the 3D preview filling the right, split by the app's divider. */
 .order-page {
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: 0 16px 48px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  min-height: 100dvh;
+}
+
+.order-main {
+  padding: 0 clamp(16px, 4vw, 56px) 48px;
+  background: var(--panel);
+}
+
+/* The form keeps a readable width, set against the divider. */
+.order-main > * {
+  max-width: 560px;
+  margin-left: auto;
 }
 
 .order-header {
-  padding: 14px 0;
+  padding: 16px 0;
   border-bottom: 1px solid var(--line);
 }
 
@@ -572,27 +583,17 @@ a.button.primary {
 }
 
 .order-title {
-  margin: 24px 0 16px;
+  margin-top: 24px;
+  margin-bottom: 16px;
   font-size: 1.25rem;
 }
 
-.order-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 24px;
-  align-items: start;
-}
-
 .order-preview {
-  /* On the right, as in the designer. */
-  order: 2;
   position: sticky;
-  top: 16px;
+  top: 0;
   display: flex;
-  height: min(70vh, 560px);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  overflow: hidden;
+  height: 100dvh;
+  border-left: 6px solid var(--line);
   background: var(--bg);
 }
 
@@ -700,14 +701,44 @@ a.button.primary {
 }
 
 @media (max-width: 700px) {
-  .order-body {
+  /* One column: the name and title, then the preview, then the form. */
+  .order-page {
     grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    min-height: 0;
+  }
+
+  .order-main {
+    display: contents;
+  }
+
+  .order-main > * {
+    max-width: none;
+    margin-left: 16px;
+    margin-right: 16px;
+  }
+
+  .order-header {
+    order: 0;
+  }
+
+  .order-title {
+    order: 1;
   }
 
   .order-preview {
-    order: 0;
+    order: 2;
     position: static;
-    height: 280px;
+    height: 300px;
+    margin: 0 16px 20px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .order-details {
+    order: 3;
+    padding-bottom: 48px;
   }
 }
 
