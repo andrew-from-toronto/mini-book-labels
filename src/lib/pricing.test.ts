@@ -32,7 +32,7 @@ describe('costOfBook', () => {
     expect(c.filament).toBeCloseTo((c.grams / 1000) * 20, 6);
     expect(c.printMinutes).toBeCloseTo(1 + volume * 1, 6);
     expect(c.printer).toBeCloseTo((c.printMinutes / 60) * 0.5, 6);
-    expect(c.labour).toBeCloseTo((2 / 60) * 25, 6);
+    expect(c.labour).toBeCloseTo((2 / 60) * 30, 6);
     expect(c.cost).toBeCloseTo((c.filament + c.printer + c.labour) * 1.1, 6);
     // Rounded up to the next 25 cents, never down.
     expect(c.unitPrice % 25).toBe(0);

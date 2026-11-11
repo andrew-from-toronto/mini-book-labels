@@ -40,12 +40,13 @@ export const COST_INPUTS: CostInputs = {
   printMinutesPerBook: 1,
   printMinutesPerCm3: 1,
   printerPerHour: 0.5, // PLACEHOLDER: power and wear.
-  labourPerHour: 25, // PLACEHOLDER
+  labourPerHour: 30,
   handlingMinutesPerBook: 2, // PLACEHOLDER
-  packingMinutesPerOrder: 10, // PLACEHOLDER
-  packagingPerOrder: 1.5, // PLACEHOLDER: a small padded mailer.
-  failureAllowance: 0.1, // PLACEHOLDER
-  markup: 0.5, // PLACEHOLDER
+  packingMinutesPerOrder: 5,
+  packagingPerOrder: 2, // A padded mailer and padding; estimate until bought in bulk.
+  failureAllowance: 0.1, // An estimate: check against real failed prints.
+  // Covers Stripe's fee (about 2.9% + 30 cents an order), unpaid time on email and admin, and redone orders.
+  markup: 0.5,
 };
 
 /**
