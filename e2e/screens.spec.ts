@@ -123,6 +123,8 @@ const settle = (page: Page, ms = 2500) => page.waitForTimeout(ms);
 
 test.beforeEach(async ({ page }) => {
   await cacheOpenLibrary(page);
+  // Test runs aren't visitors: the analytics script never loads here (and refuses localhost anyway).
+  await page.route('**/static.cloudflareinsights.com/**', (route) => route.fulfill({ contentType: 'text/javascript', body: '' }));
   // Script errors and console errors belong in the audit too: a blank screen is often one of these.
   const errors: string[] = (findings['errors'] = []);
   page.on('pageerror', (e) => errors.push(`page error: ${e.message}`));
