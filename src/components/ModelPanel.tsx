@@ -109,6 +109,18 @@ export function ModelPanel({ dims, options, onChange, onShow3d }: Props) {
   );
 }
 
+/** A parcel, for blanks posted to the buyer. Drawn in the accent colours, so it follows the theme. */
+function ParcelIcon() {
+  return (
+    <svg className="parcel-icon" viewBox="0 0 32 32" width={30} height={30} aria-hidden="true">
+      <path className="top" d="M16 3 29 9.5 16 16 3 9.5Z" />
+      <path className="left" d="M3 9.5 16 16v13L3 22.5Z" />
+      <path className="right" d="M29 9.5 16 16v13l13-6.5Z" />
+      <path className="tape" d="M9.5 6.25 22.5 12.75v5.5" />
+    </svg>
+  );
+}
+
 /** A group of a price breakdown: its total first, then the parts it is made of. */
 function Breakdown({ lines, total, label }: { lines: PriceLine[]; total: number; label: string }) {
   return (
@@ -146,7 +158,7 @@ function BuyBlanks({ dims, options }: { dims: Dims; options: ModelOptions }) {
   return (
     <div className="buy-blanks">
       <div className="buy-head">
-        <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" width={30} height={30} />
+        <ParcelIcon />
         <p>
           <strong>No 3D printer?</strong>
           <span>Order this model, blank, and ready to apply your covers.</span>

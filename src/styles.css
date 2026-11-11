@@ -447,9 +447,29 @@ button:disabled {
   white-space: nowrap;
 }
 
-.buy-head img {
+.parcel-icon {
   flex: none;
   margin-top: 2px;
+}
+
+.parcel-icon .top {
+  fill: color-mix(in srgb, var(--accent) 55%, var(--panel));
+}
+
+.parcel-icon .left {
+  fill: var(--accent);
+}
+
+.parcel-icon .right {
+  fill: color-mix(in srgb, var(--accent) 75%, black);
+}
+
+.parcel-icon .tape {
+  fill: none;
+  stroke: var(--panel);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  opacity: 0.85;
 }
 
 .buy-quantity input {
