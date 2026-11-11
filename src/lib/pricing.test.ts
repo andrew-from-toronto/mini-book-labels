@@ -32,12 +32,12 @@ describe('costOfBook', () => {
     expect(c.filament).toBeCloseTo((c.grams / 1000) * 20, 6);
     expect(c.printMinutes).toBeCloseTo(1 + volume * 1, 6);
     expect(c.printer).toBeCloseTo((c.printMinutes / 60) * 0.5, 6);
-    expect(c.labour).toBeCloseTo((2 / 60) * 30, 6);
+    expect(c.labour).toBeCloseTo((0.5 / 60) * 30, 6);
     expect(c.cost).toBeCloseTo((c.filament + c.printer + c.labour) * 1.1, 6);
-    // Rounded up to the next 25 cents, never down.
-    expect(c.unitPrice % 25).toBe(0);
+    // Rounded up to the next 5 cents, never down.
+    expect(c.unitPrice % 5).toBe(0);
     expect(c.unitPrice).toBeGreaterThanOrEqual(c.cost * 1.5 * 100);
-    expect(c.unitPrice - c.cost * 1.5 * 100).toBeLessThan(25);
+    expect(c.unitPrice - c.cost * 1.5 * 100).toBeLessThan(5);
   });
 
   it('costs more for bigger books', () => {
@@ -47,7 +47,7 @@ describe('costOfBook', () => {
 
   it('follows the inputs: free labour and no markup leave only materials and printer time', () => {
     const c = costOfBook(dimsAtScale(7), { ...inputs, labourPerHour: 0, markup: 0, failureAllowance: 0 });
-    expect(c.unitPrice).toBe(Math.ceil((c.filament + c.printer) * 100 / 25) * 25);
+    expect(c.unitPrice).toBe(Math.ceil((c.filament + c.printer) * 100 / 5) * 5);
   });
 });
 
@@ -59,8 +59,8 @@ describe('priceOrder', () => {
     expect(order.subtotal).toBe(order.books + order.handling);
   });
 
-  it('accepts 1 to 50 whole books only', () => {
-    for (const bad of [0, -1, 2.5, 51, Number.NaN]) expect(() => priceOrder(dimsAtScale(7), bad)).toThrow(RangeError);
+  it('accepts 1 to 100 whole books only', () => {
+    for (const bad of [0, -1, 2.5, 101, Number.NaN]) expect(() => priceOrder(dimsAtScale(7), bad)).toThrow(RangeError);
   });
 
   it('formats cents as dollars', () => expect(formatCad(1825)).toBe('$18.25'));

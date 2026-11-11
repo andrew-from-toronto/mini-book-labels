@@ -41,7 +41,8 @@ export const COST_INPUTS: CostInputs = {
   printMinutesPerCm3: 1,
   printerPerHour: 0.5, // PLACEHOLDER: power and wear.
   labourPerHour: 30,
-  handlingMinutesPerBook: 2, // PLACEHOLDER
+  // Taking a full plate off and checking it: about 30 seconds a book. Time a plate to refine.
+  handlingMinutesPerBook: 0.5,
   packingMinutesPerOrder: 5,
   packagingPerOrder: 2, // A padded mailer and padding; estimate until bought in bulk.
   failureAllowance: 0.1, // An estimate: check against real failed prints.
@@ -64,12 +65,12 @@ export interface BookCost {
   /** Before the failure allowance and markup. */
   subtotal: number;
   cost: number;
-  /** Price per book in cents, rounded up to the next 25 cents. */
+  /** Price per book in cents, rounded up to the next 5 cents. */
   unitPrice: number;
 }
 
-/** Rounds dollars up to the next 25 cents, as cents. */
-const quarterCents = (dollars: number) => Math.ceil((dollars * 100 - 1e-6) / 25) * 25;
+/** Rounds dollars up to the next 5 cents, as cents: fine enough not to inflate prices under a dollar. */
+const roundUpCents = (dollars: number) => Math.ceil((dollars * 100 - 1e-6) / 5) * 5;
 
 export function costOfBook(dims: Dims, inputs: CostInputs = COST_INPUTS): BookCost {
   const volume = bookVolumeCm3(dims) * inputs.infillShare;
@@ -80,13 +81,13 @@ export function costOfBook(dims: Dims, inputs: CostInputs = COST_INPUTS): BookCo
   const labour = (inputs.handlingMinutesPerBook / 60) * inputs.labourPerHour;
   const subtotal = filament + printer + labour;
   const cost = subtotal * (1 + inputs.failureAllowance);
-  return { grams, printMinutes, filament, printer, labour, subtotal, cost, unitPrice: quarterCents(cost * (1 + inputs.markup)) };
+  return { grams, printMinutes, filament, printer, labour, subtotal, cost, unitPrice: roundUpCents(cost * (1 + inputs.markup)) };
 }
 
 /** Packing and handling, once per order, in cents: packing time and materials, with the markup. */
 export function handlingPrice(inputs: CostInputs = COST_INPUTS): number {
   const cost = (inputs.packingMinutesPerOrder / 60) * inputs.labourPerHour + inputs.packagingPerOrder;
-  return quarterCents(cost * (1 + inputs.markup));
+  return roundUpCents(cost * (1 + inputs.markup));
 }
 
 export interface OrderPrice {
@@ -98,7 +99,7 @@ export interface OrderPrice {
   subtotal: number;
 }
 
-export const MAX_QUANTITY = 50;
+export const MAX_QUANTITY = 100;
 
 export function priceOrder(dims: Dims, quantity: number, inputs: CostInputs = COST_INPUTS): OrderPrice {
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_QUANTITY) {
@@ -122,7 +123,7 @@ const toCents = (dollars: number) => Math.round(dollars * 100);
 /**
  * What a book's price is made of, in cents: materials and equipment (plastic and printer time), labour,
  * and the margin. The allowance for failed prints is shared between the first two, since a reprint costs
- * both. The margin is what is left, including the rounding to 25 cents, so the lines always add up
+ * both. The margin is what is left, including the rounding to 5 cents, so the lines always add up
  * exactly to the price charged.
  */
 export function bookBreakdown(dims: Dims, inputs: CostInputs = COST_INPUTS): PriceLine[] {

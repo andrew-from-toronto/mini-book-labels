@@ -16,7 +16,7 @@
  */
 import type Stripe from 'stripe';
 import { decodeOrder, describeOrder } from '../src/lib/orderCode';
-import { costOfBook, handlingPrice, priceOrder } from '../src/lib/pricing';
+import { costOfBook, handlingPrice, MAX_QUANTITY, priceOrder } from '../src/lib/pricing';
 import { printable } from '../src/lib/shop';
 import { json } from './cache';
 import { fromOwnSite } from './imageProxy';
@@ -50,7 +50,7 @@ export function sessionParams(
   try {
     price = priceOrder(order.dims, body.quantity);
   } catch {
-    return { error: 'Choose between 1 and 50 blanks.' };
+    return { error: `Choose between 1 and ${MAX_QUANTITY} blanks.` };
   }
   const code = body.code.trim();
   return {
