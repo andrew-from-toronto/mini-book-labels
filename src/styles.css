@@ -677,6 +677,12 @@ a.button {
   box-shadow: 0 0 0 1px var(--accent);
 }
 
+/* What a label costs beyond what the buyer paid for shipping. */
+.shipping-option .over {
+  color: light-dark(#b3261e, #f28b82);
+  font-weight: 600;
+}
+
 .admin-title {
   margin: 20px 0 0;
   font-size: 1.25rem;

@@ -106,6 +106,9 @@ function orderState(o: Pick<Order, 'status' | 'label_status'>): string {
   }
 }
 
+/** "2 days", "3-9 days". */
+const days = ({ min, max }: { min: number; max: number }) => (min === max ? `${max} days` : `${min}-${max} days`);
+
 const stateClass = (o: Order) => `admin-state state-${orderState(o).toLowerCase().replace(/\s+/g, '-')}`;
 
 async function api<T>(path: string, body?: unknown): Promise<T> {
@@ -435,8 +438,13 @@ function OrderDetail({ order: o, onChange }: { order: Order; onChange: (o: Order
                       {r.description}
                       {r.postage_type === o.shipping_service && <span className="muted"> · buyer's choice</span>}
                     </span>
-                    <span className="muted">{r.days ? `${r.days.min}-${r.days.max} days` : ''}</span>
-                    <strong>{formatCad(r.amount)}</strong>
+                    <span className="muted">{r.days ? days(r.days) : ''}</span>
+                    <strong>
+                      {formatCad(r.amount)}
+                      {o.shipping_amount != null && r.amount > o.shipping_amount && (
+                        <span className="over"> +{formatCad(r.amount - o.shipping_amount)}</span>
+                      )}
+                    </strong>
                   </label>
                 ))}
               </fieldset>
