@@ -18,27 +18,11 @@ Ideas to do later, not started.
 
 ## Go-live
 
-In order. Nothing here is automatic; each step is done once.
-
 1. ~~**Orders database.**~~ Done: `mini-book-orders` exists with every migration applied. Deploys apply
    new ones, so the GitHub `CLOUDFLARE_API_TOKEN` needs the D1 Edit permission.
-2. **Stripe live.** In live mode: a restricted key (`rk_live_`) with write access to Checkout Sessions
-   and read access to Shipping Rates; the publishable key; a webhook endpoint at
-   `https://minibookornaments.com/api/stripe/webhook` for `checkout.session.completed`,
-   `checkout.session.async_payment_succeeded` and `checkout.session.async_payment_failed`, and its
-   signing secret. Turn on receipt emails. Register `minibookornaments.com` under payment method domains
-   for Apple Pay and Google Pay. Roll the sandbox secret key used in development.
-3. **Chit Chats live.** The live account's key and client id; no `CHITCHATS_BASE_URL`.
-4. **Cloudflare Access.** A self-hosted application covering `minibookornaments.com/admin*` and
-   `minibookornaments.com/api/admin*`, allowing only you. Note its AUD tag and the team domain.
-5. **Worker secrets** (`pnpm exec wrangler secret put NAME` for each):
-   `STRIPE_API_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`,
-   `CHITCHATS_API_KEY`, `CHITCHATS_CLIENT_ID`,
-   `SHIP_FROM_NAME`, `SHIP_FROM_STREET`, `SHIP_FROM_STREET_2`, `SHIP_FROM_CITY`, `SHIP_FROM_PROVINCE`,
-   `SHIP_FROM_POSTAL_CODE`, `SHIP_FROM_COUNTRY`,
-   `MAILGUN_API_KEY`, `MAILGUN_DOMAIN`, `MAIL_FROM`, `MAIL_REPLY_TO`, `ORDER_NOTIFY_TO`,
-   `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`.
-6. **Open the shop.** `SHOP_OPEN = true` in `src/lib/shop.ts`, merge `checkout` into `main`, and the
-   deploy goes out.
-7. **First order.** Buy one blank with a real card, check both emails, buy its label in admin, and
-   refund the payment in Stripe if it was only a test.
+2. ~~**Stripe live.**~~ Done: live keys, webhook, and live paid orders tested.
+3. ~~**Chit Chats live.**~~ Done: key and client id set, no `CHITCHATS_BASE_URL`.
+4. ~~**Cloudflare Access.**~~ Done: `/admin*` and `/api/admin*` redirect to the Access login.
+5. ~~**Worker secrets.**~~ Done. `SHIP_FROM_STREET_2` is not set, which is fine with no second address line.
+6. ~~**Open the shop.**~~ Done: `SHOP_OPEN = true` on `main` (c1bacf4).
+7. ~~**First order.**~~ Done: live paid orders tested end to end.
