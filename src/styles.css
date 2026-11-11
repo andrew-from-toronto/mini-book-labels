@@ -399,6 +399,41 @@ button:disabled {
   cursor: default;
 }
 
+.buy-blanks {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.buy-blanks p {
+  margin: 0;
+}
+
+/* A link styled as the main button, for leaving to checkout. */
+a.button {
+  display: block;
+  text-align: center;
+  text-decoration: none;
+  border-radius: 6px;
+}
+
+a.button.primary {
+  padding: 10px;
+  background: var(--accent);
+  color: light-dark(#fff, #1b1a18);
+  font-weight: 600;
+}
+
+.order-loaded {
+  padding: 10px 12px;
+  border-left: 3px solid var(--accent);
+  background: var(--bg);
+  border-radius: 0 6px 6px 0;
+}
+
 button.primary {
   width: 100%;
   padding: 10px;

@@ -33,19 +33,26 @@ export function pinterestVariants(url: string): string[] {
   return [...originals, `${host}/1200x/${path}.${ext}`];
 }
 
-/** Re-serves any image with CORS headers so its pixels can be read. Hosts like Pinterest send none. */
-export const proxiedUrl = (url: string) => `https://wsrv.nl/?url=${encodeURIComponent(url)}`;
+/**
+ * Re-serves an image from our own address (worker/imageProxy.ts) so its pixels can be read. Hosts like
+ * Pinterest send no CORS headers.
+ */
+export const proxiedUrl = (url: string) => `/api/image?url=${encodeURIComponent(url)}`;
 
-const COVERS = 'https://covers.openlibrary.org/b';
+/** Open Library, through our Worker (worker/openLibrary.ts), which caches it at the edge. */
+const OL = '/api/ol';
+const COVERS = '/api/cover';
 
 // default=false makes Open Library return 404 instead of a blank placeholder image.
-export const isbnCoverUrl = (isbn: string) => `${COVERS}/isbn/${isbn}-L.jpg?default=false`;
-export const idCoverUrl = (id: number) => `${COVERS}/id/${id}-L.jpg?default=false`;
+export const isbnCoverUrl = (isbn: string) => `${COVERS}/isbn/${isbn}-L.jpg`;
+export const idCoverUrl = (id: number) => `${COVERS}/id/${id}-L.jpg`;
+export const idSmallUrl = (id: number) => `${COVERS}/id/${id}-S.jpg`;
 export const idThumbUrl = (id: number) => `${COVERS}/id/${id}-M.jpg`;
 
 /** The Open Library cover id in a URL made by `idCoverUrl`, or null for any other URL. */
 export function coverIdFromUrl(url: string): number | null {
-  const match = url.match(/^https:\/\/covers\.openlibrary\.org\/b\/id\/(\d+)-L\.jpg/);
+  // Our own path, or Open Library's, as saved before covers went through the Worker.
+  const match = url.match(/^(?:\/api\/cover|https:\/\/covers\.openlibrary\.org\/b)\/id\/(\d+)-L\.jpg/);
   return match ? Number(match[1]) : null;
 }
 
@@ -103,12 +110,12 @@ export function lookupCoverVariants(book: Pick<Book, 'title' | 'authors' | 'isbn
   let pending = variantCache.get(key);
   if (!pending) {
     pending = (async () => {
-      const res = await fetch(`https://openlibrary.org/search.json?${params}`);
+      const res = await fetch(`${OL}/search?${params}`);
       if (!res.ok) throw new Error(`Open Library returned ${res.status}`);
       const body: { docs?: { key?: string; cover_i?: number }[] } = await res.json();
       const doc = body.docs?.[0];
       if (!doc?.key?.startsWith('/works/')) return [];
-      const eds = await fetch(`https://openlibrary.org${doc.key}/editions.json?limit=200`);
+      const eds = await fetch(`${OL}${doc.key}/editions`);
       if (!eds.ok) throw new Error(`Open Library returned ${eds.status}`);
       const { entries }: { entries?: EditionEntry[] } = await eds.json();
       return pickVariants(entries ?? [], doc.cover_i);
@@ -133,11 +140,11 @@ export function searchUrl(book: Pick<Book, 'title' | 'authors'>): string {
   const params = new URLSearchParams({ title: cleanTitle(book.title), fields: 'cover_i', limit: '5' });
   const author = firstAuthor(book.authors);
   if (author) params.set('author', author);
-  return `https://openlibrary.org/search.json?${params}`;
+  return `${OL}/search?${params}`;
 }
 
 export async function lookupIsbn(isbn: string): Promise<Pick<Book, 'title' | 'authors'> | null> {
-  const res = await fetch(`https://openlibrary.org/search.json?isbn=${isbn}&fields=title,author_name&limit=1`);
+  const res = await fetch(`${OL}/search?isbn=${isbn}&fields=title,author_name&limit=1`);
   if (!res.ok) throw new Error(`Open Library returned ${res.status}`);
   const body: { docs?: { title?: string; author_name?: string[] }[] } = await res.json();
   const doc = body.docs?.[0];
@@ -152,7 +159,7 @@ export async function lookupPages(book: Pick<Book, 'title' | 'authors' | 'isbn'>
     params.set('title', cleanTitle(book.title));
     if (firstAuthor(book.authors)) params.set('author', firstAuthor(book.authors));
   }
-  const res = await fetch(`https://openlibrary.org/search.json?${params}`);
+  const res = await fetch(`${OL}/search?${params}`);
   if (!res.ok) return null;
   const body: { docs?: { number_of_pages_median?: number }[] } = await res.json();
   return body.docs?.[0]?.number_of_pages_median ?? null;

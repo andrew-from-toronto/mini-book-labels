@@ -31,4 +31,6 @@ describe('pickVariants', () => {
 describe('coverIdFromUrl', () => {
   it('reads ids back from cover URLs', () => expect(coverIdFromUrl(idCoverUrl(12345))).toBe(12345));
   it('ignores other URLs', () => expect(coverIdFromUrl('https://example.com/a.jpg')).toBeNull());
+  it('reads covers saved before they went through the Worker', () =>
+    expect(coverIdFromUrl('https://covers.openlibrary.org/b/id/777-L.jpg?default=false')).toBe(777));
 });

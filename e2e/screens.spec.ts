@@ -1,4 +1,35 @@
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
+
+/**
+ * Open Library allows about 100 cover lookups per 5 minutes per address, which several devices loading
+ * the sample at once soon exceed. Its replies are kept on disk the first time and replayed after, so
+ * runs do not hit the limit and screenshots show the same covers each time. Rate-limited replies are
+ * not kept. Delete test-results/openlibrary-cache to fetch afresh.
+ */
+const CACHE = 'test-results/openlibrary-cache';
+
+async function cacheOpenLibrary(page: Page) {
+  mkdirSync(CACHE, { recursive: true });
+  await page.route(/^https:\/\/(covers\.)?openlibrary\.org\//, async (route) => {
+    const key = createHash('sha1').update(route.request().url()).digest('hex');
+    const [body, meta] = [`${CACHE}/${key}`, `${CACHE}/${key}.json`];
+    if (existsSync(meta)) {
+      const { status, headers } = JSON.parse(readFileSync(meta, 'utf8'));
+      return route.fulfill({ status, headers, body: readFileSync(body) });
+    }
+    const response = await route.fetch().catch(() => null);
+    if (!response) return route.abort();
+    const headers = { ...response.headers(), 'access-control-allow-origin': '*' };
+    const keep = response.status() === 200 || response.status() === 404;
+    if (keep) {
+      writeFileSync(body, await response.body());
+      writeFileSync(meta, JSON.stringify({ status: response.status(), headers }));
+    }
+    return route.fulfill({ response, headers });
+  });
+}
 
 /**
  * Screenshots of the app's main states for visual review: pnpm screens, then look in screens/.
@@ -66,6 +97,7 @@ async function openTab(page: Page, name: 'Setup' | 'Books' | 'Preview') {
 const settle = (page: Page, ms = 2500) => page.waitForTimeout(ms);
 
 test.beforeEach(async ({ page }) => {
+  await cacheOpenLibrary(page);
   // Script errors and console errors belong in the audit too: a blank screen is often one of these.
   const errors: string[] = (findings['errors'] = []);
   page.on('pageerror', (e) => errors.push(`page error: ${e.message}`));
@@ -175,4 +207,19 @@ test('guide', async ({ page }) => {
   await page.goto('./year-in-books-ornament/');
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   await shot(page, '10-year-in-books');
+});
+
+test('opened order', async ({ page }) => {
+  // What the seller sees after pasting an order code from Stripe onto the site address.
+  await page.goto('./#order=v1-h175-w117-s29-round-hook-spine-back');
+  await expect(page.getByText(/Order .* is loaded below/)).toBeVisible();
+  await expect(page.getByLabel('Ornament hook on top')).toBeChecked();
+  await expect(page.getByLabel('Slightly rounded spine (flat prints best)')).toBeChecked();
+  await expect(page.getByLabel('Flush with')).toHaveValue('back');
+  await page.getByText(/Order .* is loaded below/).scrollIntoViewIfNeeded();
+  await shot(page, '11-opened-order');
+
+  await page.goto('./thanks/');
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  await shot(page, '12-thanks');
 });

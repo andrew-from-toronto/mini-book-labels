@@ -33,7 +33,8 @@ describe('parseSearchDocs', () => {
 
 describe('searchQueryUrl', () => {
   it('asks only for the fields the suggestions show', () => {
-    const url = new URL(searchQueryUrl('  piranesi clarke '));
+    const url = new URL(searchQueryUrl('  piranesi clarke '), 'https://minibookornaments.com');
+    expect(url.pathname).toBe('/api/ol/search');
     expect(url.searchParams.get('q')).toBe('piranesi clarke');
     expect(url.searchParams.get('fields')).toBe('key,title,author_name,first_publish_year,cover_i,cover_edition_key');
     expect(url.searchParams.get('limit')).toBe('8');

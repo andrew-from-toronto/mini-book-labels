@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
-import { lookupIsbn } from '../lib/covers';
+import { idSmallUrl, lookupIsbn } from '../lib/covers';
 import { parseIsbn } from '../lib/csv';
 import { isbnOfEdition, MIN_QUERY, searchBooks, type SearchResult } from '../lib/search';
 
@@ -172,7 +172,7 @@ export function BookSearch({ onAdd, onError }: Props) {
                 <>
                   {option.result.coverId ? (
                     <img
-                      src={`https://covers.openlibrary.org/b/id/${option.result.coverId}-S.jpg`}
+                      src={idSmallUrl(option.result.coverId)}
                       alt=""
                       loading="lazy"
                     />

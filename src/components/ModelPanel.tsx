@@ -8,6 +8,8 @@ import {
   type ModelOptions,
 } from '../lib/bookModel';
 import { saveFile } from '../lib/download';
+import { encodeOrder } from '../lib/orderCode';
+import { checkoutUrl, shopOpen, tierFor } from '../lib/shop';
 import type { Dims } from '../lib/scales';
 import { meshTo3mf } from '../lib/threeMf';
 
@@ -96,11 +98,36 @@ export function ModelPanel({ dims, options, onChange, onShow3d }: Props) {
         </button>
       </div>
       {failed && <p className="error">Could not build the model in this browser.</p>}
+      {shopOpen() && <BuyBlanks dims={dims} options={options} />}
       <p className="muted find">
         Print it lying on its {options.hook && options.hookSide === 'back' ? 'back' : 'front'} cover, as the file is
         laid out; it needs no supports. 3MF is the better format for current slicers (Orca, Bambu, Prusa, Elegoo);
         STL is there for older ones.
       </p>
+    </div>
+  );
+}
+
+/** Printed blank books of exactly this size and design, paid for through Stripe. */
+function BuyBlanks({ dims, options }: { dims: Dims; options: ModelOptions }) {
+  const tier = tierFor(dims);
+  if (!tier) {
+    return (
+      <p className="muted find">
+        Printed books go up to 60 mm tall; this one is bigger, so download the model to print it yourself.
+      </p>
+    );
+  }
+  return (
+    <div className="buy-blanks">
+      <p>
+        <strong>No 3D printer?</strong> Buy this book printed: {tier.label.toLowerCase()} size, {tier.price} each, ready
+        for your covers.
+      </p>
+      <a className="button primary" href={checkoutUrl(tier, encodeOrder({ dims, options }))}>
+        Buy printed blanks
+      </a>
+      <p className="muted find">Checkout is by Stripe. You choose how many and where to ship there.</p>
     </div>
   );
 }

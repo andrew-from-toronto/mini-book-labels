@@ -29,7 +29,7 @@ describe('cover lookup helpers', () => {
   });
 
   it('searches by cleaned title and first author', () => {
-    const url = new URL(searchUrl({ title: 'Dune (Dune #1)', authors: 'Frank Herbert, Someone Else' }));
+    const url = new URL(searchUrl({ title: 'Dune (Dune #1)', authors: 'Frank Herbert, Someone Else' }), 'https://minibookornaments.com');
     expect(url.searchParams.get('title')).toBe('Dune');
     expect(url.searchParams.get('author')).toBe('Frank Herbert');
   });

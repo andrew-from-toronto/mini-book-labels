@@ -7,12 +7,13 @@
   "packageManager": "pnpm@10.28.2",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "tsc && tsc -p tsconfig.worker.json && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc",
+    "typecheck": "tsc && tsc -p tsconfig.worker.json",
     "test": "vitest run",
     "screens": "playwright test e2e/screens.spec.ts",
-    "og": "playwright test e2e/og-image.spec.ts --project=desktop"
+    "og": "playwright test e2e/og-image.spec.ts --project=desktop",
+    "deploy": "pnpm build && wrangler deploy"
   },
   "dependencies": {
     "manifold-3d": "3.5.4",
@@ -22,6 +23,8 @@
     "three": "0.186.1"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "1.66.0",
+    "@cloudflare/workers-types": "5.20261028.1",
     "@playwright/test": "1.64.1",
     "@types/papaparse": "^5.5.2",
     "@types/react": "^19.3.0",
@@ -30,6 +33,13 @@
     "@vitejs/plugin-react": "^6.2.1",
     "typescript": "^7.0.2",
     "vite": "^8.3.6",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.0",
+    "wrangler": "4.155.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "workerd"
+    ]
   }
 }

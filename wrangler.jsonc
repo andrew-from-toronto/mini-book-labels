@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // One Worker serves the whole site: the built pages as static assets, and /api from worker/index.ts.
+  "name": "mini-book-labels",
+  // Not a secret: it only says which Cloudflare account to deploy to.
+  "account_id": "01b44fd7c0832ac1c1dc49b2a4ba859e",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-10-28",
+  "assets": {
+    // Only /api reaches the Worker; every other request is a static file, served free from the edge.
+    "run_worker_first": ["/api/*"],
+    "not_found_handling": "404-page"
+  },
+  "observability": { "enabled": true }
+}

@@ -8,6 +8,7 @@ import { SettingsPanel } from './components/SettingsPanel';
 // Only the defaults: the geometry library itself loads when a model is first built.
 import { DEFAULT_MODEL_OPTIONS } from './lib/bookModel';
 import { backupFileName, makeBackup, parseBackup } from './lib/backup';
+import { decodeOrder } from './lib/orderCode';
 import { parseLibraryCsv } from './lib/csv';
 import { saveFile } from './lib/download';
 import { applyFilters, selectBooks } from './lib/filter';
@@ -97,6 +98,24 @@ export function App() {
   const [expanded, setExpanded] = useState(false);
   const [tab, setTab] = useState<Tab>('setup');
   const [view, setView] = useState<PreviewView>('sheet');
+  /** A paid order opened from its code (#order=...): its book loads into the settings, ready to print. */
+  const [openedOrder, setOpenedOrder] = useState<string | null>(null);
+
+  useEffect(() => {
+    const openFromAddress = () => {
+      const code = new URLSearchParams(location.hash.slice(1)).get('order');
+      const order = code ? decodeOrder(code) : null;
+      if (!code || !order) return;
+      setSettings((s) => ({ ...s, ...order.dims, model: order.options }));
+      setOpenedOrder(code.trim());
+      setView('3d');
+      setTab('setup');
+    };
+    openFromAddress();
+    // Pasting another order onto the address in an open tab changes only the #, which does not reload.
+    window.addEventListener('hashchange', openFromAddress);
+    return () => window.removeEventListener('hashchange', openFromAddress);
+  }, []);
 
   const { listed, selected } = useMemo(
     () => selectBooks(books, applyFilters(books, filters), overrides),
@@ -323,19 +342,28 @@ export function App() {
               </button>
             </section>
 
-            <section>
-              <h2>5. 3D model</h2>
-              <ModelPanel
-                dims={{ height: settings.height, width: settings.width, spine: settings.spine }}
-                options={settings.model}
-                onChange={(model) => setSettings((s) => ({ ...s, model }))}
-                onShow3d={(openTab) => {
-                  setView('3d');
-                  if (openTab) setTab('preview');
-                }}
-              />
-            </section>
           </>
+        )}
+
+        {/* Also shown for an opened order, which may arrive in a browser with no books loaded. */}
+        {(books.length > 0 || openedOrder) && (
+          <section>
+            <h2>5. 3D model</h2>
+            {openedOrder && (
+              <p className="order-loaded">
+                Order <code>{openedOrder}</code> is loaded below. Download the 3MF to print it.
+              </p>
+            )}
+            <ModelPanel
+              dims={{ height: settings.height, width: settings.width, spine: settings.spine }}
+              options={settings.model}
+              onChange={(model) => setSettings((s) => ({ ...s, model }))}
+              onShow3d={(openTab) => {
+                setView('3d');
+                if (openTab) setTab('preview');
+              }}
+            />
+          </section>
         )}
 
         <footer className="muted">

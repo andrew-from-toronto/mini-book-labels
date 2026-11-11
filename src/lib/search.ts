@@ -45,7 +45,8 @@ export function searchQueryUrl(query: string): string {
     fields: 'key,title,author_name,first_publish_year,cover_i,cover_edition_key',
     limit: String(SEARCH_LIMIT),
   });
-  return `https://openlibrary.org/search.json?${params}`;
+  // Through our Worker, which caches Open Library at the edge (worker/openLibrary.ts).
+  return `/api/ol/search?${params}`;
 }
 
 const cache = new Map<string, SearchResult[]>();
@@ -65,7 +66,7 @@ export async function searchBooks(query: string, signal?: AbortSignal): Promise<
 
 /** The ISBN of an Open Library edition (ISBN-13 preferred), or null if it has none. */
 export async function isbnOfEdition(edition: string): Promise<string | null> {
-  const res = await fetch(`https://openlibrary.org/books/${encodeURIComponent(edition)}.json`);
+  const res = await fetch(`/api/ol/books/${encodeURIComponent(edition)}`);
   if (!res.ok) return null;
   const body: { isbn_13?: string[]; isbn_10?: string[] } = await res.json();
   for (const isbn of [...(body.isbn_13 ?? []), ...(body.isbn_10 ?? [])]) {
