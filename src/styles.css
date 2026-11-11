@@ -674,14 +674,21 @@ a.button.primary {
   margin: 0;
 }
 
-/* The no-returns confirmation: hard to miss, and clearly different once ticked. */
-.check.confirm {
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
+/* The confirmations before ordering: one box, hard to miss, each line clearly different once ticked. */
+.confirmations {
+  display: grid;
+  gap: 2px;
+  padding: 6px;
   border: 1.5px solid color-mix(in srgb, var(--accent) 60%, transparent);
   border-radius: 10px;
   background: color-mix(in srgb, var(--accent) 7%, var(--panel));
+}
+
+.check.confirm {
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 7px;
   font-size: 0.95rem;
   font-weight: 600;
   line-height: 1.35;
@@ -696,7 +703,6 @@ a.button.primary {
 }
 
 .check.confirm:has(input:checked) {
-  border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 16%, var(--panel));
 }
 

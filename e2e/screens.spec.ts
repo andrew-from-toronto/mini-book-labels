@@ -250,8 +250,12 @@ test('shop preview', async ({ page }) => {
   await page.waitForTimeout(1000);
   await shot(page, '14-order-dialog');
   await dialog.locator('.price-detail summary').click();
+  const proceed = dialog.getByRole('button', { name: 'Continue to shipping' });
   await dialog.getByLabel(/confirm the size and colour/).check();
-  await expect(dialog.getByRole('button', { name: 'Continue to shipping' })).toBeEnabled();
+  await dialog.getByLabel(/made to order/).check();
+  await expect(proceed).toBeDisabled();
+  await dialog.getByLabel(/small imperfections/).check();
+  await expect(proceed).toBeEnabled();
   await dialog.locator('.order-details').evaluate((el) => el.scrollIntoView({ block: 'end' }));
   await shot(page, '15-order-confirmed');
 });

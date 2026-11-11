@@ -14,6 +14,13 @@ interface Props {
 
 const mm = (v: number) => `${Number(v.toFixed(1))}`;
 
+/** Each must be ticked before shipping and payment. */
+const CONFIRMATIONS = [
+  'I confirm the size and colour are correct.',
+  "I understand these are made to order and can't be returned.",
+  'I understand 3D printed items have small imperfections, such as faint layer lines and slight variations in size and colour.',
+];
+
 /** "Flat spine · Hook centred, front": the design choices, as a buyer reads them. */
 function describeOptions(o: ModelOptions): string {
   const spine = o.roundSpine ? 'Rounded spine' : 'Flat spine';
@@ -52,7 +59,8 @@ export function OrderDialog({ settings, onClose }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [colour, setColour] = useState(FILAMENTS.find((f) => f.available)!.id);
   const [quantity, setQuantity] = useState(5);
-  const [confirmed, setConfirmed] = useState(false);
+  const [confirmed, setConfirmed] = useState<boolean[]>(CONFIRMATIONS.map(() => false));
+  const allConfirmed = confirmed.every(Boolean);
   const dims = { height: settings.height, width: settings.width, spine: settings.spine };
   const order = priceOrder(dims, quantity);
   const code = encodeOrder({ dims, options: settings.model, colour });
@@ -62,7 +70,7 @@ export function OrderDialog({ settings, onClose }: Props) {
   }, []);
 
   // A changed choice needs confirming again.
-  useEffect(() => setConfirmed(false), [colour, quantity]);
+  useEffect(() => setConfirmed(CONFIRMATIONS.map(() => false)), [colour, quantity]);
 
   return (
     <dialog ref={dialog} className="order-dialog" onClose={onClose} aria-labelledby="order-title">
@@ -129,11 +137,19 @@ export function OrderDialog({ settings, onClose }: Props) {
               </tfoot>
             </table>
           </details>
-          <label className="check confirm">
-            <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
-            I confirm the size and colour are correct. I understand these are made to order and can't be returned.
-          </label>
-          <button type="button" className="primary" disabled={!confirmed} title={code}>
+          <div className="confirmations">
+            {CONFIRMATIONS.map((text, i) => (
+              <label key={text} className="check confirm">
+                <input
+                  type="checkbox"
+                  checked={confirmed[i]}
+                  onChange={(e) => setConfirmed((c) => c.map((v, k) => (k === i ? e.target.checked : v)))}
+                />
+                {text}
+              </label>
+            ))}
+          </div>
+          <button type="button" className="primary" disabled={!allConfirmed} title={code}>
             Continue to shipping
           </button>
         </div>
