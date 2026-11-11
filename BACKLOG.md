@@ -35,9 +35,8 @@ Notes:
 
 In order. Nothing here is automatic; each step is done once.
 
-1. **Orders database.** `pnpm exec wrangler d1 create mini-book-orders`, then put the id it prints in
-   `wrangler.jsonc` (`database_id`, now all zeros). Deploys apply `migrations/` to it, so the GitHub
-   `CLOUDFLARE_API_TOKEN` also needs the D1 Edit permission.
+1. ~~**Orders database.**~~ Done: `mini-book-orders` exists with every migration applied. Deploys apply
+   new ones, so the GitHub `CLOUDFLARE_API_TOKEN` needs the D1 Edit permission.
 2. **Stripe live.** In live mode: a restricted key (`rk_live_`) with write access to Checkout Sessions
    and read access to Shipping Rates; the publishable key; a webhook endpoint at
    `https://minibookornaments.com/api/stripe/webhook` for `checkout.session.completed`,

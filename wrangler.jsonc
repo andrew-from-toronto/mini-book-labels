@@ -15,13 +15,13 @@
     "run_worker_first": ["/api/*"],
     "not_found_handling": "404-page"
   },
-  // Paid orders, written by the Stripe webhook. Locally a SQLite file under .wrangler; the remote
-  // database is created at go-live (wrangler d1 create mini-book-orders) and its id goes here.
+  // Paid orders, written by the Stripe webhook. Locally a SQLite file under .wrangler (named after this
+  // id); in production the mini-book-orders database, whose schema deploys keep up to date (migrations/).
   "d1_databases": [
     {
       "binding": "ORDERS",
       "database_name": "mini-book-orders",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "625ae2ff-a74b-499a-a196-c819fad861a5",
       "migrations_dir": "migrations"
     }
   ],
