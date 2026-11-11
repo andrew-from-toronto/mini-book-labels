@@ -399,6 +399,9 @@ export function App() {
               <a href={`${import.meta.env.BASE_URL}year-in-books-ornament/`}>Year in books</a>
             </li>
             <li>
+              <a href={`${import.meta.env.BASE_URL}blank-books/`}>Blank books</a>
+            </li>
+            <li>
               <a href={`${import.meta.env.BASE_URL}about/`}>About</a>
             </li>
             <li>

@@ -1,4 +1,9 @@
 User-agent: *
 Allow: /
+# Not pages: the API, the shop's admin, and steps of an order.
+Disallow: /api/
+Disallow: /admin/
+Disallow: /model/
+Disallow: /thanks/
 
 Sitemap: https://minibookornaments.com/sitemap.xml

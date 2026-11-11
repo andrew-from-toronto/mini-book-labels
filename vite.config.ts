@@ -28,6 +28,7 @@ export default defineConfig({
             admin: resolve(import.meta.dirname, 'admin/index.html'),
             thanks: resolve(import.meta.dirname, 'thanks/index.html'),
             about: resolve(import.meta.dirname, 'about/index.html'),
+            blankBooks: resolve(import.meta.dirname, 'blank-books/index.html'),
           },
         },
       },

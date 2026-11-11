@@ -241,6 +241,14 @@ test('guide', async ({ page }) => {
   await shot(page, '10-year-in-books');
 });
 
+test('blank books page', async ({ page }) => {
+  await page.goto('./blank-books/');
+  await expect(page.getByRole('heading', { name: 'Blank mini books, 3D printed to order' })).toBeVisible();
+  await shot(page, '08b-blank-books');
+  await page.locator('table').scrollIntoViewIfNeeded();
+  await shot(page, '08c-blank-books-prices');
+});
+
 test('opened order', async ({ page }) => {
   // What the seller sees after pasting an order code from Stripe onto the site address.
   await page.goto('./#order=v1-h175-w117-s29-round-hook-spine-back');
