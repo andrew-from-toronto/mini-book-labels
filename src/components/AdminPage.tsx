@@ -207,7 +207,13 @@ export function AdminPage() {
               <button
                 type="button"
                 className={o.session_id === selected ? 'admin-row active' : 'admin-row'}
-                onClick={() => setSelected(o.session_id)}
+                onClick={() => {
+                  setSelected(o.session_id);
+                  // On a phone the order opens below the list: bring it into view.
+                  if (matchMedia('(max-width: 800px)').matches) {
+                    requestAnimationFrame(() => document.querySelector('.admin-main')?.scrollIntoView({ behavior: 'smooth' }));
+                  }
+                }}
               >
                 <span className="admin-row-top">
                   <strong>{o.name ?? o.email ?? 'Unknown'}</strong>

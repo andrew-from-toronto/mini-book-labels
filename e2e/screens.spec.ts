@@ -286,3 +286,94 @@ test('shop preview', async ({ page }) => {
   await proceed.scrollIntoViewIfNeeded();
   await shot(page, '15-order-confirmed');
 });
+
+/** Sample orders at each stage, so admin's screenshots don't depend on the local database. */
+const ADMIN_ORDER = {
+  order_code: 'v1-h300-w200-s50-flat-hook-center-front-c-black',
+  description: '30 x 20 x 5 mm, black, flat spine, hook centred, front',
+  amount_total: 2171,
+  email: 'reader@example.com',
+  address: { line1: '290 Bremner Blvd', city: 'Toronto', state: 'ON', postal_code: 'M5V 3L9', country: 'CA' },
+  delivery: 'Standard',
+  shipping_provider: 'chitchats',
+  shipping_service: 'chit_chats_slim',
+  shipping_amount: 448,
+  shipment_provider: null,
+  shipment_id: null,
+  label_status: null,
+  postage_type: null,
+  label_cost: null,
+  tracking_code: null,
+  tracking_url: null,
+  label_pdf_url: null,
+  shipped_at: null,
+  shipped_emailed_at: null,
+  tracking_checked_at: null,
+  delivered_at: null,
+};
+const LABELED = {
+  shipment_provider: 'chitchats',
+  shipment_id: 'P0000001',
+  label_status: 'label',
+  postage_type: 'chit_chats_slim',
+  label_cost: 448,
+  tracking_code: 'CC000000001CA',
+  tracking_url: 'https://chitchats.com/tracking/p0000001',
+  label_pdf_url: 'https://chitchats.com/labels/p0000001.pdf',
+};
+const ADMIN_ORDERS = [
+  { ...ADMIN_ORDER, session_id: 'cs_1', name: 'Ada Lovelace', quantity: 5, status: 'paid', created_at: '2026-11-11 15:02:00' },
+  { ...ADMIN_ORDER, session_id: 'cs_2', name: 'Grace Hopper', quantity: 12, status: 'printing', created_at: '2026-11-10 09:40:00' },
+  { ...ADMIN_ORDER, ...LABELED, session_id: 'cs_3', name: 'Katherine Johnson', quantity: 3, status: 'labeled', created_at: '2026-11-09 18:15:00' },
+  {
+    ...ADMIN_ORDER,
+    ...LABELED,
+    session_id: 'cs_4',
+    name: 'Mary Somerville',
+    quantity: 8,
+    status: 'shipped',
+    label_status: 'in_transit',
+    shipped_at: '2026-11-08 14:00:00',
+    shipped_emailed_at: '2026-11-08 14:00:00',
+    tracking_checked_at: '2026-11-11 12:00:00',
+    created_at: '2026-11-06 11:20:00',
+  },
+  {
+    ...ADMIN_ORDER,
+    ...LABELED,
+    session_id: 'cs_5',
+    name: 'Emmy Noether',
+    quantity: 2,
+    status: 'delivered',
+    label_status: 'delivered',
+    shipped_at: '2026-11-03 10:00:00',
+    shipped_emailed_at: '2026-11-03 10:00:00',
+    delivered_at: '2026-11-06 16:30:00',
+    tracking_checked_at: '2026-11-06 20:00:00',
+    created_at: '2026-11-01 08:05:00',
+  },
+];
+
+test('admin', async ({ page }) => {
+  await page.route('**/api/admin/orders', (route) =>
+    route.fulfill({ json: { orders: ADMIN_ORDERS, providers: [{ id: 'chitchats', name: 'Chit Chats', mode: 'test' }] } }),
+  );
+  await page.goto('./admin/');
+  await expect(page.locator('.admin-row')).toHaveCount(2);
+  await page.getByRole('tab', { name: /All/ }).click();
+  await expect(page.locator('.admin-row')).toHaveCount(5);
+  await shot(page, '17-admin-orders');
+
+  // A new order: the step bar, the next step, and the 3D book as ordered.
+  await page.locator('.admin-row', { hasText: 'Ada Lovelace' }).click();
+  await expect(page.getByRole('button', { name: 'Start printing' })).toBeVisible();
+  await expect(page.getByText(/Drag to turn/)).toBeVisible({ timeout: 20_000 });
+  await page.waitForTimeout(800);
+  await shot(page, '18-admin-new-order');
+
+  // A shipped order: its label and tracking.
+  await page.locator('.admin-row', { hasText: 'Mary Somerville' }).click();
+  await expect(page.getByRole('link', { name: 'Print label' })).toBeVisible();
+  await page.locator('.admin-main').evaluate((el) => el.scrollTo(0, el.scrollHeight));
+  await shot(page, '19-admin-shipped-order');
+});
