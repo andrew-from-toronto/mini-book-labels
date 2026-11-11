@@ -230,3 +230,16 @@ test('opened order', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   await shot(page, '12-thanks');
 });
+
+test('shop preview', async ({ page }) => {
+  // The printed-books panel, hidden until checkout is live; ?shop=preview shows it for review.
+  await page.goto('./?shop=preview');
+  await expect(page.getByRole('heading', { name: 'Mini Book Labels' })).toBeVisible();
+  await openTab(page, 'Setup');
+  await page.getByRole('button', { name: /Try a sample/ }).first().click();
+  await expect(page.locator('.book').first()).toBeAttached();
+  await openTab(page, 'Setup');
+  await page.locator('.price-detail summary').click();
+  await page.locator('.buy-blanks').evaluate((el) => el.scrollIntoView({ block: 'start' }));
+  await shot(page, '13-shop-preview');
+});

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { decodeOrder, encodeOrder, type Order } from './orderCode';
 import { dimsAtScale } from './scales';
-import { checkoutUrl, shopOpen, tierFor, TIERS, type Tier } from './shop';
+import { printable, shopVisible } from './shop';
 
 const order: Order = {
   dims: dimsAtScale(7),
@@ -40,26 +40,16 @@ describe('order codes', () => {
   });
 });
 
-describe('shop tiers', () => {
-  it('sort each preset into a tier by height', () => {
-    const tier = (ratio: number) => tierFor(dimsAtScale(ratio))?.name;
-    expect([24, 12].map(tier)).toEqual(['small', 'small']);
-    expect([10, 7, 6].map(tier)).toEqual(['medium', 'medium', 'medium']);
-    expect([5, 4].map(tier)).toEqual(['large', 'large']);
-    expect(tierFor({ height: 80, width: 50, spine: 10 })).toBeNull();
+describe('shop', () => {
+  it('prints sizes from 1:24 to a little past 1:4', () => {
+    for (const ratio of [24, 12, 7, 4]) expect(printable(dimsAtScale(ratio))).toBe(true);
+    expect(printable({ height: 80, width: 50, spine: 10 })).toBe(false);
+    expect(printable({ height: 5, width: 3, spine: 1 })).toBe(false);
   });
 
-  it('stay closed until every tier has a price and a link', () => {
-    expect(shopOpen()).toBe(TIERS.every((t) => t.price && t.link));
-    const ready: Tier[] = TIERS.map((t) => ({ ...t, price: '$5', link: 'https://buy.stripe.com/test_x' }));
-    expect(shopOpen(ready)).toBe(true);
-    expect(shopOpen([{ ...ready[0], link: '' }, ...ready.slice(1)])).toBe(false);
-  });
-
-  it('attach the order code to the Payment Link', () => {
-    const tier: Tier = { ...TIERS[1], link: 'https://buy.stripe.com/test_abc123' };
-    expect(checkoutUrl(tier, 'v1-h300-w200-s50-flat-nohook')).toBe(
-      'https://buy.stripe.com/test_abc123?client_reference_id=v1-h300-w200-s50-flat-nohook',
-    );
+  it('stays hidden until open, except when previewed', () => {
+    expect(shopVisible('')).toBe(false);
+    expect(shopVisible('?shop=preview')).toBe(true);
+    expect(shopVisible('?shop=other')).toBe(false);
   });
 });

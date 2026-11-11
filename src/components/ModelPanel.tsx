@@ -9,7 +9,8 @@ import {
 } from '../lib/bookModel';
 import { saveFile } from '../lib/download';
 import { encodeOrder } from '../lib/orderCode';
-import { checkoutUrl, shopOpen, tierFor } from '../lib/shop';
+import { bookBreakdown, formatCad, handlingBreakdown, MAX_QUANTITY, priceOrder, type PriceLine } from '../lib/pricing';
+import { PRINTABLE_HEIGHT, printable, shopVisible } from '../lib/shop';
 import type { Dims } from '../lib/scales';
 import { meshTo3mf } from '../lib/threeMf';
 
@@ -98,7 +99,7 @@ export function ModelPanel({ dims, options, onChange, onShow3d }: Props) {
         </button>
       </div>
       {failed && <p className="error">Could not build the model in this browser.</p>}
-      {shopOpen() && <BuyBlanks dims={dims} options={options} />}
+      {shopVisible() && <BuyBlanks dims={dims} options={options} />}
       <p className="muted find">
         Print it lying on its {options.hook && options.hookSide === 'back' ? 'back' : 'front'} cover, as the file is
         laid out; it needs no supports. 3MF is the better format for current slicers (Orca, Bambu, Prusa, Elegoo);
@@ -108,26 +109,75 @@ export function ModelPanel({ dims, options, onChange, onShow3d }: Props) {
   );
 }
 
-/** Printed blank books of exactly this size and design, paid for through Stripe. */
+/** Rows of a price breakdown, then its total. */
+function Breakdown({ lines, total, label }: { lines: PriceLine[]; total: number; label: string }) {
+  return (
+    <>
+      {lines.map((line) => (
+        <tr key={line.label} className={line.label.startsWith('Margin') ? 'margin' : undefined}>
+          <td>{line.label}</td>
+          <td>{formatCad(line.cents)}</td>
+        </tr>
+      ))}
+      <tr className="subtotal">
+        <th scope="row">{label}</th>
+        <td>{formatCad(total)}</td>
+      </tr>
+    </>
+  );
+}
+
+/**
+ * Printed blank books of exactly this size and design. The price is shown openly, line by line,
+ * margin included: printed books are how the free label maker pays for itself.
+ */
 function BuyBlanks({ dims, options }: { dims: Dims; options: ModelOptions }) {
-  const tier = tierFor(dims);
-  if (!tier) {
+  const [quantity, setQuantity] = useState(5);
+  if (!printable(dims)) {
     return (
       <p className="muted find">
-        Printed books go up to 60 mm tall; this one is bigger, so download the model to print it yourself.
+        Printed books are made from {PRINTABLE_HEIGHT.min} to {PRINTABLE_HEIGHT.max} mm tall; download the model to
+        print this size yourself.
       </p>
     );
   }
+  const order = priceOrder(dims, quantity);
+  const code = encodeOrder({ dims, options });
   return (
     <div className="buy-blanks">
       <p>
-        <strong>No 3D printer?</strong> Buy this book printed: {tier.label.toLowerCase()} size, {tier.price} each, ready
-        for your covers.
+        <strong>No 3D printer?</strong> Order this book printed and posted, blank and ready for your covers.
       </p>
-      <a className="button primary" href={checkoutUrl(tier, encodeOrder({ dims, options }))}>
-        Buy printed blanks
-      </a>
-      <p className="muted find">Checkout is by Stripe. You choose how many and where to ship there.</p>
+      <label>
+        How many
+        <input
+          type="number"
+          min={1}
+          max={MAX_QUANTITY}
+          value={quantity}
+          onChange={(e) => setQuantity(Math.min(MAX_QUANTITY, Math.max(1, Math.floor(Number(e.target.value)) || 1)))}
+        />
+      </label>
+      <details className="price-detail">
+        <summary>
+          {quantity} x {formatCad(order.unitPrice)} + {formatCad(order.handling)} packing ={' '}
+          <strong>{formatCad(order.subtotal)}</strong>, plus shipping and any tax
+        </summary>
+        <table className="price-breakdown">
+          <caption>How the price adds up</caption>
+          <tbody>
+            <Breakdown lines={bookBreakdown(dims)} total={order.unitPrice} label="Each book" />
+            <Breakdown lines={handlingBreakdown()} total={order.handling} label="Packing, once per order" />
+          </tbody>
+        </table>
+      </details>
+      <p className="muted find">
+        The covers and the 3D model stay free. Printed books carry a margin, shown above, which pays for the time to
+        make and post them and keeps this site running.
+      </p>
+      <button className="primary" disabled title={`Order ${code}`}>
+        Checkout opens soon
+      </button>
     </div>
   );
 }

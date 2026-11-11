@@ -427,6 +427,45 @@ a.button.primary {
   font-weight: 600;
 }
 
+.price-detail summary {
+  cursor: pointer;
+}
+
+.price-breakdown {
+  width: 100%;
+  margin-top: 8px;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.price-breakdown caption {
+  text-align: left;
+  font-weight: 600;
+  padding-bottom: 4px;
+}
+
+.price-breakdown td,
+.price-breakdown th {
+  padding: 3px 0;
+  text-align: left;
+  font-weight: normal;
+}
+
+.price-breakdown td:last-child {
+  text-align: right;
+}
+
+.price-breakdown tr.margin td {
+  color: var(--accent);
+}
+
+.price-breakdown tr.subtotal > * {
+  padding-bottom: 10px;
+  border-top: 1px solid var(--line);
+  font-weight: 600;
+}
+
 .order-loaded {
   padding: 10px 12px;
   border-left: 3px solid var(--accent);
