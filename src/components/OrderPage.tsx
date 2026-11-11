@@ -110,6 +110,9 @@ export function OrderPage() {
             <img src="/favicon.svg" alt="" width={30} height={30} />
             Mini Book Labels
           </a>
+          <a href="/about/" className="order-about">
+            About
+          </a>
         </header>
         <h1 className="order-title">Order blanks</h1>
         {/* Shipping and payment start loading, out of sight, once everything is ticked, so they are ready on

@@ -910,6 +910,13 @@ button.danger {
   border-bottom: 1px solid var(--line);
 }
 
+.order-main .order-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .order-header .brand {
   display: inline-flex;
   align-items: center;

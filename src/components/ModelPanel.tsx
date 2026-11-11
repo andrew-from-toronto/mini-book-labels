@@ -94,7 +94,11 @@ export function ModelPanel({ dims, options, settings, onChange, onShow3d }: Prop
       <p className="muted find">
         Print it lying on its {options.hook && options.hookSide === 'back' ? 'back' : 'front'} cover, as the file is
         laid out; it needs no supports. 3MF is the better format for current slicers (Orca, Bambu, Prusa, Elegoo);
-        STL is there for older ones.
+        STL is there for older ones. Every preset size is also on{' '}
+        <a href="https://www.printables.com/model/1910162-mini-book-ornaments-printable-blank-books-7-sizes" target="_blank" rel="noopener">
+          Printables
+        </a>
+        .
       </p>
     </div>
   );
