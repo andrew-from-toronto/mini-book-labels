@@ -4,7 +4,7 @@ import { DEFAULT_SETTINGS } from '../lib/defaults';
 import { decodeOrder, encodeOrder } from '../lib/orderCode';
 import { bookBreakdown, formatCad, handlingBreakdown, MAX_QUANTITY, priceOrder, type PriceLine } from '../lib/pricing';
 import { dimsAtScale, matchingScale, SCALES, type Dims } from '../lib/scales';
-import { printable, shopVisible } from '../lib/shop';
+import { printable, PRINTABLE_HEIGHT, PRINTABLE_SPINE, PRINTABLE_WIDTH, shopVisible } from '../lib/shop';
 import type { HookPosition, HookSide, ModelOptions } from '../lib/types';
 import { HoleSelect } from './HoleSelect';
 import { PaymentStep } from './PaymentStep';
@@ -88,8 +88,26 @@ export function OrderPage() {
 
   const ratio = matchingScale(dims);
   const setModel = (patch: Partial<ModelOptions>) => setModelOptions((m) => ({ ...m, ...patch }));
+  // Custom: the size typed in, in mm. It's used once it's one we print; until then the last good size stays.
+  const [custom, setCustom] = useState(() => !matchingScale(initial.dims));
+  const [draft, setDraft] = useState(() => ({ height: String(initial.dims.height), width: String(initial.dims.width), spine: String(initial.dims.spine) }));
+  const tenth = (v: string) => Math.round(Number(v) * 10) / 10;
+  const drafted = { height: tenth(draft.height), width: tenth(draft.width), spine: tenth(draft.spine) };
+  const draftOk = custom ? printable(drafted) : true;
   const setScale = (value: string) => {
-    if (value !== 'custom') setDims(dimsAtScale(Number(value)));
+    if (value === 'custom') {
+      setCustom(true);
+      setDraft({ height: String(dims.height), width: String(dims.width), spine: String(dims.spine) });
+      return;
+    }
+    setCustom(false);
+    setDims(dimsAtScale(Number(value)));
+  };
+  const setDraftSize = (field: keyof Dims, value: string) => {
+    const next = { ...draft, [field]: value };
+    setDraft(next);
+    const size = { height: tenth(next.height), width: tenth(next.width), spine: tenth(next.spine) };
+    if (printable(size)) setDims(size);
   };
 
   if (!shopVisible()) {
@@ -137,7 +155,7 @@ export function OrderPage() {
             <div className="model-choices">
               <label>
                 Size
-                <select value={ratio ? String(ratio) : 'custom'} onChange={(e) => setScale(e.target.value)}>
+                <select value={custom || !ratio ? 'custom' : String(ratio)} onChange={(e) => setScale(e.target.value)}>
                   {SCALES.filter(({ ratio: r }) => printable(dimsAtScale(r))).map(({ ratio: r, note }) => {
                     const d = dimsAtScale(r);
                     return (
@@ -146,13 +164,55 @@ export function OrderPage() {
                       </option>
                     );
                   })}
-                  {!ratio && (
-                    <option value="custom">
-                      Custom · {mm(dims.height)} × {mm(dims.width)} × {mm(dims.spine)} mm
-                    </option>
-                  )}
+                  <option value="custom">Custom</option>
                 </select>
               </label>
+              {custom && (
+                <div className="row custom-size">
+                  <label>
+                    Height (mm)
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min={PRINTABLE_HEIGHT.min}
+                      max={PRINTABLE_HEIGHT.max}
+                      step={0.1}
+                      value={draft.height}
+                      onChange={(e) => setDraftSize('height', e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Width (mm)
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min={PRINTABLE_WIDTH.min}
+                      max={PRINTABLE_WIDTH.max}
+                      step={0.1}
+                      value={draft.width}
+                      onChange={(e) => setDraftSize('width', e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Spine (mm)
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min={PRINTABLE_SPINE.min}
+                      max={PRINTABLE_SPINE.max}
+                      step={0.1}
+                      value={draft.spine}
+                      onChange={(e) => setDraftSize('spine', e.target.value)}
+                    />
+                  </label>
+                </div>
+              )}
+              {!draftOk && (
+                <p className="error">
+                  Height {PRINTABLE_HEIGHT.min}-{PRINTABLE_HEIGHT.max} mm, width {PRINTABLE_WIDTH.min}-{PRINTABLE_WIDTH.max} mm
+                  and no more than the height, spine {PRINTABLE_SPINE.min}-{PRINTABLE_SPINE.max} mm.
+                </p>
+              )}
               <p className="muted fits">Fits {describeFit(dims)}</p>
               <label className="check">
                 <input
@@ -240,7 +300,7 @@ export function OrderPage() {
                 </label>
               ))}
             </div>
-            <button type="button" className="primary" disabled={!allConfirmed} onClick={() => setStep('pay')}>
+            <button type="button" className="primary" disabled={!allConfirmed || !draftOk} onClick={() => setStep('pay')}>
               Continue to shipping
             </button>
           </div>
