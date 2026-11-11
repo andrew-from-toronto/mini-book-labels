@@ -333,6 +333,12 @@ button {
   color: var(--ink);
 }
 
+/* Form controls keep a built-in minimum width (date boxes especially); without this they overflow narrow columns. */
+input,
+select {
+  min-width: 0;
+}
+
 input[type='number'],
 input[type='date'],
 input[type='url'],
@@ -695,10 +701,8 @@ fieldset.crop {
 
 /*
  * With a mouse, the covers overlap like a fanned deck. Pointing at the strip spreads the fan out a little,
- * and the cover under the pointer (or keyboard focus) lifts to the front, whole; the cover in use stays in
- * front of its neighbours. Cards never move sideways on their own hover: one sliding out from under the
- * pointer would make the hover flicker between neighbours. Touch screens have no hover, so they keep the
- * plain side-by-side strip.
+ * and the cover under the pointer (or keyboard focus) lifts to the front, whole; the cover in use stays
+ * fully out of the stack too. Touch screens have no hover, so they keep the plain side-by-side strip.
  */
 @media (hover: hover) and (pointer: fine) {
   .variant-strip {
@@ -734,6 +738,14 @@ fieldset.crop {
 
   .variant-strip li:has([aria-pressed='true']) {
     z-index: 1;
+  }
+
+  /*
+   * The cover in use, and the one pointed at, come fully out of the stack: the covers after them slide
+   * right. Only the later covers move, never the pointed-at one, so the pointer stays on it.
+   */
+  .variant-strip li:is(:hover, :focus-within, :has([aria-pressed='true'])) + li {
+    margin-left: 6px;
   }
 
   .variant-strip li:is(:hover, :focus-within) {
@@ -957,6 +969,33 @@ fieldset.crop {
     display: none;
   }
 
+  /*
+   * With a book's card open on the Books tab, the preview takes the top of the screen, zoomed to that
+   * book's label, so cover changes and spine nudges can be seen as they are made.
+   */
+  .app.split[data-tab='books'] {
+    grid-template-rows: minmax(0, 45fr) minmax(0, 55fr) auto;
+  }
+
+  .app.split[data-tab='books'] > .preview {
+    display: flex;
+    grid-row: 1;
+    border-bottom: 2px solid var(--accent);
+  }
+
+  .app.split[data-tab='books'] > .books {
+    grid-row: 2;
+  }
+
+  .app.split[data-tab='books'] > .tabs {
+    grid-row: 3;
+  }
+
+  /* The label is already in the preview above, so the open card skips its own large copy. */
+  .app.split[data-tab='books'] .book.active .label.thumb {
+    display: none;
+  }
+
   .books {
     padding: 16px;
   }
@@ -966,12 +1005,23 @@ fieldset.crop {
     display: none;
   }
 
+  /* One row of toolbar, so the label gets the room; tapping and pinching work without being explained. */
+  .preview-bar .bar-hint {
+    display: none;
+  }
+
   .zoom-controls {
     display: flex;
   }
 
   .app.expanded .preview {
     position: static;
+  }
+
+  /* Clear of the notch and rounded corners on phones held sideways. */
+  .app {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
   }
 
   .tabs {
@@ -1028,6 +1078,36 @@ fieldset.crop {
 
   fieldset.crop {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Phones on their side: too short to stack the preview over the card, so they sit side by side. */
+@media screen and (max-width: 1100px) and (orientation: landscape) and (max-height: 560px) {
+  .app.split[data-tab='books'] {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+
+  .app.split[data-tab='books'] > .preview {
+    grid-row: 1;
+    grid-column: 1;
+    border-bottom: none;
+    border-right: 2px solid var(--accent);
+  }
+
+  .app.split[data-tab='books'] > .books {
+    grid-row: 1;
+    grid-column: 2;
+  }
+
+  .app.split[data-tab='books'] > .tabs {
+    grid-row: 2;
+    grid-column: 1 / -1;
+  }
+
+  /* Every row of height counts with the phone on its side. */
+  .tabs button {
+    min-height: 40px;
   }
 }
 

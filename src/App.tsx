@@ -214,7 +214,8 @@ export function App() {
 
   return (
     <div
-      className={expanded ? 'app expanded' : 'app'}
+      // split: on narrow screens, an open book's card shares the screen with the preview of its label.
+      className={['app', expanded && 'expanded', activeId && 'split'].filter(Boolean).join(' ')}
       data-tab={tab}
       style={
         {
@@ -410,7 +411,7 @@ export function App() {
           [
             ['setup', 'Setup', null],
             ['books', 'Books', books.length ? listed.filter((b) => overrides[b.id] !== false).length : null],
-            ['preview', 'Preview', pages.length ? `${pages.length}p` : null],
+            ['preview', 'Preview', null],
           ] as const
         ).map(([key, text, count]) => (
           <button key={key} aria-current={tab === key ? 'page' : undefined} onClick={() => setTab(key)}>

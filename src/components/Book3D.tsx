@@ -106,11 +106,15 @@ class Viewer {
   frame() {
     const box = new THREE.Box3().setFromObject(this.group);
     const centre = box.getCenter(new THREE.Vector3());
-    const size = box.getSize(new THREE.Vector3()).length();
-    const distance = size / (2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)));
+    const radius = box.getSize(new THREE.Vector3()).length() / 2;
+    // Fit the book's bounding sphere to the tighter of the view's height and width, so it fills a tall
+    // phone screen, a short landscape one and a desktop pane alike.
+    const vertical = THREE.MathUtils.degToRad(this.camera.fov);
+    const horizontal = 2 * Math.atan(Math.tan(vertical / 2) * this.camera.aspect);
+    const distance = (radius / Math.sin(Math.min(vertical, horizontal) / 2)) * 1.02;
     this.home = {
       target: centre,
-      position: centre.clone().add(new THREE.Vector3(-0.55, -1, 0.4).normalize().multiplyScalar(distance * 1.15)),
+      position: centre.clone().add(new THREE.Vector3(-0.55, -1, 0.4).normalize().multiplyScalar(distance)),
     };
     this.reset();
   }

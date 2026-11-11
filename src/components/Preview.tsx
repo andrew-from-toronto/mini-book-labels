@@ -97,7 +97,7 @@ export function Preview(props: Props) {
           </button>
         </div>
         {sheetView && activeId && (
-          <span className="muted">
+          <span className="muted bar-hint">
             <span className="hint-mouse">Click</span>
             <span className="hint-touch">Tap</span> the label to {guidesHidden ? 'show' : 'hide'} guides
           </span>
@@ -114,8 +114,8 @@ export function Preview(props: Props) {
             <button onClick={() => zoomBy(1.25)} aria-label="Zoom in">
               +
             </button>
-            <span className="muted hint-mouse">Ctrl + scroll to zoom, drag to pan</span>
-            <span className="muted hint-touch">Pinch to zoom, drag to pan</span>
+            <span className="muted bar-hint hint-mouse">Ctrl + scroll to zoom, drag to pan</span>
+            <span className="muted bar-hint hint-touch">Pinch to zoom, drag to pan</span>
           </span>
         )}
         <button className="expand" onClick={() => onExpanded(!expanded)}>

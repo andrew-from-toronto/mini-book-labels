@@ -44,22 +44,24 @@ export function FiltersPanel({ books, filters, onChange }: Props) {
         />
       </label>
 
+      <label>
+        Year read
+        <select
+          value={year}
+          onChange={(e) => {
+            const y = e.target.value;
+            set(y ? { from: `${y}-01-01`, to: `${y}-12-31` } : { from: '', to: '' });
+          }}
+        >
+          <option value="">Any</option>
+          {years.map((y) => (
+            <option key={y}>{y}</option>
+          ))}
+        </select>
+      </label>
+
+      {/* Two to a row: date boxes need more room than a third of a phone screen. */}
       <div className="row">
-        <label>
-          Year read
-          <select
-            value={year}
-            onChange={(e) => {
-              const y = e.target.value;
-              set(y ? { from: `${y}-01-01`, to: `${y}-12-31` } : { from: '', to: '' });
-            }}
-          >
-            <option value="">Any</option>
-            {years.map((y) => (
-              <option key={y}>{y}</option>
-            ))}
-          </select>
-        </label>
         <label>
           Read from
           <input type="date" value={filters.from} onChange={(e) => set({ from: e.target.value })} />

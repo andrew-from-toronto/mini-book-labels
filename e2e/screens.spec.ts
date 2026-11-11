@@ -40,10 +40,25 @@ test('screens', async ({ page }) => {
   await settle(page);
   await shot(page, '02-sample-books');
 
+  await openTab(page, 'Setup');
+  await page.getByRole('heading', { name: '2. Filters' }).scrollIntoViewIfNeeded();
+  await page.getByRole('heading', { name: '2. Filters' }).evaluate((h) => h.scrollIntoView({ block: 'start' }));
+  await shot(page, '02b-filters');
+  await openTab(page, 'Books');
+
   await page.locator('.book-head').first().click();
   await expect(page.locator('.cover-edit')).toBeVisible();
   await settle(page);
   await shot(page, '03-book-open');
+
+  // The edition covers: pick one, then point at another, to see both un-stacked.
+  const variants = page.locator('.variant-strip li');
+  await expect(variants.first()).toBeVisible({ timeout: 15_000 });
+  await variants.nth(2).locator('button').click();
+  await settle(page, 1500);
+  await variants.nth(5).hover();
+  await page.waitForTimeout(400);
+  await page.locator('.variants').screenshot({ path: `screens/${test.info().project.name}-03b-variants.png` });
 
   await openTab(page, 'Preview');
   await settle(page, 1000);

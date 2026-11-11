@@ -23,6 +23,9 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 820, height: 1180 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 },
     },
     { name: 'phone', use: { ...devices['Pixel 7'] } },
+    { name: 'landscape', use: { ...devices['Pixel 7 landscape'] } },
+    // A desktop browser shrunk to phone width: mouse and hover, but the phone layout.
+    { name: 'narrow', use: { ...devices['Desktop Chrome'], viewport: { width: 400, height: 860 } } },
   ],
   webServer: {
     command: 'pnpm dev --port 5199 --strictPort',
