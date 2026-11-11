@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { buildBookParts, type PartName } from '../lib/bookModel';
+import { CSS2DObject, CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
+import { buildBookParts, hookGeometry, type PartName } from '../lib/bookModel';
 import { partGeometry } from '../lib/bookUv';
 import type { CoverResult } from '../lib/covers';
 import { defaultWrapSpine } from '../lib/layout';
 import { drawLabel } from '../lib/render';
-import type { Book, CustomCover, Settings } from '../lib/types';
+import type { Book, CustomCover, ModelOptions, Settings } from '../lib/types';
 
 interface Props {
   /** The book whose label is wrapped on; a blank cover without one. */
@@ -16,7 +17,17 @@ interface Props {
   settings: Settings;
   /** Show the book as printed, all in this filament colour and with no label: the blank as it arrives. */
   filament?: string;
+  /** Draw the height, width and spine thickness on the book, in mm. */
+  measures?: boolean;
 }
+
+interface Measured {
+  height: number;
+  width: number;
+  spine: number;
+}
+
+const mm = (v: number) => `${Number(v.toFixed(1))} mm`;
 
 /** Most pixels across the label texture; GPUs take 2048 everywhere. */
 const MAX_TEXTURE = 2048;
@@ -31,6 +42,9 @@ class Viewer {
   readonly camera = new THREE.PerspectiveCamera(30, 1, 0.1, 2000);
   readonly controls: OrbitControls;
   private readonly group = new THREE.Group();
+  /** Dimension lines and their labels, drawn over the book. */
+  private readonly measures = new THREE.Group();
+  private readonly labels: CSS2DRenderer;
   private readonly observer: ResizeObserver;
   private readonly materials = {
     label: new THREE.MeshStandardMaterial({ color: PLASTIC, roughness: 0.55 }),
@@ -54,10 +68,15 @@ class Viewer {
     host.appendChild(canvas);
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // Measurement labels are HTML laid over the canvas, so they stay sharp and the same size at any zoom.
+    this.labels = new CSS2DRenderer();
+    this.labels.domElement.className = 'book3d-labels';
+    host.appendChild(this.labels.domElement);
 
     // The book is modelled z-up, as for printing.
     this.camera.up.set(0, 0, 1);
     this.scene.add(this.group);
+    this.scene.add(this.measures);
     this.scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8478, 2.2));
     const key = new THREE.DirectionalLight(0xffffff, 1.6);
     key.position.set(-1, -2, 2.5);
@@ -75,6 +94,7 @@ class Viewer {
     const { clientWidth: w, clientHeight: h } = this.host;
     if (!w || !h) return;
     this.renderer.setSize(w, h);
+    this.labels.setSize(w, h);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.render();
@@ -91,6 +111,7 @@ class Viewer {
     this.frame_ = requestAnimationFrame(() => {
       this.frame_ = null;
       this.renderer.render(this.scene, this.camera);
+      this.labels.render(this.scene, this.camera);
     });
   }
 
@@ -119,7 +140,8 @@ class Viewer {
 
   /** Looks at the front cover and spine from slightly above, with the whole book in view. */
   frame() {
-    const box = new THREE.Box3().setFromObject(this.group);
+    // The measurements too, when shown, so their labels are not cut off at the edges.
+    const box = new THREE.Box3().setFromObject(this.group).union(new THREE.Box3().setFromObject(this.measures));
     const centre = box.getCenter(new THREE.Vector3());
     const radius = box.getSize(new THREE.Vector3()).length() / 2;
     // Fit the book's bounding sphere to the tighter of the view's height and width, so it fills a tall
@@ -140,6 +162,78 @@ class Viewer {
     this.controls.update();
     this.render();
   }
+
+  /**
+   * Dimension lines for the book's body (not the hook), as on a drawing: height up the fore-edge of the
+   * front cover, width along its foot, thickness along the foot of the spine. The model stands with x
+   * across the cover from the spine, y through the book from the front cover and z up.
+   */
+  setMeasures(dims: Measured | null, model?: ModelOptions) {
+    for (const child of [...this.measures.children]) {
+      this.measures.remove(child);
+      if (child instanceof THREE.LineSegments) child.geometry.dispose();
+      if (child instanceof CSS2DObject) child.element.remove();
+    }
+    if (dims) {
+      const { height: H, width: W, spine: S } = dims;
+      const gap = Math.max(1.2, H * 0.06);
+      const tick = gap * 0.35;
+      const v = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
+      const segments: THREE.Vector3[] = [];
+      /** A dimension from a to b, with end ticks along `across`, and its label at the middle. */
+      const dimension = (a: THREE.Vector3, b: THREE.Vector3, across: THREE.Vector3, text: string) => {
+        const t = across.clone().multiplyScalar(tick);
+        segments.push(a, b, a.clone().sub(t), a.clone().add(t), b.clone().sub(t), b.clone().add(t));
+        const label = document.createElement('span');
+        label.className = 'book3d-measure';
+        label.textContent = text;
+        const object = new CSS2DObject(label);
+        object.position.copy(a.clone().add(b).multiplyScalar(0.5));
+        this.measures.add(object);
+      };
+      // Height, beside the fore-edge; width and thickness, below the foot. Leader lines join them to the book.
+      dimension(v(W + gap, 0, 0), v(W + gap, 0, H), v(1, 0, 0), mm(H));
+      segments.push(v(W, 0, 0), v(W + gap + tick, 0, 0), v(W, 0, H), v(W + gap + tick, 0, H));
+      dimension(v(0, 0, -gap), v(W, 0, -gap), v(0, 0, 1), mm(W));
+      segments.push(v(0, 0, 0), v(0, 0, -gap - tick), v(W, 0, 0), v(W, 0, -gap - tick));
+      dimension(v(-gap, 0, -gap), v(-gap, S, -gap), v(1, 0, 0), mm(S));
+      segments.push(v(0, 0, 0), v(-gap, 0, -gap), v(0, S, 0), v(-gap, S, -gap));
+      if (model?.hook) {
+        // The hole's diameter, across it on the hook's outer face, labelled above with a leader line, so
+        // buyers can check their ornament hooks or ribbon will pass through.
+        const h = hookGeometry(dims, model.hookPosition, 0);
+        const y = model.hookSide === 'back' ? S : 0;
+        const a = v(h.x - h.hole, y, h.z);
+        const b = v(h.x + h.hole, y, h.z);
+        const t = new THREE.Vector3(0, 0, Math.min(tick, h.hole));
+        segments.push(a, b, a.clone().sub(t), a.clone().add(t), b.clone().sub(t), b.clone().add(t));
+        const top = v(h.x, y, h.z + h.r + gap);
+        segments.push(v(h.x, y, h.z), top);
+        const label = document.createElement('span');
+        label.className = 'book3d-measure';
+        label.textContent = `${mm(2 * h.hole)} hole`;
+        const object = new CSS2DObject(label);
+        object.position.copy(top);
+        // Sits above the end of its leader rather than centred on it.
+        object.center.set(0.5, 1);
+        this.measures.add(object);
+      }
+      const lines = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(segments), this.measureMaterial);
+      // Drawn over the book, so they stay readable from any angle.
+      lines.renderOrder = 1;
+      this.measures.add(lines);
+    }
+    this.updateMeasureColour();
+  }
+
+  /** Lines in the page's --measure colour, which follows the theme and the preview's backdrop. */
+  updateMeasureColour() {
+    // The host's text colour is --measure, resolved by the browser (light-dark() included).
+    this.measureMaterial.color.set(getComputedStyle(this.host).color);
+    this.render();
+  }
+
+  private readonly measureMaterial = new THREE.LineBasicMaterial({ color: 0x8a4b2a, depthTest: false });
 
   /** Every surface in one filament colour, or back to the usual plastic and paper. */
   setFilament(colour: string | null) {
@@ -175,13 +269,16 @@ class Viewer {
     for (const child of this.group.children) (child as THREE.Mesh).geometry.dispose();
     this.materials.label.map?.dispose();
     for (const m of Object.values(this.materials)) m.dispose();
+    this.setMeasures(null);
+    this.measureMaterial.dispose();
+    this.labels.domElement.remove();
     this.renderer.dispose();
     this.renderer.domElement.remove();
   }
 }
 
 /** The printable book with the label wrapped on, to turn around and look at before printing. */
-export default function Book3D({ book, cover, custom, settings, filament }: Props) {
+export default function Book3D({ book, cover, custom, settings, filament, measures }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const viewer = useRef<Viewer | null>(null);
   const [state, setState] = useState<'building' | 'ready' | 'failed'>('building');
@@ -208,6 +305,7 @@ export default function Book3D({ book, cover, custom, settings, filament }: Prop
     buildBookParts(dims, model)
       .then((parts) => {
         if (!current || !viewer.current) return;
+        viewer.current.setMeasures(measures ? dims : null, model);
         viewer.current.setParts(new Map([...parts].map(([name, mesh]) => [name, partGeometry(name, mesh, dims)])));
         setState('ready');
       })
@@ -215,7 +313,7 @@ export default function Book3D({ book, cover, custom, settings, filament }: Prop
     return () => {
       current = false;
     };
-  }, [height, width, spine, model]);
+  }, [height, width, spine, model, measures]);
 
   const wrap = cover?.source === 'wrap' ? (custom?.spine ?? cover.detectedSpine ?? defaultWrapSpine(settings)) : undefined;
   const crop = custom?.crop ?? cover?.detectedCrop;
@@ -226,6 +324,7 @@ export default function Book3D({ book, cover, custom, settings, filament }: Prop
     if (!viewer.current) return;
     if (filament) {
       viewer.current.setFilament(filament);
+      viewer.current.updateMeasureColour();
       return;
     }
     viewer.current.setFilament(null);

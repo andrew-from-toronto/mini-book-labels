@@ -6,6 +6,8 @@
   --muted: light-dark(#6f685e, #a39b8f);
   --line: light-dark(#ddd6ca, #3b3833);
   --accent: light-dark(#8a4b2a, #e0a27c);
+  /* Measurements on the 3D view. */
+  --measure: var(--accent);
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
   font-size: 15px;
   line-height: 1.45;
@@ -178,10 +180,31 @@ body {
 
 .book3d-canvas {
   position: relative;
+  /* Read by the viewer for its measurement lines. */
+  color: var(--measure);
   flex: 1;
   min-height: 0;
   /* The orbit controls handle every touch gesture on the canvas. */
   touch-action: none;
+}
+
+/* Measurement labels, laid over the 3D view by three.js; the view keeps every pointer event. */
+.book3d-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.book3d-measure {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--measure);
+  box-shadow: 0 0 0 1px var(--measure);
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .book3d-canvas canvas {
@@ -602,6 +625,11 @@ a.button.primary {
 
 .order-preview.on-light {
   background: #e4dfd6;
+  --measure: #8a4b2a;
+}
+
+.order-preview.on-light .book3d-measure {
+  background: #fffdf9;
 }
 
 .order-details {
