@@ -1,8 +1,13 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { BookList } from './components/BookList';
 import { FiltersPanel } from './components/FiltersPanel';
+import { ModelPanel } from './components/ModelPanel';
+import { DEFAULT_MODEL_OPTIONS } from './lib/bookModel';
 import { SettingsPanel } from './components/SettingsPanel';
-import { Preview } from './components/Preview';
+import { Preview, type PreviewView } from './components/Preview';
+
+// three.js is large, so the 3D view loads only when it is first opened.
+const Book3D = lazy(() => import('./components/Book3D'));
 import { lookupIsbn } from './lib/covers';
 import { parseIsbn, parseLibraryCsv } from './lib/csv';
 import { applyFilters, selectBooks } from './lib/filter';
@@ -26,6 +31,7 @@ const DEFAULT_SETTINGS: Settings = {
   gap: 2,
   guideOpacity: 1,
   guideWidth: 0.15,
+  model: DEFAULT_MODEL_OPTIONS,
 };
 
 /** On narrow screens one pane shows at a time, picked from a bar along the bottom. */
@@ -62,7 +68,12 @@ export function App() {
   const [books, setBooks] = useState<Book[]>(saved.books ?? []);
   const [error, setError] = useState('');
   const [filters, setFilters] = useState<Filters>({ ...DEFAULT_FILTERS, ...saved.filters });
-  const [settings, setSettings] = useState<Settings>({ ...DEFAULT_SETTINGS, ...saved.settings });
+  // Model options are merged too, so sessions saved before a new option was added still get it.
+  const [settings, setSettings] = useState<Settings>({
+    ...DEFAULT_SETTINGS,
+    ...saved.settings,
+    model: { ...DEFAULT_SETTINGS.model, ...saved.settings?.model },
+  });
   const [overrides, setOverrides] = useState<Record<string, boolean>>(saved.overrides ?? {});
   const [customCovers, setCustomCovers] = useState<Record<string, CustomCover>>(saved.customCovers ?? {});
 
@@ -79,6 +90,7 @@ export function App() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [tab, setTab] = useState<Tab>('setup');
+  const [view, setView] = useState<PreviewView>('sheet');
 
   const { listed, selected } = useMemo(
     () => selectBooks(books, applyFilters(books, filters), overrides),
@@ -87,6 +99,8 @@ export function App() {
   const coverOf = useCovers(listed, customCovers);
   const grid = gridFor(settings);
   const pages = paginate(selected, grid.perPage);
+  /** The 3D view shows the book being edited, or else the first on the sheet. */
+  const book3d = selected.find((b) => b.id === activeId) ?? listed.find((b) => b.id === activeId) ?? selected[0];
 
   /** Replaces the library (a real export or a sample), keeping only books added by ISBN. */
   function replaceLibrary(next: Book[]) {
@@ -270,6 +284,19 @@ export function App() {
                 Print sheet
               </button>
             </section>
+
+            <section>
+              <h2>5. 3D model</h2>
+              <ModelPanel
+                dims={{ height: settings.height, width: settings.width, spine: settings.spine }}
+                options={settings.model}
+                onChange={(model) => setSettings((s) => ({ ...s, model }))}
+                onShow3d={(openTab) => {
+                  setView('3d');
+                  if (openTab) setTab('preview');
+                }}
+              />
+            </section>
           </>
         )}
 
@@ -329,6 +356,20 @@ export function App() {
         expanded={expanded}
         onExpanded={setExpanded}
         layoutKey={layoutKey}
+        view={view}
+        onView={setView}
+        book3d={
+          view === '3d' && (
+            <Suspense fallback={<p className="empty muted">Loading the 3D view...</p>}>
+              <Book3D
+                book={book3d}
+                cover={book3d && coverOf(book3d)}
+                custom={book3d && customCovers[book3d.id]}
+                settings={settings}
+              />
+            </Suspense>
+          )
+        }
       />
 
       <nav className="tabs" aria-label="Sections">

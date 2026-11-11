@@ -143,6 +143,83 @@ body {
   cursor: grabbing;
 }
 
+.view-toggle {
+  display: flex;
+}
+
+.view-toggle button {
+  border-radius: 0;
+  font-size: 0.85rem;
+}
+
+.view-toggle button:first-child {
+  border-radius: 6px 0 0 6px;
+}
+
+.view-toggle button:last-child {
+  margin-left: -1px;
+  border-radius: 0 6px 6px 0;
+}
+
+.view-toggle button[aria-pressed='true'] {
+  position: relative;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: light-dark(#fff, #1b1a18);
+}
+
+.book3d {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.book3d-canvas {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  /* The orbit controls handle every touch gesture on the canvas. */
+  touch-action: none;
+}
+
+.book3d-canvas canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.book3d-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+  font-size: 0.85rem;
+}
+
+.book3d-bar .muted {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.row > button.grow {
+  flex: 1;
+}
+
+/* The sheet stays laid out while the 3D view shows, so printing still works from either view. */
+@media screen {
+  .viewport.off-screen {
+    display: none;
+  }
+}
+
 h1 {
   margin: 0 0 4px;
   font-size: 1.5rem;
@@ -898,6 +975,7 @@ fieldset.crop {
   .handle,
   .preview-bar,
   .tabs,
+  .book3d,
   .guides {
     display: none;
   }

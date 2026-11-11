@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { CoverResult } from '../lib/covers';
 import { labelWidth, PAPER } from '../lib/layout';
 import type { Book, CustomCover, Settings } from '../lib/types';
@@ -21,10 +21,17 @@ interface Props {
   onExpanded: (expanded: boolean) => void;
   /** Changes whenever labels move on the sheet, so the framing is redone. */
   layoutKey: string;
+  view: PreviewView;
+  onView: (view: PreviewView) => void;
+  /** The 3D book, shown instead of the sheet in the 3D view. */
+  book3d: ReactNode;
 }
 
+export type PreviewView = 'sheet' | '3d';
+
 export function Preview(props: Props) {
-  const { pages, settings, activeId, expanded, onExpanded, layoutKey } = props;
+  const { pages, settings, activeId, expanded, onExpanded, layoutKey, view, onView } = props;
+  const sheetView = view === 'sheet';
   const viewport = useRef<HTMLDivElement>(null);
   const { zoom, zoomBy, frame } = useZoom(viewport);
   const framed = useRef({ activeId: null as string | null, expanded: false });
@@ -81,9 +88,18 @@ export function Preview(props: Props) {
   return (
     <aside className="preview">
       <div className="preview-bar">
-        <strong>Print preview</strong>
-        {activeId && <span className="muted">Click the label to {guidesHidden ? 'show' : 'hide'} guides</span>}
-        {pages.length > 0 && (
+        <div className="view-toggle" role="group" aria-label="Preview">
+          <button aria-pressed={sheetView} onClick={() => onView('sheet')}>
+            Print sheet
+          </button>
+          <button aria-pressed={!sheetView} onClick={() => onView('3d')}>
+            3D book
+          </button>
+        </div>
+        {sheetView && activeId && (
+          <span className="muted">Click the label to {guidesHidden ? 'show' : 'hide'} guides</span>
+        )}
+        {sheetView && pages.length > 0 && (
           // Always shown on narrow screens, where the preview has its own tab; only when expanded otherwise.
           <span className={expanded ? 'zoom-controls shown' : 'zoom-controls'}>
             <button onClick={() => zoomBy(1 / 1.25)} aria-label="Zoom out">
@@ -103,7 +119,9 @@ export function Preview(props: Props) {
           {expanded ? 'Collapse' : 'Expand'}
         </button>
       </div>
-      <div className="viewport" ref={viewport}>
+      {!sheetView && props.book3d}
+      {/* Kept mounted (hidden) in the 3D view so zoom and panning stay wired up, and so the sheet still prints. */}
+      <div className={sheetView ? 'viewport' : 'viewport off-screen'} ref={viewport}>
         {pages.length > 0 ? (
           <Sheet
             pages={pages}

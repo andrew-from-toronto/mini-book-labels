@@ -46,6 +46,16 @@ export interface Filters {
 }
 
 export type LabelStyle = 'edge' | 'blur';
+
+export type HookPosition = 'center' | 'spine' | 'fore-edge';
+
+/** Settings for the 3D printable book. */
+export interface ModelOptions {
+  hook: boolean;
+  hookPosition: HookPosition;
+  /** A slight outward bow on the spine. Flat prints best. */
+  roundSpine: boolean;
+}
 export type PaperKey = 'letter' | 'a4';
 
 export interface Settings {
@@ -60,4 +70,5 @@ export interface Settings {
   guideOpacity: number;
   /** Thickness in mm of the alignment guide lines, which are centred on the folds. */
   guideWidth: number;
+  model: ModelOptions;
 }

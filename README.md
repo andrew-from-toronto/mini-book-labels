@@ -22,6 +22,15 @@ Pasted image links that the browser is not allowed to read (Pinterest, for examp
 
 Neither StoryGraph nor Goodreads has a public API for this, which is why the app uses the CSV exports.
 
+## 3D model
+
+Section 5 of the app offers a free STL of a hardcover mini book sized to your label, built in your browser with [Manifold](https://github.com/elalish/manifold), and the preview's 3D view shows it with the label wrapped on. Options:
+
+- **Ornament hook:** centred, or at the spine or fore-edge corner of the top. Its 1.6 mm hole stays the same size at every scale.
+- **Spine:** flat, which prints best, or slightly rounded.
+
+The page edges have grooves so they read as pages. The model prints lying on its front cover with no supports: the page lines then follow the print layers, the back cover's overhang has a 45 degree bevel under it, and the hook sits flush with the front cover.
+
 ## Development
 
 ```
