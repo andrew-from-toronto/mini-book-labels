@@ -330,6 +330,14 @@ button.link {
   display: none;
 }
 
+.sample-line {
+  margin-top: 8px;
+}
+
+.sample-line button.link {
+  font-size: inherit;
+}
+
 .booklist ul {
   margin: 0;
   padding: 0;

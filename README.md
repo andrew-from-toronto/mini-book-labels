@@ -7,7 +7,7 @@ Live app: https://andrew-from-toronto.github.io/mini-book-labels/
 ## How it works
 
 1. Export your library as a CSV. On StoryGraph: Manage Account, then Export StoryGraph Library. On Goodreads: My Books, then Import and export, then Export Library.
-2. Drop the CSV into the app; it works out which site it came from. It is parsed in your browser and never uploaded anywhere. You can also add any book by ISBN, with or without a CSV.
+2. Drop the CSV into the app (or press "Try a sample" to load a random handful of popular books and see how it works); it works out which site it came from. It is parsed in your browser and never uploaded anywhere. You can also add any book by ISBN, with or without a CSV.
 3. Filter by read status, star rating and date read, pick how many books you want, and tick or untick individual books.
 4. Pick a scale (1:4 to 1:24, based on a 210 x 140 x 35 mm paperback) or set your own label size in millimetres, and pick a spine/back style. Click any book to edit its cover; the print preview zooms to that label, and Expand opens the full preview.
 5. Print at 100% scale. Each page has a 50 mm ruler so you can check the scale before cutting.

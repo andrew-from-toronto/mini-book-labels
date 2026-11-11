@@ -6,6 +6,7 @@ import { Preview } from './components/Preview';
 import { lookupIsbn } from './lib/covers';
 import { parseIsbn, parseLibraryCsv } from './lib/csv';
 import { applyFilters, selectBooks } from './lib/filter';
+import { isSample, sampleLibrary } from './lib/sample';
 import { defaultWrapSpine, gridFor, paginate } from './lib/layout';
 import { loadState, saveState, type Panes } from './lib/storage';
 import type { Book, CustomCover, Filters, Settings } from './lib/types';
@@ -87,23 +88,40 @@ export function App() {
   const grid = gridFor(settings);
   const pages = paginate(selected, grid.perPage);
 
+  /** Replaces the library (a real export or a sample), keeping only books added by ISBN. */
+  function replaceLibrary(next: Book[]) {
+    const added = books.filter((b) => b.status === ADDED);
+    const keep = new Set(added.map((b) => b.id));
+    setBooks([...next, ...added]);
+    setActiveId(null);
+    setOverrides(Object.fromEntries(added.map((b) => [b.id, true])));
+    setCustomCovers((c) => Object.fromEntries(Object.entries(c).filter(([id]) => keep.has(id))));
+    setError(next.length ? '' : 'That file has no books in it.');
+    // On a phone, go straight to the books that were just loaded.
+    if (next.length) setTab('books');
+  }
+
   async function loadFile(file: File | undefined) {
     if (!file) return;
     try {
-      const { books: parsed } = parseLibraryCsv(await file.text());
-      const added = books.filter((b) => b.status === ADDED);
-      const keep = new Set(added.map((b) => b.id));
-      setBooks([...parsed, ...added]);
-      setActiveId(null);
-      setOverrides(Object.fromEntries(added.map((b) => [b.id, true])));
-      setCustomCovers((c) => Object.fromEntries(Object.entries(c).filter(([id]) => keep.has(id))));
-      setError(parsed.length ? '' : 'That file has no books in it.');
-      // On a phone, go straight to the books that were just loaded.
-      if (parsed.length) setTab('books');
+      replaceLibrary(parseLibraryCsv(await file.text()).books);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
   }
+
+  /**
+   * Loads a sample that fills one page at the current label size (28 at 1:7 on Letter), with the
+   * filters reset so every read book makes the sheet.
+   */
+  function loadSample() {
+    const perPage = grid.perPage || gridFor(DEFAULT_SETTINGS).perPage;
+    replaceLibrary(sampleLibrary(perPage));
+    setFilters({ ...DEFAULT_FILTERS, count: Math.max(DEFAULT_FILTERS.count, perPage) });
+  }
+
+  const libraryBooks = books.filter((b) => b.status !== ADDED);
+  const sampleLoaded = isSample(libraryBooks);
 
   function startOver() {
     if (!window.confirm('Remove all books, covers and settings from this browser?')) return;
@@ -184,8 +202,18 @@ export function App() {
             }}
           >
             <input type="file" accept=".csv,text/csv" onChange={(e) => void loadFile(e.target.files?.[0])} />
-            {books.length ? `${books.length} books loaded. Choose another file to replace.` : 'Choose or drop a CSV'}
+            {sampleLoaded
+              ? `${libraryBooks.length} sample books loaded. Choose your own CSV to replace them.`
+              : books.length
+                ? `${books.length} books loaded. Choose another file to replace.`
+                : 'Choose or drop a CSV'}
           </label>
+          <p className="muted sample-line">
+            {sampleLoaded ? 'These are sample books. ' : 'No export to hand? '}
+            <button className="link" onClick={() => loadSample()}>
+              {sampleLoaded ? 'Try a different sample' : 'Try a sample of popular books'}
+            </button>
+          </p>
           <form
             className="row add-isbn"
             onSubmit={(e) => {
@@ -276,7 +304,10 @@ export function App() {
             }
           />
         ) : (
-          <p className="empty muted">Load your StoryGraph or Goodreads export or add a book by ISBN to start.</p>
+          <div className="empty muted">
+            <p>Load your StoryGraph or Goodreads export or add a book by ISBN to start.</p>
+            <button onClick={() => loadSample()}>Or try a sample of popular books</button>
+          </div>
         )}
       </main>
 
