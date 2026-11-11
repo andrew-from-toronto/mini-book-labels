@@ -6,7 +6,7 @@
 import type { Dims } from './scales';
 
 /** Set to true once Stripe Checkout is live. */
-export const SHOP_OPEN = false;
+export const SHOP_OPEN = true;
 
 /** Sizes we print to order, by height in mm: from 1:24 up to a little past 1:4. */
 export const PRINTABLE_HEIGHT = { min: 8, max: 60 };

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { decodeOrder, encodeOrder, type Order } from './orderCode';
 import { dimsAtScale } from './scales';
-import { printable, shopVisible } from './shop';
+import { printable, SHOP_OPEN, shopVisible } from './shop';
 
 const order: Order = {
   dims: dimsAtScale(7),
@@ -76,10 +76,10 @@ describe('shop', () => {
     expect(printable({ height: 5, width: 3, spine: 1 })).toBe(false);
   });
 
-  it('stays hidden until open, except when previewed', () => {
-    expect(shopVisible('')).toBe(false);
+  it('shows when open, and before then only when previewed', () => {
+    expect(shopVisible('')).toBe(SHOP_OPEN);
     expect(shopVisible('?shop=preview')).toBe(true);
-    expect(shopVisible('?shop=other')).toBe(false);
+    expect(shopVisible('?shop=other')).toBe(SHOP_OPEN);
   });
 });
 
