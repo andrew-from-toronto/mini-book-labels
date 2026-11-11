@@ -7,7 +7,9 @@ import { Preview, type PreviewView } from './components/Preview';
 import { SettingsPanel } from './components/SettingsPanel';
 // Only the defaults: the geometry library itself loads when a model is first built.
 import { DEFAULT_MODEL_OPTIONS } from './lib/bookModel';
+import { backupFileName, makeBackup, parseBackup } from './lib/backup';
 import { parseLibraryCsv } from './lib/csv';
+import { saveFile } from './lib/download';
 import { applyFilters, selectBooks } from './lib/filter';
 import { defaultWrapSpine, gridFor, paginate } from './lib/layout';
 import { isSample, sampleLibrary } from './lib/sample';
@@ -37,6 +39,16 @@ const DEFAULT_SETTINGS: Settings = {
 
 /** On narrow screens one pane shows at a time, picked from a bar along the bottom. */
 type Tab = 'setup' | 'books' | 'preview';
+
+/**
+ * Saved settings over the defaults. Model options are merged too, so sessions and backups made before
+ * a new option was added still get it.
+ */
+const withDefaults = (saved: Partial<Settings> | undefined): Settings => ({
+  ...DEFAULT_SETTINGS,
+  ...saved,
+  model: { ...DEFAULT_SETTINGS.model, ...saved?.model },
+});
 
 const clamp = (v: number, min: number, max: number) => Math.round(Math.min(max, Math.max(min, v)));
 
@@ -69,12 +81,7 @@ export function App() {
   const [books, setBooks] = useState<Book[]>(saved.books ?? []);
   const [error, setError] = useState('');
   const [filters, setFilters] = useState<Filters>({ ...DEFAULT_FILTERS, ...saved.filters });
-  // Model options are merged too, so sessions saved before a new option was added still get it.
-  const [settings, setSettings] = useState<Settings>({
-    ...DEFAULT_SETTINGS,
-    ...saved.settings,
-    model: { ...DEFAULT_SETTINGS.model, ...saved.settings?.model },
-  });
+  const [settings, setSettings] = useState<Settings>(() => withDefaults(saved.settings));
   const [overrides, setOverrides] = useState<Record<string, boolean>>(saved.overrides ?? {});
   const [customCovers, setCustomCovers] = useState<Record<string, CustomCover>>(saved.customCovers ?? {});
 
@@ -135,6 +142,35 @@ export function App() {
 
   const libraryBooks = books.filter((b) => b.status !== ADDED);
   const sampleLoaded = isSample(libraryBooks);
+
+  function backUp() {
+    saveFile(makeBackup({ books, filters, settings, overrides, customCovers, panes }), backupFileName(), 'application/json');
+  }
+
+  async function restore(file: File | undefined) {
+    if (!file) return;
+    try {
+      const backup = parseBackup(await file.text());
+      const count = backup.books?.length ?? 0;
+      if (
+        books.length > 0 &&
+        !window.confirm(`Replace your current books, covers and settings with this backup of ${count} books?`)
+      ) {
+        return;
+      }
+      setBooks(backup.books ?? []);
+      setFilters({ ...DEFAULT_FILTERS, ...backup.filters });
+      setSettings(withDefaults(backup.settings));
+      setOverrides(backup.overrides ?? {});
+      setCustomCovers(backup.customCovers ?? {});
+      setPanes(backup.panes ?? {});
+      setActiveId(null);
+      setError('');
+      if (count) setTab('books');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
 
   function startOver() {
     if (!window.confirm('Remove all books, covers and settings from this browser?')) return;
@@ -222,14 +258,37 @@ export function App() {
           </p>
           <BookSearch onAdd={addBook} onError={setError} />
           {error && <p className="error">{error}</p>}
-          {books.length > 0 && (
-            <p className="muted">
-              Your work is saved in this browser.{' '}
-              <button className="link" onClick={startOver}>
-                Start over
-              </button>
-            </p>
-          )}
+          <p className="muted library-actions">
+            {books.length > 0 && (
+              <>
+                Your work is saved in this browser.{' '}
+                <button className="link" onClick={backUp} title="Save your books, covers and settings to a file">
+                  Back up
+                </button>
+                {' · '}
+              </>
+            )}
+            <label className="link-button" title="Load books, covers and settings from a backup file">
+              <input
+                type="file"
+                accept=".json,application/json"
+                onChange={(e) => {
+                  void restore(e.target.files?.[0]);
+                  // Cleared so choosing the same file again still restores it.
+                  e.target.value = '';
+                }}
+              />
+              {books.length > 0 ? 'Restore' : 'Restore a backup'}
+            </label>
+            {books.length > 0 && (
+              <>
+                {' · '}
+                <button className="link" onClick={startOver}>
+                  Start over
+                </button>
+              </>
+            )}
+          </p>
         </section>
 
         {books.length > 0 && (

@@ -12,7 +12,7 @@ Live app: https://andrew-from-toronto.github.io/mini-book-labels/
 4. Pick a scale (1:4 to 1:24, based on a 210 x 140 x 35 mm paperback) or set your own label size in millimetres, and pick a spine/back style. Click any book to edit its cover; the print preview zooms to that label, and Expand opens the full preview.
 5. Print at 100% scale. Each page has a 50 mm ruler so you can check the scale before cutting.
 
-Your library, selections, covers and settings are saved in your browser's local storage, so a refresh or restart picks up where you left off. "Start over" clears it.
+Your library, selections, covers and settings are saved in your browser's local storage, so a refresh or restart picks up where you left off. "Back up" saves all of it, uploaded images included, to a file that "Restore" loads again, in this browser or another. "Start over" clears it.
 
 Front covers come from [Open Library Covers](https://openlibrary.org/dev/docs/api/covers), looked up by ISBN and then by title and author. Books with no cover get a generated typographic one. Opening a book shows the covers of its other editions on Open Library to pick from instead, and any cover can be replaced with your own image. The spine and back are generated from the front cover.
 

@@ -411,6 +411,29 @@ button.link {
   margin-top: 8px;
 }
 
+/* A file picker dressed as a link, for Restore. */
+.link-button {
+  position: relative;
+  display: inline;
+  color: var(--accent);
+  font-size: 0.8rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Hidden from sight but not from the keyboard, so Tab reaches it and Enter opens the file picker. */
+.link-button input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.link-button:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .sample-line button.link {
   font-size: inherit;
 }
