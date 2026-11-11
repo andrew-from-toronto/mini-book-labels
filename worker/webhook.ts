@@ -77,7 +77,8 @@ export async function handleWebhook(
   request: Request,
   env: WebhookEnv,
   stripe: Pick<Stripe, 'webhooks'>,
-  onPaid?: (order: OrderRecord) => Promise<void>,
+  /** After a paid order is saved: the order emails. A throw makes the webhook fail, so Stripe retries. */
+  onPaid?: (order: OrderRecord, session: Stripe.Checkout.Session) => Promise<void>,
 ): Promise<Response> {
   if (request.method !== 'POST') return json(405, { error: 'Method not allowed.' });
   const signature = request.headers.get('Stripe-Signature');
@@ -106,7 +107,12 @@ export async function handleWebhook(
       const order = orderFromSession(session, 'paid');
       if (!order) break;
       await saveOrder(env.ORDERS, order);
-      await onPaid?.(order);
+      try {
+        await onPaid?.(order, session);
+      } catch (e) {
+        console.error('after-payment step failed; Stripe will retry', e instanceof Error ? e.message : e);
+        return json(500, { error: 'Try again.' });
+      }
       break;
     }
     case 'checkout.session.async_payment_failed': {

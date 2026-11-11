@@ -21,3 +21,15 @@ SHIP_FROM_CITY=
 SHIP_FROM_PROVINCE=
 SHIP_FROM_POSTAL_CODE=
 SHIP_FROM_COUNTRY=CA
+
+# Mailgun, for order emails. Without these, orders are still recorded but no emails go out.
+# API key: Mailgun > Account settings > API security. Domain: the sending domain set up in Mailgun.
+MAILGUN_API_KEY=
+MAILGUN_DOMAIN=
+# Only for an EU Mailgun account: https://api.eu.mailgun.net
+MAILGUN_BASE_URL=
+MAIL_FROM="Mini Book Ornaments <orders@minibookornaments.com>"
+# Where buyers' replies go (optional; MAIL_FROM otherwise).
+MAIL_REPLY_TO=
+# Where new-order notices go.
+ORDER_NOTIFY_TO=

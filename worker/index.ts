@@ -7,11 +7,13 @@ import { handleCheckout, handleShipping } from './checkout';
 import type { ChitChatsEnv } from './chitchats';
 import { handleImage } from './imageProxy';
 import { handleOpenLibrary } from './openLibrary';
+import type { MailEnv } from './mail';
+import { emailOrder, orderDetails } from './orderEmails';
 import type { ShipFromEnv } from './shipFrom';
 import { handleWebhook } from './webhook';
 
 /** Secrets and bindings: .dev.vars locally, Worker secrets and wrangler.jsonc in production. */
-export interface Env extends ChitChatsEnv, ShipFromEnv {
+export interface Env extends ChitChatsEnv, ShipFromEnv, MailEnv {
   STRIPE_API_KEY: string;
   STRIPE_PUBLISHABLE_KEY: string;
   STRIPE_WEBHOOK_SECRET: string;
@@ -31,8 +33,13 @@ export default {
         return handleCheckout(request, stripeFor(env), env.STRIPE_PUBLISHABLE_KEY);
       case '/api/checkout/shipping':
         return handleShipping(request, stripeFor(env), env);
-      case '/api/stripe/webhook':
-        return handleWebhook(request, env, stripeFor(env));
+      case '/api/stripe/webhook': {
+        const stripe = stripeFor(env);
+        return handleWebhook(request, env, stripe, async (order, session) => {
+          const details = await orderDetails(session, stripe, url.origin);
+          if (details) await emailOrder(env.ORDERS, env, order.session_id, details);
+        });
+      }
     }
 
     if (request.method !== 'GET' && request.method !== 'HEAD') return json(405, { error: 'Method not allowed.' });
