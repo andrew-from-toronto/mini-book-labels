@@ -725,6 +725,66 @@ a.button.primary {
   }
 }
 
+.model-choices {
+  display: grid;
+  gap: 10px;
+}
+
+.model-choices .fits {
+  margin: -4px 0 0;
+  font-size: 0.85rem;
+}
+
+.payment-step {
+  display: grid;
+  gap: 12px;
+}
+
+.payment-step h3 {
+  margin: 4px 0 0;
+  font-size: 1rem;
+}
+
+.shipping-options {
+  display: grid;
+  gap: 6px;
+}
+
+.shipping-option {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1.5px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.shipping-option:has(input:checked) {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--panel));
+}
+
+.pay-total {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.pay-total dt {
+  color: var(--muted);
+}
+
+.pay-total dd {
+  margin: 0;
+  text-align: right;
+}
+
 .order-loaded {
   padding: 10px 12px;
   border-left: 3px solid var(--accent);

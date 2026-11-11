@@ -16,6 +16,7 @@
     "deploy": "pnpm build && wrangler deploy"
   },
   "dependencies": {
+    "@stripe/stripe-js": "10.2.0",
     "manifold-3d": "3.5.4",
     "papaparse": "^5.7.0",
     "react": "^19.3.1",

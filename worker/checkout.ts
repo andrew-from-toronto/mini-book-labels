@@ -1,25 +1,33 @@
 /**
- * POST /api/checkout: starts a Stripe Checkout Session for blank books. The browser sends only the order
- * code (the book's size and options) and a quantity; the price is worked out here, with the same pricing
- * the app shows (src/lib/pricing.ts), so it cannot be changed on the way.
+ * Checkout for blank books, on our own page with Stripe Elements (ui_mode "elements").
  *
- * Follows Stripe's guidance: Checkout Sessions, no payment_method_types (Stripe shows the methods that
- * suit each buyer), fulfilment from the webhook rather than the success page, and an
- * integration_identifier to tell this flow apart in the Dashboard. No tax is collected (small supplier).
+ * POST /api/checkout starts a Checkout Session. The browser sends only the order code (the book's size,
+ * options and colour) and a quantity; the price is worked out here, with the same pricing the app shows
+ * (src/lib/pricing.ts), so it cannot be changed on the way.
+ *
+ * POST /api/checkout/shipping takes the buyer's address, quotes it live with Chit Chats and sets the
+ * address and shipping options on the session. Only the server may set shipping
+ * (permissions.update_shipping_details = server_only), so the options always come from a real quote.
+ *
+ * Follows Stripe's guidance: no payment_method_types (Stripe shows the methods that suit each buyer),
+ * fulfilment from the webhook rather than the thanks page, and an integration_identifier for the
+ * Dashboard. No tax is collected (small supplier).
  */
 import type Stripe from 'stripe';
 import { decodeOrder } from '../src/lib/orderCode';
-import { handlingPrice, priceOrder } from '../src/lib/pricing';
+import { costOfBook, handlingPrice, priceOrder } from '../src/lib/pricing';
 import { printable } from '../src/lib/shop';
 import type { ModelOptions } from '../src/lib/types';
 import { json } from './cache';
 import { fromOwnSite } from './imageProxy';
-import { SHIPPING_COUNTRIES, SHIPPING_OPTIONS } from './shipping';
+import { quoteShipping, ShippingError, type ChitChatsEnv } from './chitchats';
+import { readShipFrom, type ShipFromEnv } from './shipFrom';
+import { SHIPPING_COUNTRIES } from './shipping';
 
 /** Tags these sessions in the Dashboard; Stripe asks for 8 random letters at the end. */
 export const INTEGRATION_ID = 'mini-book-blanks-qhwzrtkd';
 
-/** "30 x 20 x 5 mm, flat spine, hook centred on the front": what the buyer sees for the line item. */
+/** "30 x 20 x 5 mm, black, flat spine, hook centred, front": what the buyer sees for the line item. */
 export function describeBlank(code: string): string | null {
   const order = decodeOrder(code);
   if (!order) return null;
@@ -27,14 +35,12 @@ export function describeBlank(code: string): string | null {
   const o: ModelOptions = order.options;
   const where = { center: 'centred', spine: 'at the spine corner', 'fore-edge': 'at the fore-edge corner' }[o.hookPosition];
   const hook = o.hook ? `hook ${where}, ${o.hookSide}` : 'no hook';
-  return `${height} x ${width} x ${spine} mm, ${o.roundSpine ? 'rounded' : 'flat'} spine, ${hook}`;
+  return `${height} x ${width} x ${spine} mm, ${order.colour}, ${o.roundSpine ? 'rounded' : 'flat'} spine, ${hook}`;
 }
 
 export interface CheckoutRequest {
   code: string;
   quantity: number;
-  /** Where Cancel at checkout returns to: a path on this site. */
-  back?: string;
 }
 
 /** The parameters for a session, or an error for the buyer. Separate from the API call so it can be tested. */
@@ -52,10 +58,11 @@ export function sessionParams(
     return { error: 'Choose between 1 and 50 blanks.' };
   }
   const code = body.code.trim();
-  const back = typeof body.back === 'string' && /^\/(?!\/)/.test(body.back) ? body.back : '/';
   return {
     params: {
       mode: 'payment',
+      ui_mode: 'elements',
+      permissions: { update_shipping_details: 'server_only' },
       line_items: [
         {
           quantity: price.quantity,
@@ -70,29 +77,23 @@ export function sessionParams(
           price_data: { currency: 'cad', unit_amount: handlingPrice(), product_data: { name: 'Packing' } },
         },
       ],
+      // Shipping options are added once the address is known (handleShipping).
       shipping_address_collection: { allowed_countries: [...SHIPPING_COUNTRIES] },
-      shipping_options: SHIPPING_OPTIONS.map((s) => ({
-        shipping_rate_data: {
-          type: 'fixed_amount',
-          display_name: s.label,
-          fixed_amount: { amount: s.amount, currency: 'cad' },
-          delivery_estimate: {
-            minimum: { unit: 'business_day', value: s.days.min },
-            maximum: { unit: 'business_day', value: s.days.max },
-          },
-        },
-      })),
       client_reference_id: code,
       metadata: { order_code: code, quantity: String(price.quantity) },
       payment_intent_data: { metadata: { order_code: code } },
-      success_url: `${origin}/thanks/?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}${back}`,
+      // Where Stripe returns after payment, and after a bank's own confirmation page if one is needed.
+      return_url: `${origin}/thanks/?session_id={CHECKOUT_SESSION_ID}`,
       integration_identifier: INTEGRATION_ID,
     },
   };
 }
 
-export async function handleCheckout(request: Request, stripe: Pick<Stripe, 'checkout'>): Promise<Response> {
+export async function handleCheckout(
+  request: Request,
+  stripe: Pick<Stripe, 'checkout'>,
+  publishableKey: string,
+): Promise<Response> {
   if (request.method !== 'POST') return json(405, { error: 'Method not allowed.' });
   if (!fromOwnSite(request)) return json(403, { error: 'Checkout starts from this site.' });
   let body: CheckoutRequest;
@@ -105,9 +106,130 @@ export async function handleCheckout(request: Request, stripe: Pick<Stripe, 'che
   if ('error' in built) return json(400, { error: built.error });
   try {
     const session = await stripe.checkout.sessions.create(built.params);
-    return json(200, { url: session.url });
+    return json(200, { clientSecret: session.client_secret, publishableKey });
   } catch (e) {
     console.error('checkout session failed', e instanceof Error ? e.message : e);
     return json(502, { error: 'Checkout is not available right now. Try again in a moment.' });
   }
+}
+
+/** The address Stripe's Address Element collects. */
+export interface BuyerAddress {
+  name: string;
+  address: {
+    line1: string;
+    line2?: string | null;
+    city: string;
+    state?: string | null;
+    postal_code?: string | null;
+    country: string;
+  };
+}
+
+export interface ShippingRequest {
+  sessionId: string;
+  shipping: BuyerAddress;
+}
+
+type Quotes = Awaited<ReturnType<typeof quoteShipping>>;
+
+/** Stripe shipping options from Chit Chats quotes. */
+export function shippingOptions(quotes: Quotes): Stripe.Checkout.SessionUpdateParams.ShippingOption[] {
+  return quotes.map((q) => ({
+    shipping_rate_data: {
+      type: 'fixed_amount',
+      display_name: q.label,
+      fixed_amount: { amount: q.amount, currency: 'cad' },
+      metadata: { chitchats_service: q.service },
+      ...(q.days
+        ? {
+            delivery_estimate: {
+              minimum: { unit: 'business_day', value: q.days.min },
+              maximum: { unit: 'business_day', value: q.days.max },
+            },
+          }
+        : {}),
+    },
+  }));
+}
+
+const CANT_SHIP = "We can't ship there yet.";
+
+export async function handleShipping(
+  request: Request,
+  stripe: Pick<Stripe, 'checkout'>,
+  env: ChitChatsEnv & ShipFromEnv,
+  quote: typeof quoteShipping = quoteShipping,
+): Promise<Response> {
+  if (request.method !== 'POST') return json(405, { error: 'Method not allowed.' });
+  if (!fromOwnSite(request)) return json(403, { error: 'Checkout starts from this site.' });
+  let body: ShippingRequest;
+  try {
+    body = await request.json();
+  } catch {
+    return json(400, { error: 'Send the address as JSON.' });
+  }
+  const a = body?.shipping?.address;
+  if (typeof body?.sessionId !== 'string' || !a?.line1 || !a.city || !a.country) {
+    return json(400, { error: 'Enter a full address.' });
+  }
+  if (!(SHIPPING_COUNTRIES as readonly string[]).includes(a.country.toUpperCase())) {
+    return json(422, { error: CANT_SHIP });
+  }
+  const from = readShipFrom(env);
+  if ('missing' in from) {
+    console.error('ship-from address incomplete', from.missing);
+    return json(500, { error: 'Shipping is not available right now.' });
+  }
+
+  // The order comes from our own session, never from the browser.
+  let session: Stripe.Checkout.Session;
+  try {
+    session = await stripe.checkout.sessions.retrieve(body.sessionId);
+  } catch {
+    return json(404, { error: 'That checkout has expired. Start again.' });
+  }
+  const code = session.metadata?.order_code;
+  const order = code ? decodeOrder(code) : null;
+  if (session.status !== 'open' || !order) {
+    return json(409, { error: 'That checkout has finished or expired. Start again.' });
+  }
+  const quantity = Number(session.metadata?.quantity ?? 1);
+  const name = body.shipping.name?.trim() || 'Customer';
+
+  let quotes: Quotes;
+  try {
+    quotes = await quote(
+      {
+        to: { name, line1: a.line1, line2: a.line2, city: a.city, state: a.state, postalCode: a.postal_code, country: a.country },
+        dims: order.dims,
+        quantity,
+        unitValue: costOfBook(order.dims).unitPrice,
+        shipFrom: from.address,
+      },
+      env,
+    );
+  } catch (e) {
+    console.error('shipping quote failed', e instanceof ShippingError || e instanceof Error ? e.message : e);
+    return json(502, { error: "We couldn't get shipping prices for that address. Check it and try again." });
+  }
+  if (!quotes.length) return json(422, { error: CANT_SHIP });
+
+  await stripe.checkout.sessions.update(body.sessionId, {
+    collected_information: {
+      shipping_details: {
+        name,
+        address: {
+          line1: a.line1,
+          line2: a.line2 ?? undefined,
+          city: a.city,
+          state: a.state ?? undefined,
+          postal_code: a.postal_code ?? undefined,
+          country: a.country,
+        },
+      },
+    },
+    shipping_options: shippingOptions(quotes),
+  });
+  return json(200, { options: quotes.length });
 }

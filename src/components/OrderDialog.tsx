@@ -2,13 +2,17 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { FILAMENTS, filamentById, isDark } from '../lib/filaments';
 import { encodeOrder } from '../lib/orderCode';
 import { bookBreakdown, formatCad, handlingBreakdown, MAX_QUANTITY, priceOrder, type PriceLine } from '../lib/pricing';
-import { matchingScale, type Dims } from '../lib/scales';
-import type { ModelOptions, Settings } from '../lib/types';
+import { dimsAtScale, matchingScale, SCALES, type Dims } from '../lib/scales';
+import { printable } from '../lib/shop';
+import type { HookPosition, HookSide, ModelOptions, Settings } from '../lib/types';
+import { PaymentStep } from './PaymentStep';
 
 const Book3D = lazy(() => import('./Book3D'));
 
 interface Props {
   settings: Settings;
+  /** Size and design changes here change the labels and 3D model too, so everything stays matched. */
+  onSettings: (settings: Settings) => void;
   onClose: () => void;
 }
 
@@ -21,19 +25,11 @@ const CONFIRMATIONS = [
   'I understand 3D printed items have small imperfections, such as faint layer lines and minor surface marks.',
 ];
 
-/** "Flat spine · Hook centred, front": the design choices, as a buyer reads them. */
-function describeOptions(o: ModelOptions): string {
-  const spine = o.roundSpine ? 'Rounded spine' : 'Flat spine';
-  if (!o.hook) return `${spine} · No hook`;
-  const where = { center: 'centred', spine: 'spine corner', 'fore-edge': 'fore-edge corner' }[o.hookPosition];
-  return `${spine} · Hook ${where}, ${o.hookSide}`;
-}
-
-/** "1:7 labels · 30 × 45 mm", or "Custom labels" for sizes that are not a preset. */
+/** "1:7 labels, 30 × 45 mm", or "custom labels" for sizes that are not a preset. */
 function describeFit(dims: Dims): string {
   const ratio = matchingScale(dims);
   const label = `${mm(dims.height)} × ${mm(2 * dims.width + dims.spine)} mm`;
-  return `${ratio ? `1:${ratio}` : 'Custom'} labels · ${label}`;
+  return `${ratio ? `1:${ratio}` : 'custom'} labels, ${label}`;
 }
 
 /** A group of a price breakdown: its total first, then the parts it is made of. */
@@ -55,11 +51,12 @@ function Breakdown({ lines, total, label }: { lines: PriceLine[]; total: number;
 }
 
 /** Ordering blanks: check the book, its colour and quantity, confirm, then shipping and payment. */
-export function OrderDialog({ settings, onClose }: Props) {
+export function OrderDialog({ settings, onSettings, onClose }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [colour, setColour] = useState(FILAMENTS.find((f) => f.available)!.id);
   const [quantity, setQuantity] = useState(5);
   const [confirmed, setConfirmed] = useState<boolean[]>(CONFIRMATIONS.map(() => false));
+  const [step, setStep] = useState<'review' | 'pay'>('review');
   const allConfirmed = confirmed.every(Boolean);
   const dims = { height: settings.height, width: settings.width, spine: settings.spine };
   const order = priceOrder(dims, quantity);
@@ -70,7 +67,13 @@ export function OrderDialog({ settings, onClose }: Props) {
   }, []);
 
   // A changed choice needs confirming again.
-  useEffect(() => setConfirmed(CONFIRMATIONS.map(() => false)), [colour, quantity]);
+  useEffect(() => setConfirmed(CONFIRMATIONS.map(() => false)), [colour, quantity, code]);
+
+  const ratio = matchingScale(dims);
+  const setModel = (patch: Partial<ModelOptions>) => onSettings({ ...settings, model: { ...settings.model, ...patch } });
+  const setScale = (value: string) => {
+    if (value !== 'custom') onSettings({ ...settings, ...dimsAtScale(Number(value)) });
+  };
 
   return (
     <dialog ref={dialog} className="order-dialog" onClose={onClose} aria-labelledby="order-title">
@@ -87,72 +90,132 @@ export function OrderDialog({ settings, onClose }: Props) {
             <Book3D book={undefined} cover={undefined} custom={undefined} settings={settings} filament={filamentById(colour)?.swatch} />
           </Suspense>
         </div>
-        <div className="order-details">
-          <fieldset className="colours">
-            <legend>Colour</legend>
-            {FILAMENTS.filter((f) => f.available).map((f) => (
-              <label key={f.id} className="swatch">
-                <input type="radio" name="colour" value={f.id} checked={colour === f.id} onChange={() => setColour(f.id)} />
-                <span style={{ background: f.swatch }} aria-hidden="true" />
-                {f.name}
+        {step === 'pay' ? (
+          <div className="order-details">
+            <PaymentStep code={code} quantity={quantity} onBack={() => setStep('review')} />
+          </div>
+        ) : (
+          <div className="order-details">
+            <fieldset className="colours">
+              <legend>Colour</legend>
+              {FILAMENTS.filter((f) => f.available).map((f) => (
+                <label key={f.id} className="swatch">
+                  <input type="radio" name="colour" value={f.id} checked={colour === f.id} onChange={() => setColour(f.id)} />
+                  <span style={{ background: f.swatch }} aria-hidden="true" />
+                  {f.name}
+                </label>
+              ))}
+            </fieldset>
+            <div className="model-choices">
+              <label>
+                Size
+                <select value={ratio ? String(ratio) : 'custom'} onChange={(e) => setScale(e.target.value)}>
+                  {SCALES.filter(({ ratio: r }) => printable(dimsAtScale(r))).map(({ ratio: r, note }) => {
+                    const d = dimsAtScale(r);
+                    return (
+                      <option key={r} value={r}>
+                        1:{r} · {mm(d.height)} × {mm(d.width)} × {mm(d.spine)} mm{note ? ` (${note})` : ''}
+                      </option>
+                    );
+                  })}
+                  {!ratio && (
+                    <option value="custom">
+                      Custom · {mm(dims.height)} × {mm(dims.width)} × {mm(dims.spine)} mm
+                    </option>
+                  )}
+                </select>
               </label>
-            ))}
-          </fieldset>
-          <dl className="spec">
-            <dt>Size</dt>
-            <dd>
-              {mm(dims.height)} × {mm(dims.width)} × {mm(dims.spine)} mm
-            </dd>
-            <dt>Fits</dt>
-            <dd>{describeFit(dims)}</dd>
-            <dt>Design</dt>
-            <dd>{describeOptions(settings.model)}</dd>
-          </dl>
-          <label className="buy-quantity">
-            Quantity
-            <input
-              type="number"
-              min={1}
-              max={MAX_QUANTITY}
-              value={quantity}
-              onChange={(e) =>
-                setQuantity(Math.min(MAX_QUANTITY, Math.max(1, Math.floor(Number(e.target.value)) || 1)))
-              }
-            />
-          </label>
-          <details className="price-detail">
-            <summary>
-              <strong>{formatCad(order.subtotal)}</strong> plus shipping
-            </summary>
-            <table className="price-breakdown">
-              <Breakdown lines={bookBreakdown(dims)} total={order.unitPrice} label="Each blank" />
-              <Breakdown lines={handlingBreakdown()} total={order.handling} label="Packing" />
-              <tfoot>
-                <tr>
-                  <th scope="row">
-                    Total <span>{quantity === 1 ? '1 blank' : `${quantity} blanks`} + packing</span>
-                  </th>
-                  <td>{formatCad(order.subtotal)}</td>
-                </tr>
-              </tfoot>
-            </table>
-          </details>
-          <div className="confirmations">
-            {CONFIRMATIONS.map((text, i) => (
-              <label key={text} className="check confirm">
+              <p className="muted fits">Fits {describeFit(dims)}</p>
+              <label className="check">
                 <input
                   type="checkbox"
-                  checked={confirmed[i]}
-                  onChange={(e) => setConfirmed((c) => c.map((v, k) => (k === i ? e.target.checked : v)))}
+                  checked={settings.model.hook}
+                  onChange={(e) => setModel({ hook: e.target.checked })}
                 />
-                {text}
+                Ornament hook
               </label>
-            ))}
+              {settings.model.hook && (
+                <div className="row">
+                  <label>
+                    Hook
+                    <select
+                      value={settings.model.hookPosition}
+                      onChange={(e) => setModel({ hookPosition: e.target.value as HookPosition })}
+                    >
+                      <option value="center">Centred</option>
+                      <option value="spine">Spine corner</option>
+                      <option value="fore-edge">Fore-edge corner</option>
+                    </select>
+                  </label>
+                  <label>
+                    Side
+                    <select
+                      value={settings.model.hookSide}
+                      onChange={(e) => setModel({ hookSide: e.target.value as HookSide })}
+                    >
+                      <option value="front">Front</option>
+                      <option value="back">Back</option>
+                    </select>
+                  </label>
+                </div>
+              )}
+              <label>
+                Spine
+                <select
+                  value={settings.model.roundSpine ? 'round' : 'flat'}
+                  onChange={(e) => setModel({ roundSpine: e.target.value === 'round' })}
+                >
+                  <option value="flat">Flat</option>
+                  <option value="round">Rounded</option>
+                </select>
+              </label>
+            </div>
+            <label className="buy-quantity">
+              Quantity
+              <input
+                type="number"
+                min={1}
+                max={MAX_QUANTITY}
+                value={quantity}
+                onChange={(e) =>
+                  setQuantity(Math.min(MAX_QUANTITY, Math.max(1, Math.floor(Number(e.target.value)) || 1)))
+                }
+              />
+            </label>
+            <details className="price-detail">
+              <summary>
+                <strong>{formatCad(order.subtotal)}</strong> plus shipping
+              </summary>
+              <table className="price-breakdown">
+                <Breakdown lines={bookBreakdown(dims)} total={order.unitPrice} label="Each blank" />
+                <Breakdown lines={handlingBreakdown()} total={order.handling} label="Packing" />
+                <tfoot>
+                  <tr>
+                    <th scope="row">
+                      Total <span>{quantity === 1 ? '1 blank' : `${quantity} blanks`} + packing</span>
+                    </th>
+                    <td>{formatCad(order.subtotal)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </details>
+            <div className="confirmations">
+              {CONFIRMATIONS.map((text, i) => (
+                <label key={text} className="check confirm">
+                  <input
+                    type="checkbox"
+                    checked={confirmed[i]}
+                    onChange={(e) => setConfirmed((c) => c.map((v, k) => (k === i ? e.target.checked : v)))}
+                  />
+                  {text}
+                </label>
+              ))}
+            </div>
+            <button type="button" className="primary" disabled={!allConfirmed} onClick={() => setStep('pay')}>
+              Continue to shipping
+            </button>
           </div>
-          <button type="button" className="primary" disabled={!allConfirmed} title={code}>
-            Continue to shipping
-          </button>
-        </div>
+        )}
       </div>
     </dialog>
   );

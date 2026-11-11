@@ -4,6 +4,8 @@
 
 # Stripe: a sandbox key for development (sk_test_ or rk_test_), a restricted live key in production.
 STRIPE_API_KEY=
+# Stripe's publishable key (pk_test_ or pk_live_). Public by design; the Worker hands it to the checkout page.
+STRIPE_PUBLISHABLE_KEY=
 # From `stripe listen` locally, or the webhook endpoint's signing secret in the Dashboard.
 STRIPE_WEBHOOK_SECRET=
 

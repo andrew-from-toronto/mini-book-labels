@@ -1,15 +1,6 @@
 /**
- * Where blanks ship and what it costs, offered at checkout. PLACEHOLDER rates: replace with Canada Post's
- * price for a small padded envelope (and add US if shipping there).
+ * Where blanks ship. Rates come live from Chit Chats (worker/chitchats.ts) once the buyer's address is
+ * known. EU countries wait for a duties-paid option: the EU charges duty on every parcel from July 2026
+ * and some EU posts refuse parcels where the buyer pays on delivery.
  */
-export const SHIPPING_COUNTRIES = ['CA'] as const;
-
-export interface ShippingOption {
-  label: string;
-  /** Cents, CAD. */
-  amount: number;
-  /** Business days. */
-  days: { min: number; max: number };
-}
-
-export const SHIPPING_OPTIONS: ShippingOption[] = [{ label: 'Canada Post, tracked', amount: 800, days: { min: 3, max: 8 } }];
+export const SHIPPING_COUNTRIES = ['CA', 'US', 'GB', 'AU', 'NZ'] as const;

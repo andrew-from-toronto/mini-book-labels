@@ -20,15 +20,16 @@ type Format = '3mf' | 'stl';
 interface Props {
   dims: Dims;
   options: ModelOptions;
-  /** The label settings: the order dialog previews the book from them. */
+  /** The label settings: the order dialog previews the book from them, and can change its size and design. */
   settings: Settings;
+  onSettings: (settings: Settings) => void;
   onChange: (options: ModelOptions) => void;
   /** Shows the book in the preview's 3D view; `openTab` also brings the preview forward on a phone. */
   onShow3d: (openTab: boolean) => void;
 }
 
 /** Free 3MF or STL of a hardcover mini book sized to the current label, built in the browser. */
-export function ModelPanel({ dims, options, settings, onChange, onShow3d }: Props) {
+export function ModelPanel({ dims, options, settings, onSettings, onChange, onShow3d }: Props) {
   const [building, setBuilding] = useState<Format | null>(null);
   const [failed, setFailed] = useState(false);
   // Changing an option shows the result, so the hook or spine can be seen as it is set.
@@ -102,7 +103,7 @@ export function ModelPanel({ dims, options, settings, onChange, onShow3d }: Prop
         </button>
       </div>
       {failed && <p className="error">Could not build the model in this browser.</p>}
-      {shopVisible() && <BuyBlanks settings={settings} />}
+      {shopVisible() && <BuyBlanks settings={settings} onSettings={onSettings} />}
       <p className="muted find">
         Print it lying on its {options.hook && options.hookSide === 'back' ? 'back' : 'front'} cover, as the file is
         laid out; it needs no supports. 3MF is the better format for current slicers (Orca, Bambu, Prusa, Elegoo);
@@ -125,7 +126,7 @@ function ParcelIcon() {
 }
 
 /** The blanks offer: opens the order dialog, where the book, colour and quantity are confirmed. */
-function BuyBlanks({ settings }: { settings: Settings }) {
+function BuyBlanks({ settings, onSettings }: { settings: Settings; onSettings: (settings: Settings) => void }) {
   const [ordering, setOrdering] = useState(false);
   const dims = { height: settings.height, width: settings.width, spine: settings.spine };
   if (!printable(dims)) {
@@ -149,7 +150,7 @@ function BuyBlanks({ settings }: { settings: Settings }) {
       <button type="button" className="primary buy-cta" onClick={() => setOrdering(true)}>
         Order blanks
       </button>
-      {ordering && <OrderDialog settings={settings} onClose={() => setOrdering(false)} />}
+      {ordering && <OrderDialog settings={settings} onSettings={onSettings} onClose={() => setOrdering(false)} />}
     </div>
   );
 }
