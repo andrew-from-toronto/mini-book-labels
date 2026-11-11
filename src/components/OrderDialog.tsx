@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { FILAMENTS, filamentById } from '../lib/filaments';
+import { FILAMENTS, filamentById, isDark } from '../lib/filaments';
 import { encodeOrder } from '../lib/orderCode';
 import { bookBreakdown, formatCad, handlingBreakdown, MAX_QUANTITY, priceOrder, type PriceLine } from '../lib/pricing';
 import { matchingScale, type Dims } from '../lib/scales';
@@ -73,7 +73,8 @@ export function OrderDialog({ settings, onClose }: Props) {
         </button>
       </header>
       <div className="order-body">
-        <div className="order-preview">
+        {/* A dark filament gets a light backdrop, in either theme, so it stays visible. */}
+        <div className={isDark(filamentById(colour)?.swatch ?? '#ffffff') ? 'order-preview on-light' : 'order-preview'}>
           <Suspense fallback={<p className="muted">Loading preview...</p>}>
             <Book3D book={undefined} cover={undefined} custom={undefined} settings={settings} filament={filamentById(colour)?.swatch} />
           </Suspense>

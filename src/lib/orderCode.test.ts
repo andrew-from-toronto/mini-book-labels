@@ -71,3 +71,13 @@ describe('shop', () => {
     expect(shopVisible('?shop=other')).toBe(false);
   });
 });
+
+describe('filament tones', () => {
+  it('tell dark swatches from light ones', async () => {
+    const { FILAMENTS, isDark } = await import('./filaments');
+    expect(FILAMENTS.map((f) => [f.id, isDark(f.swatch)])).toEqual([
+      ['white', false],
+      ['black', true],
+    ]);
+  });
+});

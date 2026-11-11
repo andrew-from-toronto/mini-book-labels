@@ -606,6 +606,10 @@ a.button.primary {
   flex: 1;
 }
 
+.order-preview.on-light {
+  background: #e4dfd6;
+}
+
 .order-details {
   display: grid;
   gap: 14px;
@@ -670,9 +674,30 @@ a.button.primary {
   margin: 0;
 }
 
+/* The no-returns confirmation: hard to miss, and clearly different once ticked. */
 .check.confirm {
-  align-items: flex-start;
-  font-size: 0.9rem;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1.5px solid color-mix(in srgb, var(--accent) 60%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 7%, var(--panel));
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.35;
+  cursor: pointer;
+}
+
+.check.confirm input[type='checkbox'] {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  margin: 0;
+}
+
+.check.confirm:has(input:checked) {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, var(--panel));
 }
 
 @media (max-width: 700px) {

@@ -18,3 +18,11 @@ export const FILAMENTS: Filament[] = [
 export const DEFAULT_FILAMENT = FILAMENTS[0].id;
 
 export const filamentById = (id: string) => FILAMENTS.find((f) => f.id === id);
+
+/** Whether a swatch colour is dark, so a preview can sit it on a light background to stay visible. */
+export function isDark(hex: string): boolean {
+  const n = parseInt(hex.replace('#', ''), 16);
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  // Perceived brightness (Rec. 601 weights), 0 to 255.
+  return 0.299 * r + 0.587 * g + 0.114 * b < 110;
+}
