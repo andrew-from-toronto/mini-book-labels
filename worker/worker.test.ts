@@ -152,3 +152,35 @@ describe('image proxy', () => {
     expect(await status('https://img.example/a.png', { 'Sec-Fetch-Site': 'cross-site' })).toBe(403);
   });
 });
+
+describe('ship-from address', () => {
+  it('comes from environment variables, tidied', async () => {
+    const { readShipFrom } = await import('./shipFrom');
+    const result = readShipFrom({
+      SHIP_FROM_NAME: ' Mini Book Labels ',
+      SHIP_FROM_STREET: '1 Example St',
+      SHIP_FROM_CITY: 'Toronto',
+      SHIP_FROM_PROVINCE: 'on',
+      SHIP_FROM_POSTAL_CODE: 'm5v 1a1',
+      SHIP_FROM_COUNTRY: 'ca',
+    });
+    expect(result).toEqual({
+      address: {
+        name: 'Mini Book Labels',
+        street: '1 Example St',
+        street2: null,
+        city: 'Toronto',
+        province: 'ON',
+        postalCode: 'M5V 1A1',
+        country: 'CA',
+      },
+    });
+  });
+
+  it('names whatever is missing rather than half-filling a customs form', async () => {
+    const { readShipFrom } = await import('./shipFrom');
+    expect(readShipFrom({ SHIP_FROM_NAME: 'x', SHIP_FROM_CITY: ' ' })).toEqual({
+      missing: ['SHIP_FROM_STREET', 'SHIP_FROM_CITY', 'SHIP_FROM_PROVINCE', 'SHIP_FROM_POSTAL_CODE', 'SHIP_FROM_COUNTRY'],
+    });
+  });
+});

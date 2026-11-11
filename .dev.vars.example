@@ -1,0 +1,21 @@
+# Copy to .dev.vars (ignored by git) and fill in. In production these are Worker secrets:
+#   pnpm exec wrangler secret put NAME
+# Never commit real values.
+
+# Stripe: a sandbox key for development (sk_test_ or rk_test_), a restricted live key in production.
+STRIPE_API_KEY=
+# From `stripe listen` locally, or the webhook endpoint's signing secret in the Dashboard.
+STRIPE_WEBHOOK_SECRET=
+
+# Chit Chats: Settings > Developer > API Access Tokens, and the account's client id.
+CHITCHATS_API_KEY=
+CHITCHATS_CLIENT_ID=
+
+# Where blanks are made and shipped from: the manufacturer address on customs forms.
+SHIP_FROM_NAME=
+SHIP_FROM_STREET=
+SHIP_FROM_STREET_2=
+SHIP_FROM_CITY=
+SHIP_FROM_PROVINCE=
+SHIP_FROM_POSTAL_CODE=
+SHIP_FROM_COUNTRY=CA
