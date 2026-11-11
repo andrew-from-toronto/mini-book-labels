@@ -561,10 +561,9 @@ a.button.primary {
   background: var(--panel);
 }
 
-/* The form keeps a readable width, set against the divider. */
+/* The form keeps a readable width, from the left edge. */
 .order-main > * {
   max-width: 560px;
-  margin-left: auto;
 }
 
 .order-header {
