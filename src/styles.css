@@ -549,56 +549,56 @@ a.button.primary {
   font-weight: normal;
 }
 
-/* Ordering blanks: a centred panel on wide screens, the whole screen on phones. */
-.order-dialog {
-  width: min(920px, calc(100vw - 32px));
-  max-height: calc(100dvh - 32px);
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--panel);
-  color: var(--ink);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+/* Ordering blanks: its own page, the 3D preview held in view beside the choices on wide screens. */
+.order-page {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 16px 48px;
 }
 
-.order-dialog::backdrop {
-  background: rgba(20, 16, 12, 0.45);
-}
-
-.order-dialog[open] {
+.order-header {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 20px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 20px;
 }
 
-.order-dialog header {
+.order-header .brand {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--line);
+  gap: 8px;
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: none;
 }
 
-.order-dialog header h2 {
+.order-header .brand img {
+  align-self: center;
+}
+
+.order-header h1 {
   margin: 0;
-  font-size: 1.15rem;
-}
-
-.order-dialog .close {
-  min-width: 40px;
   font-size: 1.4rem;
-  line-height: 1;
 }
 
 .order-body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  min-height: 0;
-  overflow: auto;
+  gap: 24px;
+  align-items: start;
 }
 
 .order-preview {
+  position: sticky;
+  top: 16px;
   display: flex;
-  min-height: 360px;
+  height: min(70vh, 560px);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
   background: var(--bg);
 }
 
@@ -612,9 +612,8 @@ a.button.primary {
 
 .order-details {
   display: grid;
-  gap: 14px;
+  gap: 16px;
   align-content: start;
-  padding: 16px;
 }
 
 .colours {
@@ -707,21 +706,13 @@ a.button.primary {
 }
 
 @media (max-width: 700px) {
-  .order-dialog {
-    width: 100vw;
-    max-width: 100vw;
-    height: 100dvh;
-    max-height: 100dvh;
-    margin: 0;
-    border-radius: 0;
-  }
-
   .order-body {
     grid-template-columns: minmax(0, 1fr);
   }
 
   .order-preview {
-    min-height: 260px;
+    position: static;
+    height: 280px;
   }
 }
 

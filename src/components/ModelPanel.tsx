@@ -9,10 +9,11 @@ import {
 } from '../lib/bookModel';
 import { saveFile } from '../lib/download';
 import { costOfBook, formatCad } from '../lib/pricing';
-import { PRINTABLE_HEIGHT, printable, shopVisible } from '../lib/shop';
+import { orderUrl, PRINTABLE_HEIGHT, printable, shopVisible } from '../lib/shop';
 import type { Dims } from '../lib/scales';
 import type { Settings } from '../lib/types';
-import { OrderDialog } from './OrderDialog';
+import { encodeOrder } from '../lib/orderCode';
+import { DEFAULT_FILAMENT } from '../lib/filaments';
 import { meshTo3mf } from '../lib/threeMf';
 
 type Format = '3mf' | 'stl';
@@ -20,16 +21,15 @@ type Format = '3mf' | 'stl';
 interface Props {
   dims: Dims;
   options: ModelOptions;
-  /** The label settings: the order dialog previews the book from them, and can change its size and design. */
+  /** The label settings: the order page starts from this size and design. */
   settings: Settings;
-  onSettings: (settings: Settings) => void;
   onChange: (options: ModelOptions) => void;
   /** Shows the book in the preview's 3D view; `openTab` also brings the preview forward on a phone. */
   onShow3d: (openTab: boolean) => void;
 }
 
 /** Free 3MF or STL of a hardcover mini book sized to the current label, built in the browser. */
-export function ModelPanel({ dims, options, settings, onSettings, onChange, onShow3d }: Props) {
+export function ModelPanel({ dims, options, settings, onChange, onShow3d }: Props) {
   const [building, setBuilding] = useState<Format | null>(null);
   const [failed, setFailed] = useState(false);
   // Changing an option shows the result, so the hook or spine can be seen as it is set.
@@ -103,7 +103,7 @@ export function ModelPanel({ dims, options, settings, onSettings, onChange, onSh
         </button>
       </div>
       {failed && <p className="error">Could not build the model in this browser.</p>}
-      {shopVisible() && <BuyBlanks settings={settings} onSettings={onSettings} />}
+      {shopVisible() && <BuyBlanks settings={settings} />}
       <p className="muted find">
         Print it lying on its {options.hook && options.hookSide === 'back' ? 'back' : 'front'} cover, as the file is
         laid out; it needs no supports. 3MF is the better format for current slicers (Orca, Bambu, Prusa, Elegoo);
@@ -125,9 +125,8 @@ function ParcelIcon() {
   );
 }
 
-/** The blanks offer: opens the order dialog, where the book, colour and quantity are confirmed. */
-function BuyBlanks({ settings, onSettings }: { settings: Settings; onSettings: (settings: Settings) => void }) {
-  const [ordering, setOrdering] = useState(false);
+/** The blanks offer: opens the order page in a new tab, starting from this book. */
+function BuyBlanks({ settings }: { settings: Settings }) {
   const dims = { height: settings.height, width: settings.width, spine: settings.spine };
   if (!printable(dims)) {
     return (
@@ -147,10 +146,14 @@ function BuyBlanks({ settings, onSettings }: { settings: Settings; onSettings: (
           <span className="buy-each">{formatCad(costOfBook(dims).unitPrice)} each</span>
         </p>
       </div>
-      <button type="button" className="primary buy-cta" onClick={() => setOrdering(true)}>
+      <a
+        className="button primary buy-cta"
+        href={orderUrl(encodeOrder({ dims, options: settings.model, colour: DEFAULT_FILAMENT }))}
+        target="_blank"
+        rel="noopener"
+      >
         Order blanks
-      </button>
-      {ordering && <OrderDialog settings={settings} onSettings={onSettings} onClose={() => setOrdering(false)} />}
+      </a>
     </div>
   );
 }

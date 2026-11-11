@@ -18,3 +18,10 @@ export const printable = (dims: Dims) => dims.height >= PRINTABLE_HEIGHT.min && 
 export function shopVisible(search: string = (globalThis as { location?: { search: string } }).location?.search ?? ''): boolean {
   return SHOP_OPEN || new URLSearchParams(search).get('shop') === 'preview';
 }
+
+/** The order page, opened in its own tab: the book as an order code, and how many. Keeps ?shop=preview. */
+export function orderUrl(code: string, quantity = 5): string {
+  const params = new URLSearchParams({ code, qty: String(quantity) });
+  if (!SHOP_OPEN && shopVisible()) params.set('shop', 'preview');
+  return `/order/?${params}`;
+}

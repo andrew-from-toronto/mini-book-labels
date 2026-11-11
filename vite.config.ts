@@ -15,7 +15,7 @@ export default defineConfig({
   },
   environments: {
     // The pages, for the browser build only (the Worker has its own build): the app, the static guides
-    // search engines can read without running it, and the after-checkout page.
+    // search engines can read without running it, ordering, and the after-checkout page.
     client: {
       build: {
         rollupOptions: {
@@ -23,6 +23,7 @@ export default defineConfig({
             main: resolve(import.meta.dirname, 'index.html'),
             guide: resolve(import.meta.dirname, 'mini-book-ornaments/index.html'),
             yearInBooks: resolve(import.meta.dirname, 'year-in-books-ornament/index.html'),
+            order: resolve(import.meta.dirname, 'order/index.html'),
             thanks: resolve(import.meta.dirname, 'thanks/index.html'),
           },
         },

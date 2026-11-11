@@ -1,19 +1,27 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { FILAMENTS, filamentById, isDark } from '../lib/filaments';
-import { encodeOrder } from '../lib/orderCode';
+import { DEFAULT_SETTINGS } from '../lib/defaults';
+import { decodeOrder, encodeOrder } from '../lib/orderCode';
 import { bookBreakdown, formatCad, handlingBreakdown, MAX_QUANTITY, priceOrder, type PriceLine } from '../lib/pricing';
 import { dimsAtScale, matchingScale, SCALES, type Dims } from '../lib/scales';
-import { printable } from '../lib/shop';
-import type { HookPosition, HookSide, ModelOptions, Settings } from '../lib/types';
+import { printable, shopVisible } from '../lib/shop';
+import type { HookPosition, HookSide, ModelOptions } from '../lib/types';
 import { PaymentStep } from './PaymentStep';
 
 const Book3D = lazy(() => import('./Book3D'));
 
-interface Props {
-  settings: Settings;
-  /** Size and design changes here change the labels and 3D model too, so everything stays matched. */
-  onSettings: (settings: Settings) => void;
-  onClose: () => void;
+/** The book and quantity from the address, or the designer's defaults. */
+function fromAddress() {
+  const params = new URLSearchParams(location.search);
+  const order = decodeOrder(params.get('code') ?? '');
+  const quantity = Math.min(MAX_QUANTITY, Math.max(1, Math.floor(Number(params.get('qty'))) || 5));
+  const colour = order && FILAMENTS.some((f) => f.available && f.id === order.colour) ? order.colour : FILAMENTS.find((f) => f.available)!.id;
+  return {
+    dims: order && printable(order.dims) ? order.dims : { height: DEFAULT_SETTINGS.height, width: DEFAULT_SETTINGS.width, spine: DEFAULT_SETTINGS.spine },
+    model: order?.options ?? DEFAULT_SETTINGS.model,
+    colour,
+    quantity,
+  };
 }
 
 const mm = (v: number) => `${Number(v.toFixed(1))}`;
@@ -50,38 +58,57 @@ function Breakdown({ lines, total, label }: { lines: PriceLine[]; total: number;
   );
 }
 
-/** Ordering blanks: check the book, its colour and quantity, confirm, then shipping and payment. */
-export function OrderDialog({ settings, onSettings, onClose }: Props) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  const [colour, setColour] = useState(FILAMENTS.find((f) => f.available)!.id);
-  const [quantity, setQuantity] = useState(5);
+/** Ordering blanks, on its own page: check the book, its colour and quantity, confirm, then shipping and payment. */
+export function OrderPage() {
+  const [initial] = useState(fromAddress);
+  const [dims, setDims] = useState<Dims>(initial.dims);
+  const [model, setModelOptions] = useState<ModelOptions>(initial.model);
+  const [colour, setColour] = useState(initial.colour);
+  const [quantity, setQuantity] = useState(initial.quantity);
   const [confirmed, setConfirmed] = useState<boolean[]>(CONFIRMATIONS.map(() => false));
   const [step, setStep] = useState<'review' | 'pay'>('review');
   const allConfirmed = confirmed.every(Boolean);
-  const dims = { height: settings.height, width: settings.width, spine: settings.spine };
+  const settings = { ...DEFAULT_SETTINGS, ...dims, model };
   const order = priceOrder(dims, quantity);
-  const code = encodeOrder({ dims, options: settings.model, colour });
-
-  useEffect(() => {
-    dialog.current?.showModal();
-  }, []);
+  const code = encodeOrder({ dims, options: model, colour });
 
   // A changed choice needs confirming again.
   useEffect(() => setConfirmed(CONFIRMATIONS.map(() => false)), [colour, quantity, code]);
+  // Keep the address current, so a reload or a shared link shows the same book.
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    params.set('code', code);
+    params.set('qty', String(quantity));
+    history.replaceState(null, '', `?${params}`);
+  }, [code, quantity]);
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [step]);
 
   const ratio = matchingScale(dims);
-  const setModel = (patch: Partial<ModelOptions>) => onSettings({ ...settings, model: { ...settings.model, ...patch } });
+  const setModel = (patch: Partial<ModelOptions>) => setModelOptions((m) => ({ ...m, ...patch }));
   const setScale = (value: string) => {
-    if (value !== 'custom') onSettings({ ...settings, ...dimsAtScale(Number(value)) });
+    if (value !== 'custom') setDims(dimsAtScale(Number(value)));
   };
 
+  if (!shopVisible()) {
+    return (
+      <main className="order-page">
+        <p>
+          Blanks are not for sale yet. <a href="/">Back to the designer</a>
+        </p>
+      </main>
+    );
+  }
+
   return (
-    <dialog ref={dialog} className="order-dialog" onClose={onClose} aria-labelledby="order-title">
-      <header>
-        <h2 id="order-title">Order blanks</h2>
-        <button type="button" className="close" onClick={() => dialog.current?.close()} aria-label="Close">
-          ×
-        </button>
+    <main className="order-page">
+      <header className="order-header">
+        <a href="/" className="brand">
+          <img src="/favicon.svg" alt="" width={24} height={24} />
+          Mini Book Labels
+        </a>
+        <h1>Order blanks</h1>
       </header>
       <div className="order-body">
         {/* A dark filament gets a light backdrop, in either theme, so it stays visible. */}
@@ -129,17 +156,17 @@ export function OrderDialog({ settings, onSettings, onClose }: Props) {
               <label className="check">
                 <input
                   type="checkbox"
-                  checked={settings.model.hook}
+                  checked={model.hook}
                   onChange={(e) => setModel({ hook: e.target.checked })}
                 />
                 Ornament hook
               </label>
-              {settings.model.hook && (
+              {model.hook && (
                 <div className="row">
                   <label>
                     Hook
                     <select
-                      value={settings.model.hookPosition}
+                      value={model.hookPosition}
                       onChange={(e) => setModel({ hookPosition: e.target.value as HookPosition })}
                     >
                       <option value="center">Centred</option>
@@ -150,7 +177,7 @@ export function OrderDialog({ settings, onSettings, onClose }: Props) {
                   <label>
                     Side
                     <select
-                      value={settings.model.hookSide}
+                      value={model.hookSide}
                       onChange={(e) => setModel({ hookSide: e.target.value as HookSide })}
                     >
                       <option value="front">Front</option>
@@ -162,7 +189,7 @@ export function OrderDialog({ settings, onSettings, onClose }: Props) {
               <label>
                 Spine
                 <select
-                  value={settings.model.roundSpine ? 'round' : 'flat'}
+                  value={model.roundSpine ? 'round' : 'flat'}
                   onChange={(e) => setModel({ roundSpine: e.target.value === 'round' })}
                 >
                   <option value="flat">Flat</option>
@@ -217,6 +244,6 @@ export function OrderDialog({ settings, onSettings, onClose }: Props) {
           </div>
         )}
       </div>
-    </dialog>
+    </main>
   );
 }

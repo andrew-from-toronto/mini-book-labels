@@ -242,20 +242,24 @@ test('shop preview', async ({ page }) => {
   await page.locator('.buy-blanks').evaluate((el) => el.scrollIntoView({ block: 'start' }));
   await shot(page, '13-shop-preview');
 
-  await page.getByRole('button', { name: 'Order blanks' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Order blanks' });
-  await expect(dialog).toBeVisible();
-  await dialog.getByText('Black').click();
-  await expect(dialog.getByText(/Drag to turn/)).toBeVisible({ timeout: 20_000 });
+  // Ordering opens in its own tab, starting from the designer's book.
+  const link = page.getByRole('link', { name: 'Order blanks' });
+  await expect(link).toHaveAttribute('target', '_blank');
+  await page.goto(`.${await link.getAttribute('href')}`);
+  const form = page.locator('.order-page');
+  await expect(page.getByRole('heading', { name: 'Order blanks' })).toBeVisible();
+  await form.getByText('Black').click();
+  await expect(form.getByText(/Drag to turn/)).toBeVisible({ timeout: 20_000 });
   await page.waitForTimeout(1000);
-  await shot(page, '14-order-dialog');
-  await dialog.locator('.price-detail summary').click();
-  const proceed = dialog.getByRole('button', { name: 'Continue to shipping' });
-  await dialog.getByLabel(/confirm the size and colour/).check();
-  await dialog.getByLabel(/made to order/).check();
+  await shot(page, '14-order-page');
+  await form.locator('.price-detail summary').click();
+  const proceed = form.getByRole('button', { name: 'Continue to shipping' });
+  await form.getByLabel(/confirm the size and colour/).check();
+  await form.getByLabel(/made to order/).check();
   await expect(proceed).toBeDisabled();
-  await dialog.getByLabel(/small imperfections/).check();
+  await form.getByLabel(/small imperfections/).check();
   await expect(proceed).toBeEnabled();
-  await dialog.locator('.order-details').evaluate((el) => el.scrollIntoView({ block: 'end' }));
+  await expect(page).toHaveURL(/code=v1-[^&]*-c-black/);
+  await proceed.scrollIntoViewIfNeeded();
   await shot(page, '15-order-confirmed');
 });

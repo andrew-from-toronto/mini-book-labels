@@ -5,8 +5,7 @@ import { FiltersPanel } from './components/FiltersPanel';
 import { ModelPanel } from './components/ModelPanel';
 import { Preview, type PreviewView } from './components/Preview';
 import { SettingsPanel } from './components/SettingsPanel';
-// Only the defaults: the geometry library itself loads when a model is first built.
-import { DEFAULT_MODEL_OPTIONS } from './lib/bookModel';
+import { DEFAULT_SETTINGS } from './lib/defaults';
 import { backupFileName, makeBackup, parseBackup } from './lib/backup';
 import { decodeOrder } from './lib/orderCode';
 import { parseLibraryCsv } from './lib/csv';
@@ -24,19 +23,6 @@ const Book3D = lazy(() => import('./components/Book3D'));
 const DEFAULT_FILTERS: Filters = { statuses: ['read'], minRating: 0, from: '', to: '', sort: 'rating', count: 20 };
 /** Status given to books added by search, which survive loading a new library. */
 const ADDED = 'added';
-
-const DEFAULT_SETTINGS: Settings = {
-  height: 30,
-  width: 20,
-  spine: 5,
-  style: 'edge',
-  paper: 'letter',
-  margin: 10,
-  gap: 2,
-  guideOpacity: 1,
-  guideWidth: 0.15,
-  model: DEFAULT_MODEL_OPTIONS,
-};
 
 /** On narrow screens one pane shows at a time, picked from a bar along the bottom. */
 type Tab = 'setup' | 'books' | 'preview';
@@ -358,7 +344,6 @@ export function App() {
               dims={{ height: settings.height, width: settings.width, spine: settings.spine }}
               options={settings.model}
               settings={settings}
-              onSettings={setSettings}
               onChange={(model) => setSettings((s) => ({ ...s, model }))}
               onShow3d={(openTab) => {
                 setView('3d');
