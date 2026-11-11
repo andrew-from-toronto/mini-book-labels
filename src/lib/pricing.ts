@@ -119,16 +119,17 @@ export interface PriceLine {
 const toCents = (dollars: number) => Math.round(dollars * 100);
 
 /**
- * What a book's price is made of, in cents. The margin is what is left after costs, including the
- * rounding to 25 cents, so the lines always add up exactly to the price charged.
+ * What a book's price is made of, in cents: materials and equipment (plastic and printer time), labour,
+ * and the margin. The allowance for failed prints is shared between the first two, since a reprint costs
+ * both. The margin is what is left, including the rounding to 25 cents, so the lines always add up
+ * exactly to the price charged.
  */
 export function bookBreakdown(dims: Dims, inputs: CostInputs = COST_INPUTS): PriceLine[] {
   const c = costOfBook(dims, inputs);
+  const withFailures = 1 + inputs.failureAllowance;
   const costs: PriceLine[] = [
-    { label: 'Plastic', cents: toCents(c.filament) },
-    { label: 'Printer time (power and wear)', cents: toCents(c.printer) },
-    { label: 'Hands-on time (removing and checking)', cents: toCents(c.labour) },
-    { label: 'Allowance for prints that fail', cents: toCents(c.cost - c.subtotal) },
+    { label: 'Materials and equipment', cents: toCents((c.filament + c.printer) * withFailures) },
+    { label: 'Labour', cents: toCents(c.labour * withFailures) },
   ];
   const spent = costs.reduce((sum, line) => sum + line.cents, 0);
   return [...costs, { label: 'Margin that keeps the site running', cents: c.unitPrice - spent }];
@@ -137,8 +138,8 @@ export function bookBreakdown(dims: Dims, inputs: CostInputs = COST_INPUTS): Pri
 /** What packing and handling is made of, in cents, adding up exactly to handlingPrice(). */
 export function handlingBreakdown(inputs: CostInputs = COST_INPUTS): PriceLine[] {
   const costs: PriceLine[] = [
-    { label: 'Packing time', cents: toCents((inputs.packingMinutesPerOrder / 60) * inputs.labourPerHour) },
-    { label: 'Mailer and padding', cents: toCents(inputs.packagingPerOrder) },
+    { label: 'Materials (mailer and padding)', cents: toCents(inputs.packagingPerOrder) },
+    { label: 'Labour', cents: toCents((inputs.packingMinutesPerOrder / 60) * inputs.labourPerHour) },
   ];
   const spent = costs.reduce((sum, line) => sum + line.cents, 0);
   return [...costs, { label: 'Margin that keeps the site running', cents: handlingPrice(inputs) - spent }];
