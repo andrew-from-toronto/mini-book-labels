@@ -353,13 +353,27 @@ export function App() {
           </section>
         )}
 
-        <footer className="muted">
-          <a href={`${import.meta.env.BASE_URL}mini-book-ornaments/`}>How to make mini book ornaments</a>.{' '}
-          <a href={`${import.meta.env.BASE_URL}year-in-books-ornament/`}>Year in books ornament</a>.{' '}
-          <a href={`${import.meta.env.BASE_URL}about/`}>About</a>.{' '}
-          Covers from <a href="https://openlibrary.org">Open Library</a>.{' '}
-          <a href="https://github.com/andrew-from-toronto/mini-book-labels">Source</a>.{' '}
-          <a href="https://buymeacoffee.com/andrew.from.toronto">Buy me a coffee</a>.
+        <footer className="site-footer">
+          <ul>
+            <li>
+              <a href={`${import.meta.env.BASE_URL}mini-book-ornaments/`}>Guide</a>
+            </li>
+            <li>
+              <a href={`${import.meta.env.BASE_URL}year-in-books-ornament/`}>Year in books</a>
+            </li>
+            <li>
+              <a href={`${import.meta.env.BASE_URL}about/`}>About</a>
+            </li>
+            <li>
+              <a href="https://github.com/andrew-from-toronto/mini-book-labels">Source</a>
+            </li>
+            <li>
+              <a href="https://buymeacoffee.com/andrew.from.toronto">Buy me a coffee</a>
+            </li>
+          </ul>
+          <p className="muted">
+            Covers from <a href="https://openlibrary.org">Open Library</a>
+          </p>
         </footer>
       </aside>
 

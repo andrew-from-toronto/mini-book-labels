@@ -302,6 +302,21 @@ footer {
   font-size: 0.85rem;
 }
 
+/* The designer's footer: a row of short links that wraps cleanly, and the cover credit below. */
+.site-footer ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.site-footer p {
+  margin: 8px 0 0;
+  font-size: 0.8rem;
+}
+
 .fields {
   display: grid;
   gap: 12px;
