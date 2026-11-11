@@ -762,6 +762,29 @@ a.button.primary {
   background: color-mix(in srgb, var(--accent) 8%, var(--panel));
 }
 
+.pay-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.pay-heading h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+.pay-heading svg {
+  color: var(--muted);
+}
+
+.stripe-badge {
+  line-height: 0;
+}
+
 .pay-total {
   display: grid;
   grid-template-columns: 1fr auto;
