@@ -1,3 +1,6 @@
 node_modules
 dist
 *.local
+screens
+test-results
+playwright-report

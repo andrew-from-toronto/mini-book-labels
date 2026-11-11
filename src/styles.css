@@ -70,6 +70,7 @@ body {
 
 .preview-bar {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   align-items: center;
   padding: 10px 16px;
@@ -200,6 +201,11 @@ body {
   border-top: 1px solid var(--line);
   background: var(--panel);
   font-size: 0.85rem;
+}
+
+.book3d-bar button {
+  flex: none;
+  white-space: nowrap;
 }
 
 .book3d-bar .muted {
@@ -926,7 +932,8 @@ fieldset.crop {
    (whose page is narrower than this) still lays out the sheet whatever tab is open. */
 @media screen and (max-width: 1100px) {
   .app {
-    grid-template-columns: 1fr;
+    /* minmax(0, ...) so wide content (a long toolbar, a zoomed sheet) cannot stretch the page past the screen. */
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr) auto;
     height: 100vh;
     height: 100dvh;

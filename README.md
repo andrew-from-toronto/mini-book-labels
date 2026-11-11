@@ -38,7 +38,10 @@ pnpm install
 pnpm dev
 pnpm test
 pnpm build
+pnpm screens
 ```
+
+`pnpm screens` runs the app in Chromium through [Playwright](https://playwright.dev) at desktop, tablet and phone sizes and saves screenshots of its main states to `screens/`, for checking layout changes. The first time, install the browser with `pnpm exec playwright install chromium`.
 
 Pushing to `main` deploys to GitHub Pages.
 

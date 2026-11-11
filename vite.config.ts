@@ -6,5 +6,6 @@ export default defineConfig({
   plugins: [react()],
   // three.js is one ~550 kB chunk, loaded only when the 3D view opens; warn only above that.
   build: { chunkSizeWarningLimit: 600 },
-  test: { environment: 'node' },
+  // Unit tests only; e2e/ holds Playwright's browser tests, run with pnpm screens.
+  test: { environment: 'node', include: ['src/**/*.test.ts'] },
 });

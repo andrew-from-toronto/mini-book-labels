@@ -97,7 +97,10 @@ export function Preview(props: Props) {
           </button>
         </div>
         {sheetView && activeId && (
-          <span className="muted">Click the label to {guidesHidden ? 'show' : 'hide'} guides</span>
+          <span className="muted">
+            <span className="hint-mouse">Click</span>
+            <span className="hint-touch">Tap</span> the label to {guidesHidden ? 'show' : 'hide'} guides
+          </span>
         )}
         {sheetView && pages.length > 0 && (
           // Always shown on narrow screens, where the preview has its own tab; only when expanded otherwise.

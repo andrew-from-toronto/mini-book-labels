@@ -86,8 +86,8 @@ export function ModelPanel({ dims, options, onChange, onShow3d }: Props) {
         <input type="checkbox" checked={options.roundSpine} onChange={(e) => set({ roundSpine: e.target.checked })} />
         Slightly rounded spine (flat prints best)
       </label>
+      <button onClick={() => onShow3d(true)}>View in 3D</button>
       <div className="row">
-        <button onClick={() => onShow3d(true)}>View in 3D</button>
         <button className="grow" onClick={() => void download('3mf')} disabled={building !== null}>
           {building === '3mf' ? 'Building model' : 'Download 3MF'}
         </button>
