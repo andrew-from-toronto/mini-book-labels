@@ -17,12 +17,6 @@ export const FILAMENTS: Filament[] = [
 
 export const DEFAULT_FILAMENT = FILAMENTS[0].id;
 
-/** The colour id for a colour we don't stock: the buyer describes it and we buy filament to match. */
-export const CUSTOM_COLOUR = 'custom';
-
-/** Colours an order may use: a stocked one, or custom. */
-export const orderableColour = (id: string) => id === CUSTOM_COLOUR || FILAMENTS.some((f) => f.available && f.id === id);
-
 export const filamentById = (id: string) => FILAMENTS.find((f) => f.id === id);
 
 /** Whether a swatch colour is dark, so a preview can sit it on a light background to stay visible. */

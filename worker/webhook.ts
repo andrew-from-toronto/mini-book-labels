@@ -18,8 +18,6 @@ export interface OrderRecord {
   email: string | null;
   name: string | null;
   shipping_address: string | null;
-  /** For a custom colour: the buyer's description, then the colour they previewed. */
-  custom_colour: string | null;
   payment_status: string;
   status: 'paid' | 'failed';
 }
@@ -38,9 +36,6 @@ export function orderFromSession(session: Stripe.Checkout.Session, status: Order
     email: session.customer_details?.email ?? null,
     name: shipping?.name ?? session.customer_details?.name ?? null,
     shipping_address: shipping?.address ? JSON.stringify(shipping.address) : null,
-    custom_colour: session.metadata?.custom_colour
-      ? [session.metadata.custom_colour, session.metadata.custom_colour_hex].filter(Boolean).join(' ')
-      : null,
     payment_status: session.payment_status,
     status,
   };
@@ -50,8 +45,8 @@ export function orderFromSession(session: Stripe.Checkout.Session, status: Order
 export async function saveOrder(db: D1Database, order: OrderRecord): Promise<void> {
   await db
     .prepare(
-      `INSERT INTO orders (session_id, order_code, quantity, amount_total, currency, email, name, shipping_address, payment_status, status, custom_colour)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+      `INSERT INTO orders (session_id, order_code, quantity, amount_total, currency, email, name, shipping_address, payment_status, status)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
        ON CONFLICT (session_id) DO UPDATE SET
          payment_status = excluded.payment_status,
          -- A shipped order stays shipped if Stripe repeats an event.
@@ -69,7 +64,6 @@ export async function saveOrder(db: D1Database, order: OrderRecord): Promise<voi
       order.shipping_address,
       order.payment_status,
       order.status,
-      order.custom_colour,
     )
     .run();
 }

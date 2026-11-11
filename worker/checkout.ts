@@ -15,8 +15,7 @@
  */
 import type Stripe from 'stripe';
 import { decodeOrder } from '../src/lib/orderCode';
-import { CUSTOM_COLOUR, orderableColour } from '../src/lib/filaments';
-import { CUSTOM_COLOUR_SURCHARGE, costOfBook, handlingPrice, priceOrder } from '../src/lib/pricing';
+import { costOfBook, handlingPrice, priceOrder } from '../src/lib/pricing';
 import { printable } from '../src/lib/shop';
 import type { ModelOptions } from '../src/lib/types';
 import { json } from './cache';
@@ -36,19 +35,13 @@ export function describeBlank(code: string): string | null {
   const o: ModelOptions = order.options;
   const where = { center: 'centred', spine: 'at the spine corner', 'fore-edge': 'at the fore-edge corner' }[o.hookPosition];
   const hook = o.hook ? `hook ${where}, ${o.hookSide}` : 'no hook';
-  const colour = order.colour === CUSTOM_COLOUR ? 'custom colour' : order.colour;
-  return `${height} x ${width} x ${spine} mm, ${colour}, ${o.roundSpine ? 'rounded' : 'flat'} spine, ${hook}`;
+  return `${height} x ${width} x ${spine} mm, ${order.colour}, ${o.roundSpine ? 'rounded' : 'flat'} spine, ${hook}`;
 }
 
 export interface CheckoutRequest {
   code: string;
   quantity: number;
-  /** For a custom colour: what the buyer wants, and the colour they picked to preview it. */
-  customColour?: { description: string; hex?: string };
 }
-
-/** Longest custom colour description kept; Stripe metadata values take up to 500 characters. */
-export const MAX_COLOUR_DESCRIPTION = 200;
 
 /** The parameters for a session, or an error for the buyer. Separate from the API call so it can be tested. */
 export function sessionParams(
@@ -58,15 +51,9 @@ export function sessionParams(
   const order = typeof body.code === 'string' ? decodeOrder(body.code) : null;
   if (!order) return { error: 'That is not a book this site makes.' };
   if (!printable(order.dims)) return { error: 'That size is not made to order.' };
-  if (!orderableColour(order.colour)) return { error: 'That colour is not available.' };
-  const custom = order.colour === CUSTOM_COLOUR;
-  const description = typeof body.customColour?.description === 'string' ? body.customColour.description.trim() : '';
-  const hex = typeof body.customColour?.hex === 'string' && /^#[0-9a-f]{6}$/i.test(body.customColour.hex) ? body.customColour.hex.toLowerCase() : '';
-  if (custom && !description) return { error: 'Describe the colour you want.' };
-  if (description.length > MAX_COLOUR_DESCRIPTION) return { error: 'Shorten the colour description.' };
   let price;
   try {
-    price = priceOrder(order.dims, body.quantity, { customColour: custom });
+    price = priceOrder(order.dims, body.quantity);
   } catch {
     return { error: 'Choose between 1 and 50 blanks.' };
   }
@@ -89,27 +76,11 @@ export function sessionParams(
           quantity: 1,
           price_data: { currency: 'cad', unit_amount: handlingPrice(), product_data: { name: 'Packing' } },
         },
-        ...(custom
-          ? [
-              {
-                quantity: 1,
-                price_data: {
-                  currency: 'cad',
-                  unit_amount: CUSTOM_COLOUR_SURCHARGE,
-                  product_data: { name: 'Custom colour', description: description },
-                },
-              },
-            ]
-          : []),
       ],
       // Shipping options are added once the address is known (handleShipping).
       shipping_address_collection: { allowed_countries: [...SHIPPING_COUNTRIES] },
       client_reference_id: code,
-      metadata: {
-        order_code: code,
-        quantity: String(price.quantity),
-        ...(custom ? { custom_colour: description, ...(hex ? { custom_colour_hex: hex } : {}) } : {}),
-      },
+      metadata: { order_code: code, quantity: String(price.quantity) },
       payment_intent_data: { metadata: { order_code: code } },
       // Where Stripe returns after payment, and after a bank's own confirmation page if one is needed.
       return_url: `${origin}/thanks/?session_id={CHECKOUT_SESSION_ID}`,
