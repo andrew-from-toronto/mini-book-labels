@@ -4,7 +4,7 @@ import { FiltersPanel } from './components/FiltersPanel';
 import { SettingsPanel } from './components/SettingsPanel';
 import { Preview } from './components/Preview';
 import { lookupIsbn } from './lib/covers';
-import { parseIsbn, parseStoryGraphCsv } from './lib/csv';
+import { parseIsbn, parseLibraryCsv } from './lib/csv';
 import { applyFilters, selectBooks } from './lib/filter';
 import { defaultWrapSpine, gridFor, paginate } from './lib/layout';
 import { loadState, saveState, type Panes } from './lib/storage';
@@ -86,7 +86,7 @@ export function App() {
   async function loadFile(file: File | undefined) {
     if (!file) return;
     try {
-      const parsed = parseStoryGraphCsv(await file.text());
+      const { books: parsed } = parseLibraryCsv(await file.text());
       const added = books.filter((b) => b.status === ADDED);
       const keep = new Set(added.map((b) => b.id));
       setBooks([...parsed, ...added]);
@@ -159,12 +159,15 @@ export function App() {
       <aside className="controls">
         <h1>Mini Book Labels</h1>
         <p className="muted">
-          Wraparound labels for 3D printed mini books, from your StoryGraph library. Your file stays in your browser.
+          Wraparound labels for 3D printed mini books, from your StoryGraph or Goodreads library. Your file stays in your browser.
         </p>
 
         <section>
           <h2>1. Library</h2>
-          <p className="muted">On StoryGraph: Manage Account, then Export StoryGraph Library. Drop the CSV here.</p>
+          <p className="muted">
+            On StoryGraph: Manage Account, then Export StoryGraph Library. On Goodreads: My Books, then Import and
+            export, then Export Library. Drop the CSV here.
+          </p>
           <label
             className="drop"
             onDragOver={(e) => e.preventDefault()}
@@ -266,7 +269,7 @@ export function App() {
             }
           />
         ) : (
-          <p className="empty muted">Load your StoryGraph export or add a book by ISBN to start.</p>
+          <p className="empty muted">Load your StoryGraph or Goodreads export or add a book by ISBN to start.</p>
         )}
       </main>
 
