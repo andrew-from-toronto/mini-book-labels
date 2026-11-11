@@ -78,6 +78,8 @@ export interface OrderDetails {
   service: string | null;
   paymentIntent: string | null;
   livemode: boolean;
+  /** Why the order needs checking before it's made (worker/webhook.ts), or null. */
+  flag?: string | null;
   site: string;
 }
 
@@ -151,6 +153,7 @@ export function sellerEmail(o: OrderDetails, to: string): Mail {
     ? `https://dashboard.stripe.com/${o.livemode ? '' : 'test/'}payments/${o.paymentIntent}`
     : null;
   const details = rows([
+    ...(o.flag ? ([['Check first', o.flag]] as [string, string][]) : []),
     ['Quantity', String(o.quantity)],
     ['Book', o.description],
     ['Code', o.code],
@@ -180,7 +183,7 @@ export function sellerEmail(o: OrderDetails, to: string): Mail {
   );
   return {
     to,
-    subject: `${o.livemode ? '' : '[Test] '}New order: ${o.quantity} × ${o.description}`,
+    subject: `${o.livemode ? '' : '[Test] '}${o.flag ? '[Check] ' : ''}New order: ${o.quantity} × ${o.description}`,
     text,
     html,
     replyTo: o.email,

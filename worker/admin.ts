@@ -74,6 +74,8 @@ export interface OrderRow {
   livemode: number | null;
   refund_id: string | null;
   cancelled_at: string | null;
+  /** Why the paid order needs checking before it's made (worker/webhook.ts). */
+  flag: string | null;
 }
 
 interface Address {
@@ -148,7 +150,7 @@ function parcelRequest(row: OrderRow, env: ShipFromEnv): ShipmentRequest | strin
 export async function handleAdmin(
   request: Request,
   env: AdminEnv,
-  stripe: Pick<Stripe, 'refunds'>,
+  stripe: Pick<Stripe, 'refunds' | 'checkout'>,
   fetcher: typeof fetch = fetch,
 ): Promise<Response> {
   if (!(await adminUser(request, env, fetcher))) return json(403, { error: 'Sign in to admin.' });
@@ -197,9 +199,24 @@ export async function handleAdmin(
         const provider = providerFor(body.provider);
         const parcel = parcelRequest(row, env);
         if (typeof parcel === 'string') return json(409, { error: parcel });
+        // Claim the purchase first, so a second press (or a second tab) can't buy a second label.
+        const claim = await db
+          .prepare(
+            "UPDATE orders SET label_status = 'buying' WHERE session_id = ?1 AND status IN ('paid', 'printing', 'packing') AND COALESCE(label_status, '') NOT IN ('buying', 'label')",
+          )
+          .bind(id)
+          .run();
+        if (!claim.meta.changes) return json(409, { error: 'A label is already being bought for this order.' });
         // An unpaid shipment from an earlier attempt with the same vendor is reused.
         const existing = row.shipment_provider === provider.id ? row.shipment_id : null;
-        const shipment = await provider.buy(parcel, body.service, env, existing, fetcher);
+        let shipment: Shipment;
+        try {
+          shipment = await provider.buy(parcel, body.service, env, existing, fetcher);
+        } catch (e) {
+          // Nothing was bought: release the claim so it can be tried again.
+          await update(db, id, { label_status: row.label_status });
+          throw e;
+        }
         await update(db, id, labelFields(shipment));
         if (shipment.state === 'failed') return json(502, { error: `${provider.name} could not buy that postage.` });
         // Still buying: Check again picks it up.
@@ -216,18 +233,30 @@ export async function handleAdmin(
       }
       case 'cancel': {
         if (row.status === 'cancelled') return json(409, { error: 'This order is already cancelled.' });
-        if (!row.payment_intent) return json(409, { error: 'No Stripe payment on this order to refund.' });
+        // Orders paid before payment ids were recorded: look it up from the Checkout Session.
+        let paymentIntent = row.payment_intent;
+        if (!paymentIntent) {
+          const session = await stripe.checkout.sessions.retrieve(id);
+          paymentIntent = typeof session.payment_intent === 'string' ? session.payment_intent : (session.payment_intent?.id ?? null);
+          if (paymentIntent) await update(db, id, { payment_intent: paymentIntent, livemode: session.livemode ? 1 : 0 });
+        }
+        if (!paymentIntent) return json(409, { error: 'No Stripe payment on this order to refund.' });
         // A label the carrier hasn't got yet is voided too; a parcel already on its way can't be.
         if (row.status === 'labeled' && row.shipment_id && row.shipment_provider) {
           await update(db, id, labelFields(await providerFor(row.shipment_provider).refund(row.shipment_id, env, fetcher)));
         }
         // The idempotency key makes a repeated press (or retry) refund once.
-        const refund = row.refund_id
+        // A refund already made for this payment (one recorded here, or one whose record was lost) is
+        // reused, so pressing again never refunds twice; the idempotency key covers two presses at once.
+        const earlier = row.refund_id
           ? { id: row.refund_id, amount: row.amount_total }
-          : await stripe.refunds.create(
-              { payment_intent: row.payment_intent, reason: 'requested_by_customer', metadata: { order_code: row.order_code } },
-              { idempotencyKey: `cancel-${id}` },
-            );
+          : (await stripe.refunds.list({ payment_intent: paymentIntent, limit: 10 })).data.find((r) => r.status !== 'failed' && r.status !== 'canceled');
+        const refund =
+          earlier ??
+          (await stripe.refunds.create(
+            { payment_intent: paymentIntent, reason: 'requested_by_customer', metadata: { order_code: row.order_code } },
+            { idempotencyKey: `cancel-${id}` },
+          ));
         await update(db, id, { status: 'cancelled', refund_id: refund.id, cancelled_at: new Date().toISOString() });
         if (row.email && !mailMissing(env)) {
           const order = decodeOrder(row.order_code);

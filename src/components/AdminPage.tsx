@@ -49,6 +49,7 @@ interface Order {
   livemode: number | null;
   refund_id: string | null;
   cancelled_at: string | null;
+  flag: string | null;
 }
 
 interface Rate {
@@ -238,7 +239,10 @@ export function AdminPage() {
                 }}
               >
                 <span className="admin-row-top">
-                  <strong>{o.name ?? o.email ?? 'Unknown'}</strong>
+                  <strong>
+                    {o.flag && <span className="admin-flag-dot" title={o.flag} aria-label="Needs checking" />}
+                    {o.name ?? o.email ?? 'Unknown'}
+                  </strong>
                   <span>{formatCad(o.amount_total)}</span>
                 </span>
                 <span className="muted">
@@ -337,6 +341,7 @@ function OrderDetail({ order: o, providers, onChange }: { order: Order; provider
 
       <div className="admin-order-body">
         <h1 className="admin-title">{o.name ?? 'Order'}</h1>
+        {o.flag && <p className="admin-flag">Check before making: {o.flag}</p>}
         <p className="muted">
           {date(o.created_at)} · {formatCad(o.amount_total)} ·{' '}
           {o.email ? <a href={`mailto:${o.email}`}>{o.email}</a> : 'no email'}

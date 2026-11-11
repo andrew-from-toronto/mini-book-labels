@@ -4,6 +4,7 @@
  */
 import type Stripe from 'stripe';
 import { describeBlank } from './checkout';
+import { sessionProblems } from './webhook';
 import { buyerEmail, mailMissing, sellerEmail, sendMail, type MailEnv, type OrderDetails } from './mail';
 
 const countryName = (code: string) => {
@@ -53,6 +54,7 @@ export async function orderDetails(
     service: rate?.metadata?.service ?? rate?.metadata?.chitchats_service ?? null,
     paymentIntent: typeof session.payment_intent === 'string' ? session.payment_intent : (session.payment_intent?.id ?? null),
     livemode: session.livemode,
+    flag: sessionProblems(session),
     site,
   };
 }

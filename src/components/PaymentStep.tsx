@@ -43,6 +43,8 @@ export function PaymentStep({ code, quantity, onBack }: Props) {
   const shippingHost = useRef<HTMLDivElement>(null);
   const paymentHost = useRef<HTMLDivElement>(null);
   const actionsRef = useRef<Actions | null>(null);
+  /** This checkout's private token, which our shipping quotes require. */
+  const quoteTokenRef = useRef('');
   const [session, setSession] = useState<StripeCheckoutSession | null>(null);
   const [phase, setPhase] = useState<'loading' | 'ready' | 'quoting' | 'paying' | 'failed'>('loading');
   const [message, setMessage] = useState('');
@@ -62,7 +64,7 @@ export function PaymentStep({ code, quantity, onBack }: Props) {
         const res = await fetch('/api/checkout/shipping', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId: actions.getSession().id, shipping: value }),
+          body: JSON.stringify({ sessionId: actions.getSession().id, quoteToken: quoteTokenRef.current, shipping: value }),
         });
         if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? 'Shipping failed');
       });
@@ -77,8 +79,9 @@ export function PaymentStep({ code, quantity, onBack }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code, quantity }),
       });
-      const data = (await res.json().catch(() => ({}))) as { clientSecret?: string; publishableKey?: string; error?: string };
+      const data = (await res.json().catch(() => ({}))) as { clientSecret?: string; publishableKey?: string; quoteToken?: string; error?: string };
       if (!res.ok || !data.clientSecret || !data.publishableKey) throw new Error(data.error ?? 'Checkout is not available.');
+      quoteTokenRef.current = data.quoteToken ?? '';
       const stripe = await loadStripe(data.publishableKey);
       if (!stripe || cancelled) return;
 

@@ -99,9 +99,13 @@ export async function handleCheckout(
   }
   const built = sessionParams(body, new URL(request.url).origin);
   if ('error' in built) return json(400, { error: built.error });
+  // Only the buyer's page knows this: shipping quotes for the session must present it, so a session id
+  // seen elsewhere (logs, the dashboard) can't be used to change where an order ships.
+  const quoteToken = crypto.randomUUID();
+  built.params.metadata = { ...built.params.metadata, quote_token: quoteToken };
   try {
     const session = await stripe.checkout.sessions.create(built.params);
-    return json(200, { clientSecret: session.client_secret, publishableKey });
+    return json(200, { clientSecret: session.client_secret, publishableKey, quoteToken });
   } catch (e) {
     console.error('checkout session failed', e instanceof Error ? e.message : e);
     return json(502, { error: 'Checkout is not available right now. Try again in a moment.' });
@@ -150,6 +154,13 @@ export function shippingOptions(quotes: Quotes): Stripe.Checkout.SessionUpdatePa
 
 const CANT_SHIP = "We can't ship there yet.";
 
+/** Quotes one checkout may ask for: plenty for a buyer fixing typos, too few to be worth abusing. */
+export const MAX_QUOTES = 15;
+
+const text = (v: unknown, max = 200): string | null => (typeof v === 'string' && v.trim() && v.length <= max ? v.trim() : null);
+const optionalText = (v: unknown, max = 200): string | null | undefined =>
+  v == null ? null : typeof v === 'string' && v.length <= max ? v.trim() || null : undefined;
+
 export async function handleShipping(
   request: Request,
   stripe: Pick<Stripe, 'checkout'>,
@@ -164,8 +175,19 @@ export async function handleShipping(
   } catch {
     return json(400, { error: 'Send the address as JSON.' });
   }
-  const a = body?.shipping?.address;
-  if (typeof body?.sessionId !== 'string' || !a?.line1 || !a.city || !a.country) {
+  // Every field is checked for type and length: the address goes to the shipping vendor and to Stripe.
+  const raw = (body?.shipping?.address ?? {}) as unknown as Record<string, unknown>;
+  const a = {
+    line1: text(raw.line1),
+    line2: optionalText(raw.line2),
+    city: text(raw.city, 100),
+    state: optionalText(raw.state, 50),
+    postal_code: optionalText(raw.postal_code, 20),
+    country: text(raw.country, 2),
+  };
+  const sessionId = text(body?.sessionId, 300);
+  const quoteToken = text((body as unknown as Record<string, unknown>)?.quoteToken, 100);
+  if (!sessionId || !quoteToken || !a.line1 || !a.city || !a.country || a.line2 === undefined || a.state === undefined || a.postal_code === undefined) {
     return json(400, { error: 'Enter a full address.' });
   }
   if (!(SHIPPING_COUNTRIES as readonly string[]).includes(a.country.toUpperCase())) {
@@ -180,7 +202,7 @@ export async function handleShipping(
   // The order comes from our own session, never from the browser.
   let session: Stripe.Checkout.Session;
   try {
-    session = await stripe.checkout.sessions.retrieve(body.sessionId);
+    session = await stripe.checkout.sessions.retrieve(sessionId);
   } catch {
     return json(404, { error: 'That checkout has expired. Start again.' });
   }
@@ -189,8 +211,11 @@ export async function handleShipping(
   if (session.status !== 'open' || !order) {
     return json(409, { error: 'That checkout has finished or expired. Start again.' });
   }
+  if (session.metadata?.quote_token !== quoteToken) return json(403, { error: 'Checkout starts from this site.' });
+  const quotesSoFar = Number(session.metadata?.quotes ?? 0);
+  if (quotesSoFar >= MAX_QUOTES) return json(429, { error: 'Too many address changes. Start the order again.' });
   const quantity = Number(session.metadata?.quantity ?? 1);
-  const name = body.shipping.name?.trim() || 'Customer';
+  const name = text(body.shipping?.name, 100) ?? 'Customer';
 
   let quotes: Quotes;
   try {
@@ -211,7 +236,9 @@ export async function handleShipping(
   }
   if (!quotes.length) return json(422, { error: CANT_SHIP });
 
-  await stripe.checkout.sessions.update(body.sessionId, {
+  try {
+    await stripe.checkout.sessions.update(sessionId, {
+    metadata: { quotes: String(quotesSoFar + 1) },
     collected_information: {
       shipping_details: {
         name,
@@ -226,6 +253,10 @@ export async function handleShipping(
       },
     },
     shipping_options: shippingOptions(quotes),
-  });
+    });
+  } catch (e) {
+    console.error('shipping update failed', e instanceof Error ? e.message : e);
+    return json(502, { error: "We couldn't save that address. Try again." });
+  }
   return json(200, { options: quotes.length });
 }

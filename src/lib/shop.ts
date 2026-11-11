@@ -11,7 +11,17 @@ export const SHOP_OPEN = true;
 /** Sizes we print to order, by height in mm: from 1:24 up to a little past 1:4. */
 export const PRINTABLE_HEIGHT = { min: 8, max: 60 };
 
-export const printable = (dims: Dims) => dims.height >= PRINTABLE_HEIGHT.min && dims.height <= PRINTABLE_HEIGHT.max;
+/** Width and spine bounds, in mm, wide enough for any real book's proportions at those heights. */
+export const PRINTABLE_WIDTH = { min: 4, max: 50 };
+export const PRINTABLE_SPINE = { min: 1, max: 30 };
+
+const within = (v: number, { min, max }: { min: number; max: number }) => v >= min && v <= max;
+
+export const printable = (dims: Dims) =>
+  within(dims.height, PRINTABLE_HEIGHT) &&
+  within(dims.width, PRINTABLE_WIDTH) &&
+  within(dims.spine, PRINTABLE_SPINE) &&
+  dims.width <= dims.height;
 
 /** Whether to show the shop: open, or previewed with ?shop=preview. */
 // Shared with the Worker, which has no window: read the address only where there is one.

@@ -697,6 +697,25 @@ a.button {
   color: light-dark(#b3261e, #f28b82);
 }
 
+/* A paid order whose price or shipping doesn't add up: check it before making it. */
+.admin-flag {
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, #b3261e 12%, var(--panel));
+  color: light-dark(#b3261e, #f28b82);
+  font-weight: 600;
+}
+
+.admin-flag-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: #b3261e;
+  vertical-align: middle;
+}
+
 .admin-title {
   margin: 20px 0 0;
   font-size: 1.25rem;

@@ -23,8 +23,10 @@ const json = <T>(part: string) => JSON.parse(new TextDecoder().decode(decode(par
 let keys: { domain: string; at: number; keys: Jwk[] } | null = null;
 
 async function accessKeys(domain: string, fetcher: typeof fetch, fresh = false): Promise<Jwk[]> {
-  // Cloudflare rotates these keys; an hour's cache is well inside their overlap.
-  if (!fresh && keys && keys.domain === domain && Date.now() - keys.at < 3_600_000) return keys.keys;
+  // Cloudflare rotates these keys; an hour's cache is well inside their overlap. A refetch for an unknown
+  // key happens at most once a minute, so made-up key ids can't make every request fetch them.
+  const age = keys && keys.domain === domain ? Date.now() - keys.at : Infinity;
+  if (keys && age < (fresh ? 60_000 : 3_600_000)) return keys.keys;
   const res = await fetcher(`${domain}/cdn-cgi/access/certs`);
   if (!res.ok) throw new Error(`Access certs: ${res.status}`);
   keys = { domain, at: Date.now(), keys: ((await res.json()) as { keys: Jwk[] }).keys };
@@ -54,9 +56,11 @@ export async function adminUser(request: Request, env: AccessEnv, fetcher: typeo
     const key = await crypto.subtle.importKey('jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
     const valid = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, decode(signature), new TextEncoder().encode(`${head}.${body}`));
     if (!valid) return null;
-    const claims = json<{ aud: string | string[]; exp: number; iss: string; email?: string }>(body);
+    const claims = json<{ aud: string | string[]; exp?: unknown; iss: string; email?: string }>(body);
     const audiences = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
-    if (!audiences.includes(aud) || claims.iss !== domain || claims.exp * 1000 < Date.now()) return null;
+    // A token must say when it expires.
+    if (typeof claims.exp !== 'number' || claims.exp * 1000 < Date.now()) return null;
+    if (!audiences.includes(aud) || claims.iss !== domain) return null;
     return claims.email ?? 'access';
   } catch {
     return null;

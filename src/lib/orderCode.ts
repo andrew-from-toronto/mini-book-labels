@@ -1,7 +1,7 @@
 /**
- * Printed blank books are bought through Stripe Payment Links, one per price tier. The exact book
- * travels with the payment as its order reference (Stripe's client_reference_id: letters, digits, - and
- * _, up to 200 characters), readable in the dashboard and turned back into the model to print.
+ * An order code names the exact blank book ordered. It travels with the payment as the Stripe Checkout
+ * Session's order_code metadata (and client_reference_id, for the dashboard), and turns back into the
+ * model to print.
  *
  *   v1-h300-w200-s50-flat-hook-center-front-c-black  =  30 x 20 x 5 mm, flat spine, centred hook flush
  *                                                       with the front, in black filament

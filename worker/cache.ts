@@ -43,5 +43,6 @@ export async function cachedFetch(
   return response;
 }
 
+/** A JSON response for the API, never cached: admin and checkout answers hold buyers' details. */
 export const json = (status: number, body: unknown) =>
-  new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+  new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
