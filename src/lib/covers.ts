@@ -41,6 +41,84 @@ const COVERS = 'https://covers.openlibrary.org/b';
 // default=false makes Open Library return 404 instead of a blank placeholder image.
 export const isbnCoverUrl = (isbn: string) => `${COVERS}/isbn/${isbn}-L.jpg?default=false`;
 export const idCoverUrl = (id: number) => `${COVERS}/id/${id}-L.jpg?default=false`;
+export const idThumbUrl = (id: number) => `${COVERS}/id/${id}-M.jpg`;
+
+/** The Open Library cover id in a URL made by `idCoverUrl`, or null for any other URL. */
+export function coverIdFromUrl(url: string): number | null {
+  const match = url.match(/^https:\/\/covers\.openlibrary\.org\/b\/id\/(\d+)-L\.jpg/);
+  return match ? Number(match[1]) : null;
+}
+
+/** A cover from one of the book's editions on Open Library. */
+export interface CoverVariant {
+  id: number;
+  /** Publication year, when the edition gives one. */
+  year?: string;
+  english: boolean;
+}
+
+/** An entry from Open Library's /works/{id}/editions.json. */
+export interface EditionEntry {
+  covers?: number[];
+  languages?: { key: string }[];
+  publish_date?: string;
+}
+
+/** Most variants offered for one book. */
+export const MAX_VARIANTS = 30;
+
+/**
+ * Turns a work's editions into a list of distinct covers: English (or unlabelled) editions first,
+ * then the rest, newest cover uploads first within each group since they are more often clean
+ * publisher images than scans. `first`, the cover currently in use, leads the list if present.
+ */
+export function pickVariants(entries: EditionEntry[], first?: number | null): CoverVariant[] {
+  const seen = new Set<number>();
+  const variants: CoverVariant[] = [];
+  for (const e of entries) {
+    const english = !e.languages?.length || e.languages.some((l) => l.key === '/languages/eng');
+    const year = e.publish_date?.match(/\d{4}/)?.[0];
+    for (const id of e.covers ?? []) {
+      // Open Library uses -1 for a removed cover.
+      if (id <= 0 || seen.has(id)) continue;
+      seen.add(id);
+      variants.push({ id, year, english });
+    }
+  }
+  variants.sort((a, b) => Number(b.id === first) - Number(a.id === first) || Number(b.english) - Number(a.english) || b.id - a.id);
+  return variants.slice(0, MAX_VARIANTS);
+}
+
+const variantCache = new Map<string, Promise<CoverVariant[]>>();
+
+/** Covers from every edition of the book on Open Library, found by ISBN or else by title and author. */
+export function lookupCoverVariants(book: Pick<Book, 'title' | 'authors' | 'isbn'>): Promise<CoverVariant[]> {
+  const params = new URLSearchParams({ fields: 'key,cover_i', limit: '1' });
+  if (book.isbn) params.set('isbn', book.isbn);
+  else {
+    params.set('title', cleanTitle(book.title));
+    if (firstAuthor(book.authors)) params.set('author', firstAuthor(book.authors));
+  }
+  const key = params.toString();
+  let pending = variantCache.get(key);
+  if (!pending) {
+    pending = (async () => {
+      const res = await fetch(`https://openlibrary.org/search.json?${params}`);
+      if (!res.ok) throw new Error(`Open Library returned ${res.status}`);
+      const body: { docs?: { key?: string; cover_i?: number }[] } = await res.json();
+      const doc = body.docs?.[0];
+      if (!doc?.key?.startsWith('/works/')) return [];
+      const eds = await fetch(`https://openlibrary.org${doc.key}/editions.json?limit=200`);
+      if (!eds.ok) throw new Error(`Open Library returned ${eds.status}`);
+      const { entries }: { entries?: EditionEntry[] } = await eds.json();
+      return pickVariants(entries ?? [], doc.cover_i);
+    })();
+    // A failed lookup is retried next time rather than cached.
+    pending.catch(() => variantCache.delete(key));
+    variantCache.set(key, pending);
+  }
+  return pending;
+}
 
 /** Drops series suffixes like "(Discworld #3)" and subtitles, which hurt search matching. */
 export const cleanTitle = (title: string) =>

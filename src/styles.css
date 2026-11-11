@@ -536,6 +536,57 @@ fieldset.crop {
   padding: 4px 14px 14px 42px;
 }
 
+.variants {
+  display: grid;
+  gap: 6px;
+}
+
+.variant-strip {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  padding: 2px 2px 8px;
+  list-style: none;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.variant-strip button {
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  padding: 3px;
+  background: none;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.variant-strip button:hover {
+  border-color: var(--line);
+}
+
+.variant-strip button[aria-pressed='true'] {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+/* Keeps tiles without a year the same height. */
+.variant-strip button span {
+  min-height: 1.2em;
+}
+
+.variant-strip img {
+  display: block;
+  height: 96px;
+  width: auto;
+  min-width: 40px;
+  border-radius: 2px;
+  background: var(--line);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
 .add-isbn {
   margin: 12px 0 8px;
 }

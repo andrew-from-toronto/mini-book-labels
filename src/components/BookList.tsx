@@ -1,5 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { fileToDataUrl, wrapSearchUrls, type CoverResult, type CoverSource } from '../lib/covers';
+import {
+  coverIdFromUrl,
+  fileToDataUrl,
+  idCoverUrl,
+  idThumbUrl,
+  lookupCoverVariants,
+  wrapSearchUrls,
+  type CoverResult,
+  type CoverSource,
+  type CoverVariant,
+} from '../lib/covers';
 import type { Book, Crop, CustomCover, Settings, WrapSpine } from '../lib/types';
 import { Label } from './Label';
 
@@ -128,6 +138,61 @@ function nudgeSpine(spine: WrapSpine, direction: NudgeDirection, big: boolean): 
   }[direction];
   const next = { left: spine.left + dl, right: spine.right + dr };
   return next.right - next.left >= 0.005 ? next : null;
+}
+
+interface CoverVariantsProps {
+  book: Book;
+  /** The variant in use, if the book's cover is one. */
+  selected: number | null;
+  onPick: (id: number) => void;
+}
+
+/** Thumbnails of the covers of the book's other editions on Open Library, to pick one instead. */
+function CoverVariants({ book, selected, onPick }: CoverVariantsProps) {
+  const [found, setFound] = useState<{ for: string; variants: CoverVariant[] | null }>({ for: '', variants: null });
+  const variants = found.for === book.id ? found.variants : undefined;
+
+  useEffect(() => {
+    let current = true;
+    lookupCoverVariants(book)
+      .then((v) => current && setFound({ for: book.id, variants: v }))
+      .catch(() => current && setFound({ for: book.id, variants: null }));
+    return () => {
+      current = false;
+    };
+    // Looked up once per book; the cache in lookupCoverVariants covers reopening it.
+  }, [book.id]);
+
+  return (
+    <div className="variants">
+      <span className="muted find">
+        {variants === undefined
+          ? 'Looking for covers of other editions...'
+          : variants === null
+            ? 'Could not reach Open Library for other editions.'
+            : variants.length === 0
+              ? 'Open Library has no other covers for this book.'
+              : 'Covers from other editions. Tap one to use it.'}
+      </span>
+      {variants && variants.length > 0 && (
+        <ul className="variant-strip">
+          {variants.map((v) => (
+            <li key={v.id}>
+              <button
+                type="button"
+                aria-pressed={selected === v.id}
+                title={`${v.year ? `${v.year} edition` : 'Edition'}${v.english ? '' : ', not in English'}`}
+                onClick={() => onPick(v.id)}
+              >
+                <img src={idThumbUrl(v.id)} alt={v.year ? `Cover from ${v.year}` : 'Cover'} loading="lazy" />
+                <span>{v.year}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 /** Arrow-key step for the spine, as a fraction of the artwork's width (half a pixel on a 1000 px image). */
@@ -309,7 +374,11 @@ export function BookList({
                   <span className="book-meta">
                     {b.rating !== null && <span className="muted">{b.rating} stars</span>}
                     <span className={`badge ${cover?.source ?? 'loading'}`}>
-                      {cover ? BADGE[cover.source] : 'loading cover'}
+                      {!cover
+                        ? 'loading cover'
+                        : cover.source === 'custom' && custom && coverIdFromUrl(custom.url)
+                          ? 'other edition'
+                          : BADGE[cover.source]}
                     </span>
                   </span>
                 </div>
@@ -318,6 +387,15 @@ export function BookList({
 
               {active && (
                 <div className="cover-edit">
+                  <CoverVariants
+                    book={b}
+                    selected={custom && !custom.wrap ? coverIdFromUrl(custom.url) : null}
+                    onPick={(id) => {
+                      setWrap(false);
+                      setUrl('');
+                      onCustomCover(b.id, { url: idCoverUrl(id), wrap: false });
+                    }}
+                  />
                   <label className="check">
                     <input
                       type="checkbox"

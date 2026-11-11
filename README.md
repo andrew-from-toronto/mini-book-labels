@@ -14,7 +14,7 @@ Live app: https://andrew-from-toronto.github.io/mini-book-labels/
 
 Your library, selections, covers and settings are saved in your browser's local storage, so a refresh or restart picks up where you left off. "Start over" clears it.
 
-Front covers come from [Open Library Covers](https://openlibrary.org/dev/docs/api/covers), looked up by ISBN and then by title and author. Books with no cover get a generated typographic one, and any cover can be replaced with your own image. The spine and back are generated from the front cover.
+Front covers come from [Open Library Covers](https://openlibrary.org/dev/docs/api/covers), looked up by ISBN and then by title and author. Books with no cover get a generated typographic one. Opening a book shows the covers of its other editions on Open Library to pick from instead, and any cover can be replaced with your own image. The spine and back are generated from the front cover.
 
 If you have complete artwork for a book (one image with back, spine and front, as often found on Pinterest), use Replace cover, tick "Image is the full wrap" and paste the image link or upload the file. The same panel has search links to Pinterest and Google Images for the book. The app finds the spine in the artwork (by its fold lines, or by the empty gutter beside the spine text; failing both, it estimates the width from the book's page count), then stretches the back, spine and front each onto the matching part of the label. If it gets the spine wrong, two sliders set its width and position by hand. Thin stray borders on images you supply (a white scan margin, a grey line along one edge) are trimmed automatically, unless the cover itself is mostly that colour; sliders let you trim by hand instead.
 
