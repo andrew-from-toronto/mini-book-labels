@@ -20,7 +20,7 @@ export interface ChitChatsEnv {
 /** HTS 3926.40.0090: ornamental articles of plastics, other. A miniature book ornament is not a statuette. */
 export const HS_TARIFF_CODE = '3926400090';
 // Matches the CUSMA certification of origin on file with Chit Chats, word for word.
-export const CUSTOMS_DESCRIPTION = '3D Printed Mini Book Ornament (plastic)';
+export const CUSTOMS_DESCRIPTION = 'Blank 3D printed miniature book (plastic)';
 
 export interface Destination {
   name: string;
