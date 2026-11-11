@@ -3,15 +3,24 @@
  * the label is set to. The covers are height x width and the spine is spine thick, so a label of
  * height x (2 x width + spine) wraps it exactly.
  *
- * It prints lying on its front cover with no supports: the page lines follow the print layers, the back
- * cover's overhang has a 45 degree bevel under it, and the hook sits flush with the front cover.
+ * It prints lying on one cover with no supports: the page lines follow the print layers, the upper
+ * cover's overhang has a 45 degree bevel under it, and the hook sits flush with the cover on the bed.
+ * That is the front cover unless the hook is set to the back.
  */
 import type { Dims } from './scales';
-import type { HookPosition, ModelOptions } from './types';
+import type { HookPosition, HookSide, ModelOptions } from './types';
 
-export type { HookPosition, ModelOptions };
+export type { HookPosition, HookSide, ModelOptions };
 
-export const DEFAULT_MODEL_OPTIONS: ModelOptions = { hook: false, hookPosition: 'center', roundSpine: false };
+export const DEFAULT_MODEL_OPTIONS: ModelOptions = {
+  hook: false,
+  hookPosition: 'center',
+  hookSide: 'front',
+  roundSpine: false,
+};
+
+/** With the hook on the back cover, the book is the mirror image and prints lying on its back. */
+const backHook = (options: ModelOptions) => options.hook && options.hookSide === 'back';
 
 // Real hardcover boards are about 3 mm thick and overhang the pages by about 3 mm; both are kept
 // printable at small scales. Page line pitch is a multiple of a 0.2 mm layer.
@@ -134,7 +143,8 @@ async function buildParts(dims: Dims, options: ModelOptions, load: () => Promise
   parts.set('pages', block);
 
   if (options.hook) {
-    // Flush with the front cover, the side the book prints on, so it needs no supports.
+    // Flush with the front cover, the side the book prints on, so it needs no supports. A back hook is
+    // built the same way and mirrored below.
     const h = hookGeometry(dims, options.hookPosition, overhang);
     const ring = CrossSection.hull([
       CrossSection.circle(h.r, SEGMENTS).translate([h.x, h.z]),
@@ -142,7 +152,17 @@ async function buildParts(dims: Dims, options: ModelOptions, load: () => Promise
     ]).subtract(CrossSection.circle(h.hole, SEGMENTS).translate([h.x, h.z]));
     parts.set('hook', ring.extrude(h.thickness).rotate([90, 0, 0]).translate([0, h.thickness, 0]));
   }
-  return { Manifold, parts };
+
+  if (backHook(options)) {
+    // Mirror front to back: the hook ends up flush with the back cover and the bevel under the front,
+    // which is the side facing up when it prints on its back. The covers swap names with their sides,
+    // so the front is still the y = 0 side.
+    const mirrored = new Map<PartName, InstanceType<typeof Manifold>>();
+    const rename: Partial<Record<PartName, PartName>> = { front: 'back', back: 'front' };
+    for (const [name, m] of parts) mirrored.set(rename[name] ?? name, m.mirror([0, 1, 0]).translate([0, S, 0]));
+    return { Manifold, parts: mirrored, S };
+  }
+  return { Manifold, parts, S };
 }
 
 function toMesh(m: { getMesh(): { numVert: number; numProp: number; vertProperties: Float32Array; triVerts: Uint32Array } }): BookMesh {
@@ -154,7 +174,10 @@ function toMesh(m: { getMesh(): { numVert: number; numProp: number; vertProperti
   return { positions, triangles: new Uint32Array(mesh.triVerts) };
 }
 
-/** The whole book as one solid, for the STL. `layFlat` lays it on its front cover, ready to print. */
+/**
+ * The whole book as one solid, for the STL. `layFlat` lays it on the cover the hook is flush with (the
+ * front without a hook), ready to print with no supports.
+ */
 export async function buildBookMesh(
   dims: Dims,
   options: ModelOptions,
@@ -162,10 +185,13 @@ export async function buildBookMesh(
   /** Tests pass a loader that works under Node, where Vite's wasm URL does not. */
   load: () => Promise<Wasm> = loadManifold,
 ): Promise<BookMesh> {
-  const { Manifold, parts } = await buildParts(dims, options, load);
+  const { Manifold, parts, S } = await buildParts(dims, options, load);
   let book = Manifold.union([...parts.values()]);
-  // Rotating about x takes the thickness axis up: the front cover lands on the bed.
-  if (layFlat) book = book.rotate([90, 0, 0]);
+  if (layFlat) {
+    // Rotating about x takes the thickness axis up: +90 puts the front cover (y = 0) on the bed, -90
+    // turns it over onto the back cover (y = S), lifted back to the bed.
+    book = backHook(options) ? book.rotate([-90, 0, 0]).translate([0, 0, S]) : book.rotate([90, 0, 0]);
+  }
   return toMesh(book);
 }
 
@@ -205,6 +231,6 @@ export function meshToStl({ positions, triangles }: BookMesh, name = 'mini book'
 }
 
 export function stlFileName({ height, width, spine }: Dims, options: ModelOptions): string {
-  const hook = options.hook ? `-hook-${options.hookPosition}` : '';
+  const hook = options.hook ? `-hook-${options.hookPosition}${options.hookSide === 'back' ? '-back' : ''}` : '';
   return `mini-book-${height}x${width}x${spine}mm${hook}.stl`;
 }

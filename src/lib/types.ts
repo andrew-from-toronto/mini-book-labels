@@ -48,11 +48,14 @@ export interface Filters {
 export type LabelStyle = 'edge' | 'blur';
 
 export type HookPosition = 'center' | 'spine' | 'fore-edge';
+/** Which cover the hook sits flush with. The book prints lying on that cover. */
+export type HookSide = 'front' | 'back';
 
 /** Settings for the 3D printable book. */
 export interface ModelOptions {
   hook: boolean;
   hookPosition: HookPosition;
+  hookSide: HookSide;
   /** A slight outward bow on the spine. Flat prints best. */
   roundSpine: boolean;
 }

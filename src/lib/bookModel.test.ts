@@ -1,6 +1,6 @@
 import Module from 'manifold-3d';
 import { describe, expect, it } from 'vitest';
-import { buildBookMesh, meshToStl, modelGeometry, stlFileName, type BookMesh, type Wasm } from './bookModel';
+import { buildBookMesh, buildBookParts, meshToStl, modelGeometry, stlFileName, type BookMesh, type Wasm } from './bookModel';
 import { dimsAtScale } from './scales';
 
 // Under Node the wasm sits next to the script, so the default lookup finds it.
@@ -35,7 +35,7 @@ describe('modelGeometry', () => {
 describe('buildBookMesh', () => {
   it('matches the label size standing up, and lies on its back for printing', async () => {
     const dims = dimsAtScale(7);
-    const options = { hook: false, hookPosition: 'center', roundSpine: false } as const;
+    const options = { hook: false, hookPosition: 'center', hookSide: 'front', roundSpine: false } as const;
     expect(bounds(await buildBookMesh(dims, options, false, nodeLoader))).toEqual([20, 5, 30]);
     expect(bounds(await buildBookMesh(dims, options, true, nodeLoader))).toEqual([20, 30, 5]);
   });
@@ -44,7 +44,7 @@ describe('buildBookMesh', () => {
     for (const ratio of [4, 5, 6, 7, 10, 12, 24]) {
       for (const hookPosition of ['center', 'spine', 'fore-edge'] as const) {
         const dims = dimsAtScale(ratio);
-        const mesh = await buildBookMesh(dims, { hook: true, hookPosition, roundSpine: true }, false, nodeLoader);
+        const mesh = await buildBookMesh(dims, { hook: true, hookPosition, hookSide: 'front', roundSpine: true }, false, nodeLoader);
         const [w, , h] = bounds(mesh);
         // Ring top: hole radius 0.8, clearance 0.6, ring radius 1.6.
         expect(h).toBeCloseTo(dims.height + 3, 1);
@@ -53,6 +53,41 @@ describe('buildBookMesh', () => {
         expect(mesh.triangles.length).toBeGreaterThan(0);
       }
     }
+  });
+});
+
+describe('a hook on the back cover', () => {
+  const dims = dimsAtScale(7);
+  const yRange = ({ positions }: BookMesh, axis: number) => {
+    const vals = Array.from(positions).filter((_, i) => i % 3 === axis);
+    return [Math.min(...vals), Math.max(...vals)].map((v) => +v.toFixed(2));
+  };
+
+  it('sits flush with the back cover, and the front cover stays on the y = 0 side', async () => {
+    const parts = await buildBookParts(dims, { hook: true, hookPosition: 'center', hookSide: 'back', roundSpine: false }, nodeLoader);
+    expect(yRange(parts.get('hook')!, 1)).toEqual([3.8, 5]);
+    expect(yRange(parts.get('front')!, 1)).toEqual([0, 0.6]);
+    expect(yRange(parts.get('back')!, 1)).toEqual([4.4, 5]);
+  });
+
+  it('prints lying on the back cover, with the hook on the bed', async () => {
+    const options = { hook: true, hookPosition: 'center', hookSide: 'back', roundSpine: false } as const;
+    const flat = await buildBookMesh(dims, options, true, nodeLoader);
+    expect(yRange(flat, 2)).toEqual([0, 5]);
+    // The hook rises above the top of the book (the -y direction once laid flat) and lies on the bed.
+    const hookPoints = [];
+    for (let i = 0; i < flat.positions.length; i += 3) {
+      if (flat.positions[i + 1] > 30.1 || flat.positions[i + 1] < -30.1) hookPoints.push(flat.positions[i + 2]);
+    }
+    expect(hookPoints.length).toBeGreaterThan(0);
+    expect(Math.min(...hookPoints)).toBeCloseTo(0, 5);
+    expect(Math.max(...hookPoints)).toBeCloseTo(1.2, 5);
+  });
+
+  it('is named for its side', () => {
+    expect(stlFileName(dims, { hook: true, hookPosition: 'center', hookSide: 'back', roundSpine: false })).toBe(
+      'mini-book-30x20x5mm-hook-center-back.stl',
+    );
   });
 });
 
@@ -68,7 +103,7 @@ describe('meshToStl', () => {
   });
 
   it('names files by size and hook', () => {
-    expect(stlFileName(dimsAtScale(7), { hook: true, hookPosition: 'spine', roundSpine: false })).toBe(
+    expect(stlFileName(dimsAtScale(7), { hook: true, hookPosition: 'spine', hookSide: 'front', roundSpine: false })).toBe(
       'mini-book-30x20x5mm-hook-spine.stl',
     );
   });

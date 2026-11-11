@@ -1,5 +1,12 @@
 import { useState } from 'react';
-import { buildBookMesh, meshToStl, stlFileName, type HookPosition, type ModelOptions } from '../lib/bookModel';
+import {
+  buildBookMesh,
+  meshToStl,
+  stlFileName,
+  type HookPosition,
+  type HookSide,
+  type ModelOptions,
+} from '../lib/bookModel';
 import type { Dims } from '../lib/scales';
 
 interface Props {
@@ -46,17 +53,26 @@ export function ModelPanel({ dims, options, onChange, onShow3d }: Props) {
         Ornament hook on top
       </label>
       {options.hook && (
-        <label>
-          Hook position
-          <select
-            value={options.hookPosition}
-            onChange={(e) => set({ hookPosition: e.target.value as HookPosition })}
-          >
-            <option value="center">Centred</option>
-            <option value="spine">Spine corner</option>
-            <option value="fore-edge">Fore-edge corner</option>
-          </select>
-        </label>
+        <div className="row">
+          <label>
+            Hook along the top
+            <select
+              value={options.hookPosition}
+              onChange={(e) => set({ hookPosition: e.target.value as HookPosition })}
+            >
+              <option value="center">Centred</option>
+              <option value="spine">Spine corner</option>
+              <option value="fore-edge">Fore-edge corner</option>
+            </select>
+          </label>
+          <label>
+            Flush with
+            <select value={options.hookSide} onChange={(e) => set({ hookSide: e.target.value as HookSide })}>
+              <option value="front">Front cover</option>
+              <option value="back">Back cover</option>
+            </select>
+          </label>
+        </div>
       )}
       <label className="check">
         <input type="checkbox" checked={options.roundSpine} onChange={(e) => set({ roundSpine: e.target.checked })} />
@@ -69,7 +85,10 @@ export function ModelPanel({ dims, options, onChange, onShow3d }: Props) {
         </button>
       </div>
       {status === 'failed' && <p className="error">Could not build the model in this browser.</p>}
-      <p className="muted find">Print it lying on its front cover; it needs no supports.</p>
+      <p className="muted find">
+        Print it lying on its {options.hook && options.hookSide === 'back' ? 'back' : 'front'} cover, as the file is
+        laid out; it needs no supports.
+      </p>
     </div>
   );
 }

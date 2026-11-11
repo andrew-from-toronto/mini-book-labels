@@ -73,7 +73,7 @@ describe('a sample at 1:7 on Letter', () => {
       gap: 2,
       guideOpacity: 1,
       guideWidth: 0.15,
-      model: { hook: false, hookPosition: 'center', roundSpine: false },
+      model: { hook: false, hookPosition: 'center', hookSide: 'front', roundSpine: false },
     } as const;
     const { perPage } = gridFor(settings);
     expect(perPage).toBe(28);

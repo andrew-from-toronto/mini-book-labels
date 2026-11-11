@@ -30,7 +30,7 @@ describe('labelUv', () => {
 
 describe('partGeometry', () => {
   it('maps only the outer faces, which cover the whole label panel', async () => {
-    const parts = await buildBookParts(dims, { hook: true, hookPosition: 'center', roundSpine: true }, nodeLoader);
+    const parts = await buildBookParts(dims, { hook: true, hookPosition: 'center', hookSide: 'front', roundSpine: true }, nodeLoader);
     for (const name of ['front', 'back', 'spine'] as const) {
       const g = partGeometry(name, parts.get(name)!, dims);
       expect(g.labelCount).toBeGreaterThan(0);
