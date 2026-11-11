@@ -1,24 +1,25 @@
 import { lazy, Suspense, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { BookList } from './components/BookList';
+import { BookSearch, type FoundBook } from './components/BookSearch';
 import { FiltersPanel } from './components/FiltersPanel';
 import { ModelPanel } from './components/ModelPanel';
-import { DEFAULT_MODEL_OPTIONS } from './lib/bookModel';
-import { SettingsPanel } from './components/SettingsPanel';
 import { Preview, type PreviewView } from './components/Preview';
-
-// three.js is large, so the 3D view loads only when it is first opened.
-const Book3D = lazy(() => import('./components/Book3D'));
-import { lookupIsbn } from './lib/covers';
-import { parseIsbn, parseLibraryCsv } from './lib/csv';
+import { SettingsPanel } from './components/SettingsPanel';
+// Only the defaults: the geometry library itself loads when a model is first built.
+import { DEFAULT_MODEL_OPTIONS } from './lib/bookModel';
+import { parseLibraryCsv } from './lib/csv';
 import { applyFilters, selectBooks } from './lib/filter';
-import { isSample, sampleLibrary } from './lib/sample';
 import { defaultWrapSpine, gridFor, paginate } from './lib/layout';
+import { isSample, sampleLibrary } from './lib/sample';
 import { loadState, saveState, type Panes } from './lib/storage';
 import type { Book, CustomCover, Filters, Settings } from './lib/types';
 import { useCovers } from './lib/useCovers';
 
+// three.js is large, so the 3D view loads only when it is first opened.
+const Book3D = lazy(() => import('./components/Book3D'));
+
 const DEFAULT_FILTERS: Filters = { statuses: ['read'], minRating: 0, from: '', to: '', sort: 'rating', count: 20 };
-/** Status given to books added by ISBN, which survive loading a new CSV. */
+/** Status given to books added by search, which survive loading a new library. */
 const ADDED = 'added';
 
 const DEFAULT_SETTINGS: Settings = {
@@ -84,8 +85,6 @@ export function App() {
     const timer = setTimeout(() => saveState({ books, filters, settings, overrides, customCovers, panes }), 300);
     return () => clearTimeout(timer);
   }, [books, filters, settings, overrides, customCovers, panes]);
-  const [isbnInput, setIsbnInput] = useState('');
-  const [adding, setAdding] = useState(false);
   /** The book being worked on: its cover controls are open and the preview zooms to its label. */
   const [activeId, setActiveId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
@@ -102,7 +101,7 @@ export function App() {
   /** The 3D view shows the book being edited, or else the first on the sheet. */
   const book3d = selected.find((b) => b.id === activeId) ?? listed.find((b) => b.id === activeId) ?? selected[0];
 
-  /** Replaces the library (a real export or a sample), keeping only books added by ISBN. */
+  /** Replaces the library (a real export or a sample), keeping only books added by search. */
   function replaceLibrary(next: Book[]) {
     const added = books.filter((b) => b.status === ADDED);
     const keep = new Set(added.map((b) => b.id));
@@ -148,30 +147,23 @@ export function App() {
     setError('');
   }
 
-  async function addByIsbn() {
-    const isbn = parseIsbn(isbnInput);
-    if (!isbn) {
-      setError('That is not a 10 or 13 digit ISBN.');
-      return;
-    }
-    const id = `isbn-${isbn}`;
-    setAdding(true);
-    try {
-      const found = books.find((b) => b.id === id) ?? (await lookupIsbn(isbn));
-      if (!found) {
-        setError(`Open Library has no book with ISBN ${isbn}.`);
-        return;
-      }
-      const book: Book = { id, title: found.title, authors: found.authors, isbn, status: ADDED, rating: null, lastRead: null };
-      setBooks((bs) => (bs.some((b) => b.id === id) ? bs : [...bs, book]));
-      setOverrides((o) => ({ ...o, [id]: true }));
-      setIsbnInput('');
-      setError('');
-    } catch {
-      setError('Could not reach Open Library. Try again in a moment.');
-    } finally {
-      setAdding(false);
-    }
+  /** Adds a book found in the search. Added books survive loading a new library. */
+  function addBook(found: FoundBook) {
+    const id = found.isbn ? `isbn-${found.isbn}` : `ol-${found.key}`;
+    const book: Book = {
+      id,
+      title: found.title,
+      authors: found.authors,
+      isbn: found.isbn,
+      status: ADDED,
+      rating: null,
+      lastRead: null,
+    };
+    setBooks((bs) => (bs.some((b) => b.id === id) ? bs : [...bs, book]));
+    setOverrides((o) => ({ ...o, [id]: true }));
+    setError('');
+    // Open the new book's card, so its cover can be checked or swapped straight away.
+    setActiveId(id);
   }
 
   const layoutKey = JSON.stringify([
@@ -228,25 +220,7 @@ export function App() {
               {sampleLoaded ? 'Try a different sample' : 'Try a sample of popular books'}
             </button>
           </p>
-          <form
-            className="row add-isbn"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void addByIsbn();
-            }}
-          >
-            <label>
-              Or add any book by ISBN
-              <input
-                type="search"
-                inputMode="numeric"
-                placeholder="e.g. 9780140328721"
-                value={isbnInput}
-                onChange={(e) => setIsbnInput(e.target.value)}
-              />
-            </label>
-            <button disabled={adding || !isbnInput.trim()}>{adding ? 'Looking up' : 'Add'}</button>
-          </form>
+          <BookSearch onAdd={addBook} onError={setError} />
           {error && <p className="error">{error}</p>}
           {books.length > 0 && (
             <p className="muted">
@@ -332,7 +306,7 @@ export function App() {
           />
         ) : (
           <div className="empty muted">
-            <p>Load your StoryGraph or Goodreads export or add a book by ISBN to start.</p>
+            <p>Load your StoryGraph or Goodreads export or search for any book under Library to start.</p>
             <button onClick={() => loadSample()}>Or try a sample of popular books</button>
           </div>
         )}
