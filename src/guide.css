@@ -1,0 +1,109 @@
+/* Shared by the static guide pages (mini-book-ornaments/, year-in-books-ornament/). */
+:root {
+  color-scheme: light dark;
+  --bg: light-dark(#f4f1ec, #1b1a18);
+  --panel: light-dark(#fffdf9, #262421);
+  --ink: light-dark(#23201c, #ece7df);
+  --muted: light-dark(#6f685e, #a39b8f);
+  --line: light-dark(#ddd6ca, #3b3833);
+  --accent: light-dark(#8a4b2a, #e0a27c);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  line-height: 1.6;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+}
+main {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+}
+nav {
+  font-size: 0.9rem;
+}
+a {
+  color: var(--accent);
+}
+h1 {
+  font-size: clamp(1.8rem, 5vw, 2.4rem);
+  line-height: 1.2;
+  margin: 16px 0 12px;
+}
+h2 {
+  margin-top: 2.2em;
+  font-size: 1.35rem;
+}
+h3 {
+  font-size: 1.05rem;
+  margin-bottom: 0.3em;
+}
+.lede {
+  font-size: 1.1rem;
+  color: var(--muted);
+}
+figure {
+  margin: 24px 0;
+}
+figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+}
+figcaption {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-top: 6px;
+}
+.cta {
+  display: inline-block;
+  margin: 8px 0;
+  padding: 12px 18px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: light-dark(#fff, #1b1a18);
+  font-weight: 600;
+  text-decoration: none;
+}
+ol.steps > li {
+  margin-bottom: 1em;
+}
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+  font-variant-numeric: tabular-nums;
+}
+th,
+td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+tr:last-child td {
+  border-bottom: none;
+}
+.note {
+  padding: 12px 14px;
+  border-left: 3px solid var(--accent);
+  background: var(--panel);
+  border-radius: 0 8px 8px 0;
+}
+footer {
+  margin-top: 48px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}

@@ -171,4 +171,8 @@ test('guide', async ({ page }) => {
   await shot(page, '08-guide');
   await page.getByRole('heading', { name: 'Mini book sizes' }).evaluate((h) => h.scrollIntoView({ block: 'start' }));
   await shot(page, '09-guide-sizes');
+
+  await page.goto('./year-in-books-ornament/');
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  await shot(page, '10-year-in-books');
 });

@@ -14,6 +14,7 @@ export default defineConfig({
       input: {
         main: resolve(import.meta.dirname, 'index.html'),
         guide: resolve(import.meta.dirname, 'mini-book-ornaments/index.html'),
+        yearInBooks: resolve(import.meta.dirname, 'year-in-books-ornament/index.html'),
       },
     },
   },
