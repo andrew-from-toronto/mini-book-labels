@@ -167,13 +167,23 @@ function BuyBlanks({ dims, options }: { dims: Dims; options: ModelOptions }) {
           <tbody>
             <Breakdown lines={bookBreakdown(dims)} total={order.unitPrice} label="Each book" />
             <Breakdown lines={handlingBreakdown()} total={order.handling} label="Packing, once per order" />
+            <tr>
+              <td>
+                {quantity} {quantity === 1 ? 'book' : 'books'} x {formatCad(order.unitPrice)}
+              </td>
+              <td>{formatCad(order.books)}</td>
+            </tr>
+            <tr>
+              <td>Packing</td>
+              <td>{formatCad(order.handling)}</td>
+            </tr>
+            <tr className="subtotal">
+              <th scope="row">Total, plus shipping</th>
+              <td>{formatCad(order.subtotal)}</td>
+            </tr>
           </tbody>
         </table>
       </details>
-      <p className="muted find">
-        The covers and the 3D model stay free. Printed books carry a margin, shown above, which pays for the time to
-        make and post them and keeps this site running.
-      </p>
       <button className="primary" disabled title={`Order ${code}`}>
         Checkout opens soon
       </button>
