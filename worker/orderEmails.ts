@@ -37,6 +37,7 @@ export async function orderDetails(
   if (typeof rate === 'string') rate = await stripe.shippingRates.retrieve(rate).catch(() => null);
 
   return {
+    sessionId: session.id,
     code,
     quantity: Number(session.metadata?.quantity ?? 1),
     description: describeBlank(code) ?? code,

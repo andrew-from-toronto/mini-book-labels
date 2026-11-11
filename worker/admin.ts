@@ -7,6 +7,8 @@
  *   POST orders/{id}/buy        buys the label: {provider, service}; the order becomes labeled
  *   POST orders/{id}/refund     voids a label the carrier hasn't received; the order goes back to packing
  *   POST orders/{id}/track      checks the order's label and tracking with its vendor
+ *   POST orders/{id}/cancel     refunds the payment in full, voids any label not yet with the carrier,
+ *                               marks the order cancelled and emails the buyer
  *   POST tracking               checks every labeled and shipped order's tracking
  *
  * Every call needs Cloudflare Access (worker/access.ts); changes must also come from this site.
@@ -16,7 +18,8 @@ import { costOfBook } from '../src/lib/pricing';
 import { adminUser, type AccessEnv } from './access';
 import { json } from './cache';
 import { fromOwnSite } from './imageProxy';
-import type { MailEnv } from './mail';
+import type Stripe from 'stripe';
+import { cancelledEmail, mailMissing, sendMail, type MailEnv } from './mail';
 import { readShipFrom, type ShipFromEnv } from './shipFrom';
 import {
   configuredProviders,
@@ -34,7 +37,7 @@ import { refreshTracking } from './tracking';
  * by itself with the vendor's tracking: shipped once the carrier has the parcel, then delivered.
  */
 export const MANUAL_STAGES = ['paid', 'printing', 'packing'] as const;
-export const ORDER_STATUSES = [...MANUAL_STAGES, 'labeled', 'shipped', 'delivered'] as const;
+export const ORDER_STATUSES = [...MANUAL_STAGES, 'labeled', 'shipped', 'delivered', 'cancelled'] as const;
 
 export type AdminEnv = AccessEnv & ShippingEnv & ShipFromEnv & MailEnv & { ORDERS: D1Database };
 
@@ -67,6 +70,10 @@ export interface OrderRow {
   shipped_emailed_at: string | null;
   tracking_checked_at: string | null;
   delivered_at: string | null;
+  payment_intent: string | null;
+  livemode: number | null;
+  refund_id: string | null;
+  cancelled_at: string | null;
 }
 
 interface Address {
@@ -138,7 +145,12 @@ function parcelRequest(row: OrderRow, env: ShipFromEnv): ShipmentRequest | strin
   };
 }
 
-export async function handleAdmin(request: Request, env: AdminEnv, fetcher: typeof fetch = fetch): Promise<Response> {
+export async function handleAdmin(
+  request: Request,
+  env: AdminEnv,
+  stripe: Pick<Stripe, 'refunds'>,
+  fetcher: typeof fetch = fetch,
+): Promise<Response> {
   if (!(await adminUser(request, env, fetcher))) return json(403, { error: 'Sign in to admin.' });
   const path = new URL(request.url).pathname.replace(/^\/api\/admin\/?/, '');
   const db = env.ORDERS;
@@ -153,7 +165,7 @@ export async function handleAdmin(request: Request, env: AdminEnv, fetcher: type
     return json(200, { orders: await allOrders(db), ...result });
   }
 
-  const match = path.match(/^orders\/([\w-]+)\/(stage|rates|buy|refund|track)$/);
+  const match = path.match(/^orders\/([\w-]+)\/(stage|rates|buy|refund|track|cancel)$/);
   if (!match || request.method !== 'POST') return json(404, { error: 'Not found.' });
   if (!fromOwnSite(request)) return json(403, { error: 'Admin changes start from this site.' });
   const [, id, action] = match;
@@ -200,6 +212,40 @@ export async function handleAdmin(request: Request, env: AdminEnv, fetcher: type
         if (!row.shipment_id || !row.shipment_provider || row.status !== 'labeled') return json(409, { error: 'No label to void.' });
         const shipment = await providerFor(row.shipment_provider).refund(row.shipment_id, env, fetcher);
         await update(db, id, { ...labelFields(shipment), status: 'packing' });
+        return reply();
+      }
+      case 'cancel': {
+        if (row.status === 'cancelled') return json(409, { error: 'This order is already cancelled.' });
+        if (!row.payment_intent) return json(409, { error: 'No Stripe payment on this order to refund.' });
+        // A label the carrier hasn't got yet is voided too; a parcel already on its way can't be.
+        if (row.status === 'labeled' && row.shipment_id && row.shipment_provider) {
+          await update(db, id, labelFields(await providerFor(row.shipment_provider).refund(row.shipment_id, env, fetcher)));
+        }
+        // The idempotency key makes a repeated press (or retry) refund once.
+        const refund = row.refund_id
+          ? { id: row.refund_id, amount: row.amount_total }
+          : await stripe.refunds.create(
+              { payment_intent: row.payment_intent, reason: 'requested_by_customer', metadata: { order_code: row.order_code } },
+              { idempotencyKey: `cancel-${id}` },
+            );
+        await update(db, id, { status: 'cancelled', refund_id: refund.id, cancelled_at: new Date().toISOString() });
+        if (row.email && !mailMissing(env)) {
+          const order = decodeOrder(row.order_code);
+          await sendMail(
+            env,
+            cancelledEmail(
+              {
+                name: row.name ?? '',
+                email: row.email,
+                quantity: row.quantity,
+                description: order ? describeOrder(order) : row.order_code,
+                refunded: refund.amount ?? row.amount_total,
+                site: new URL(request.url).origin,
+              },
+              env.MAIL_REPLY_TO || env.MAIL_FROM,
+            ),
+          ).catch((e) => console.error('cancellation email failed', e instanceof Error ? e.message : e));
+        }
         return reply();
       }
       case 'track': {

@@ -57,6 +57,8 @@ export async function sendMail(env: MailEnv, mail: Mail, fetcher: typeof fetch =
 
 /** An order as the emails describe it. Amounts in cents, CAD. */
 export interface OrderDetails {
+  /** The Stripe Checkout Session id: the order's id in admin. */
+  sessionId: string;
   code: string;
   quantity: number;
   /** "30 x 20 x 5 mm, black, flat spine, hook centred, front" */
@@ -144,6 +146,7 @@ ${money.html}
 export function sellerEmail(o: OrderDetails, to: string): Mail {
   const model = `${o.site}/#order=${encodeURIComponent(o.code)}`;
   const download = `${o.site}/model/?code=${encodeURIComponent(o.code)}`;
+  const admin = `${o.site}/admin/?order=${encodeURIComponent(o.sessionId)}`;
   const payment = o.paymentIntent
     ? `https://dashboard.stripe.com/${o.livemode ? '' : 'test/'}payments/${o.paymentIntent}`
     : null;
@@ -161,6 +164,7 @@ export function sellerEmail(o: OrderDetails, to: string): Mail {
     'Ship to',
     ...o.address,
     '',
+    `Open in admin: ${admin}`,
     `Download the model: ${download}`,
     `Open in the designer: ${model}`,
     ...(payment ? [`Payment: ${payment}`] : []),
@@ -169,7 +173,8 @@ export function sellerEmail(o: OrderDetails, to: string): Mail {
     `${details.html}
 <h2 style="font-size:16px;margin:20px 0 4px">Ship to</h2>
 <p style="margin:0">${o.address.map(escape).join('<br>')}</p>
-<p style="margin-top:20px"><a href="${escape(download)}" style="color:#8a4b2a;font-weight:600">Download the model</a> · <a href="${escape(model)}" style="color:#8a4b2a">Open in the designer</a>${
+<p style="margin-top:20px"><a href="${escape(admin)}" style="display:inline-block;padding:10px 16px;background:#8a4b2a;color:#fff;border-radius:6px;text-decoration:none;font-weight:600">Open in admin</a></p>
+<p><a href="${escape(download)}" style="color:#8a4b2a">Download the model</a> · <a href="${escape(model)}" style="color:#8a4b2a">Open in the designer</a>${
       payment ? ` · <a href="${escape(payment)}" style="color:#8a4b2a">Payment in Stripe</a>` : ''
     }</p>`,
   );
@@ -223,4 +228,41 @@ ${o.trackingCode ? `<p style="color:#6f685e">Tracking number: ${escape(o.trackin
 <p style="margin:0;color:#6f685e">Mini Book Ornaments<br><a href="${escape(o.site)}" style="color:#8a4b2a">${escape(o.site.replace(/^https?:\/\//, ''))}</a></p>`,
   );
   return { to: o.email, subject: 'Your order has shipped', text, html, replyTo };
+}
+
+export interface CancelledDetails {
+  name: string;
+  email: string;
+  quantity: number;
+  description: string;
+  /** Cents, CAD. */
+  refunded: number;
+  site: string;
+}
+
+/** The buyer's notice that their order was cancelled and refunded. */
+export function cancelledEmail(o: CancelledDetails, replyTo?: string): Mail {
+  const first = o.name.split(/\s+/)[0] || 'there';
+  const text = [
+    `Hi ${first},`,
+    '',
+    `Your order has been cancelled and ${formatCad(o.refunded)} refunded to your card. It can take 5 to 10 days to appear.`,
+    '',
+    blanks(o.quantity),
+    o.description,
+    '',
+    'Questions? Reply to this email.',
+    '',
+    'Mini Book Ornaments',
+    o.site,
+  ].join('\n');
+  const html = page(
+    `<p>Hi ${escape(first)},</p>
+<p>Your order has been cancelled and <strong>${escape(formatCad(o.refunded))}</strong> refunded to your card. It can take 5 to 10 days to appear.</p>
+<h2 style="font-size:16px;margin:20px 0 4px">${escape(blanks(o.quantity))}</h2>
+<p style="margin:0 0 12px;color:#6f685e">${escape(o.description)}</p>
+<p style="margin-top:20px">Questions? Reply to this email.</p>
+<p style="margin:0;color:#6f685e">Mini Book Ornaments<br><a href="${escape(o.site)}" style="color:#8a4b2a">${escape(o.site.replace(/^https?:\/\//, ''))}</a></p>`,
+  );
+  return { to: o.email, subject: 'Your order has been cancelled', text, html, replyTo };
 }

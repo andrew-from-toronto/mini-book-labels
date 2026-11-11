@@ -10,6 +10,7 @@ const env: MailEnv = {
 };
 
 const order: OrderDetails = {
+  sessionId: 'cs_test_123',
   code: 'v1-h300-w200-s50-flat-nohook-c-black',
   quantity: 2,
   description: '30 x 20 x 5 mm, black, flat spine, no hook',
@@ -43,6 +44,7 @@ describe('order emails', () => {
   it('tell the shop what to print, with links to the model and the test payment', () => {
     const mail = sellerEmail(order, 'shop@minibookornaments.com');
     expect(mail.subject).toBe('[Test] New order: 2 × 30 x 20 x 5 mm, black, flat spine, no hook');
+    expect(mail.text).toContain('https://minibookornaments.com/admin/?order=cs_test_123');
     expect(mail.text).toContain('https://minibookornaments.com/model/?code=v1-h300-w200-s50-flat-nohook-c-black');
     expect(mail.text).toContain('https://minibookornaments.com/#order=v1-h300-w200-s50-flat-nohook-c-black');
     expect(mail.text).toContain('https://dashboard.stripe.com/test/payments/pi_123');

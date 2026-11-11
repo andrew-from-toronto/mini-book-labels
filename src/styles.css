@@ -683,6 +683,20 @@ a.button {
   font-weight: 600;
 }
 
+.admin-cancelled {
+  justify-self: start;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #b3261e 15%, var(--panel));
+  color: light-dark(#b3261e, #f28b82);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.admin-state.state-cancelled {
+  color: light-dark(#b3261e, #f28b82);
+}
+
 .admin-title {
   margin: 20px 0 0;
   font-size: 1.25rem;

@@ -45,6 +45,10 @@ interface Order {
   shipped_emailed_at: string | null;
   tracking_checked_at: string | null;
   delivered_at: string | null;
+  payment_intent: string | null;
+  livemode: number | null;
+  refund_id: string | null;
+  cancelled_at: string | null;
 }
 
 interface Rate {
@@ -92,6 +96,7 @@ const date = (when: string) =>
 
 /** Where an order is, in a word or two: its label before shipping, its tracking after. */
 function orderState(o: Pick<Order, 'status' | 'label_status'>): string {
+  if (o.status === 'cancelled') return 'Cancelled';
   if (o.status === 'delivered') return 'Delivered';
   if (o.status === 'labeled') return 'Labeled';
   if (o.status === 'shipped') {
@@ -112,6 +117,10 @@ function orderState(o: Pick<Order, 'status' | 'label_status'>): string {
 /** "2 days", "3-9 days". */
 const days = ({ min, max }: { min: number; max: number }) => (min === max ? `${max} days` : `${min}-${max} days`);
 
+/** The order's payment in the Stripe dashboard. */
+const stripePayment = (o: Order) =>
+  o.payment_intent ? `https://dashboard.stripe.com/${o.livemode === 0 ? 'test/' : ''}payments/${o.payment_intent}` : null;
+
 const stateClass = (o: Order) => `admin-state state-${orderState(o).toLowerCase().replace(/\s+/g, '-')}`;
 
 async function api<T>(path: string, body?: unknown): Promise<T> {
@@ -129,7 +138,17 @@ async function api<T>(path: string, body?: unknown): Promise<T> {
 export function AdminPage() {
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [filter, setFilter] = useState<Filter>('to-do');
-  const [selected, setSelected] = useState<string | null>(null);
+  // ?order=<id> opens that order: the new-order email links here.
+  const [selected, setSelected] = useState<string | null>(() => new URLSearchParams(location.search).get('order'));
+
+  // Keep the open order in the address, so a reload or a shared link comes back to it.
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (selected) params.set('order', selected);
+    else params.delete('order');
+    const query = params.toString();
+    history.replaceState(null, '', query ? `?${query}` : location.pathname);
+  }, [selected]);
   const [error, setError] = useState('');
   const [providers, setProviders] = useState<Provider[]>([]);
   const [checking, setChecking] = useState(false);
@@ -139,6 +158,9 @@ export function AdminPage() {
       .then((d) => {
         setOrders(d.orders);
         setProviders(d.providers);
+        // An order opened by link shows in the list too, whatever its stage.
+        const linked = d.orders.find((o) => o.session_id === new URLSearchParams(location.search).get('order'));
+        if (linked && !shown(linked, 'to-do')) setFilter('all');
       })
       .catch((e: Error) => setError(e.message));
   }, []);
@@ -278,7 +300,7 @@ function OrderDetail({ order: o, providers, onChange }: { order: Order; provider
   const [rates, setRates] = useState<Rate[] | null>(null);
   const [choice, setChoice] = useState(rateKey({ provider: o.shipping_provider, service: o.shipping_service }));
   const [busy, setBusy] = useState<string | null>(null);
-  const [confirming, setConfirming] = useState<'buy' | 'refund' | null>(null);
+  const [confirming, setConfirming] = useState<'buy' | 'refund' | 'cancel' | null>(null);
   const [error, setError] = useState('');
 
   async function run(action: string, body: unknown = {}) {
@@ -318,8 +340,21 @@ function OrderDetail({ order: o, providers, onChange }: { order: Order; provider
         <p className="muted">
           {date(o.created_at)} · {formatCad(o.amount_total)} ·{' '}
           {o.email ? <a href={`mailto:${o.email}`}>{o.email}</a> : 'no email'}
+          {stripePayment(o) && (
+            <>
+              {' · '}
+              <a href={stripePayment(o)!} target="_blank" rel="noopener">
+                Payment in Stripe
+              </a>
+            </>
+          )}
         </p>
 
+        {o.status === 'cancelled' ? (
+          <p className="admin-cancelled">
+            Cancelled {o.cancelled_at ? date(o.cancelled_at) : ''}, {formatCad(o.amount_total)} refunded
+          </p>
+        ) : (
         <ol className="stages" aria-label="Order stage">
           {STAGES.map(([stage, label], i) => {
             const clickable = manual && MANUAL.includes(stage) && stage !== o.status;
@@ -337,6 +372,7 @@ function OrderDetail({ order: o, providers, onChange }: { order: Order; provider
             );
           })}
         </ol>
+        )}
         {next && (
           <button type="button" className="primary" disabled={busy !== null} onClick={() => void run('stage', { stage: next[0] })}>
             {busy === 'stage' ? 'Saving...' : next[1]}
@@ -518,6 +554,26 @@ function OrderDetail({ order: o, providers, onChange }: { order: Order; provider
             <button type="button" disabled={busy !== null} onClick={() => void run('track')}>
               {busy === 'track' ? 'Checking...' : 'Check now'}
             </button>
+          </>
+        )}
+
+        {o.status !== 'cancelled' && (
+          <>
+            <h2>Cancel</h2>
+            {confirming === 'cancel' ? (
+              <div className="row">
+                <button type="button" className="danger" disabled={busy !== null} onClick={() => void run('cancel')}>
+                  {busy === 'cancel' ? 'Refunding...' : `Cancel and refund ${formatCad(o.amount_total)}`}
+                </button>
+                <button type="button" onClick={() => setConfirming(null)}>
+                  Keep order
+                </button>
+              </div>
+            ) : (
+              <button type="button" className="link" disabled={busy !== null} onClick={() => setConfirming('cancel')}>
+                {o.status === 'shipped' || o.status === 'delivered' ? 'Refund in full' : 'Cancel and refund in full'}
+              </button>
+            )}
           </>
         )}
 

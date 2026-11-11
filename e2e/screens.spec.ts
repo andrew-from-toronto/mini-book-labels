@@ -377,3 +377,15 @@ test('admin', async ({ page }) => {
   await page.locator('.admin-main').evaluate((el) => el.scrollTo(0, el.scrollHeight));
   await shot(page, '19-admin-shipped-order');
 });
+
+test('admin order link', async ({ page }) => {
+  // The new-order email links to /admin/?order=<id>: that order opens, even when it's past the To do tab.
+  await page.route('**/api/admin/orders', (route) =>
+    route.fulfill({ json: { orders: ADMIN_ORDERS, providers: [{ id: 'chitchats', name: 'Chit Chats', mode: 'test' }] } }),
+  );
+  await page.goto('./admin/?order=cs_4');
+  await expect(page.locator('.admin-title')).toHaveText('Mary Somerville');
+  await expect(page.locator('.admin-row.active')).toContainText('Mary Somerville');
+  await page.locator('.admin-row', { hasText: 'Emmy Noether' }).click();
+  await expect(page).toHaveURL(/order=cs_5/);
+});
