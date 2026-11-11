@@ -160,8 +160,7 @@ function BuyBlanks({ dims, options }: { dims: Dims; options: ModelOptions }) {
       </label>
       <details className="price-detail">
         <summary>
-          {quantity} x {formatCad(order.unitPrice)} + {formatCad(order.handling)} packing ={' '}
-          <strong>{formatCad(order.subtotal)}</strong>, plus shipping
+          <strong>{formatCad(order.subtotal)}</strong> plus shipping
         </summary>
         <table className="price-breakdown">
           <caption>How the price adds up</caption>
