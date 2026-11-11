@@ -135,6 +135,7 @@ export function PaymentStep({ code, quantity, onBack }: Props) {
   return (
     <div className="payment-step">
       <h3>Shipping</h3>
+      {phase === 'loading' && <div className="field-placeholder tall" aria-hidden="true" />}
       <div ref={shippingHost} />
       {phase === 'quoting' && <p className="muted">Getting shipping prices...</p>}
       {options.length > 0 && (
@@ -168,6 +169,7 @@ export function PaymentStep({ code, quantity, onBack }: Props) {
           <img src="/powered-by-stripe.svg" alt="Powered by Stripe" width={106} height={24} />
         </a>
       </div>
+      {phase === 'loading' && <div className="field-placeholder" aria-hidden="true" />}
       <div ref={paymentHost} />
 
       {session && (

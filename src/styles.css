@@ -784,6 +784,38 @@ a.button.primary {
   background: color-mix(in srgb, var(--accent) 8%, var(--panel));
 }
 
+.order-details.preparing {
+  /* Laid out at full width, so Stripe's fields size themselves, but off screen until Continue. */
+  position: absolute;
+  left: -10000px;
+  width: min(560px, 100vw - 32px);
+  visibility: hidden;
+}
+
+/* Stand-ins for Stripe's fields while they load. */
+.field-placeholder {
+  height: 104px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--bg) 25%, var(--panel) 50%, var(--bg) 75%) 0 0 / 200% 100%;
+  animation: shimmer 1.2s linear infinite;
+}
+
+.field-placeholder.tall {
+  height: 230px;
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .field-placeholder {
+    animation: none;
+  }
+}
+
 .pay-heading {
   display: flex;
   align-items: center;

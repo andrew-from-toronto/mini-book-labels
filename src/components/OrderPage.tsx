@@ -111,11 +111,14 @@ export function OrderPage() {
           </a>
         </header>
         <h1 className="order-title">Order blanks</h1>
-        {step === 'pay' ? (
-          <div className="order-details">
+        {/* Shipping and payment start loading, out of sight, once everything is ticked, so they are ready on
+            Continue. A changed choice clears the ticks, which drops them, so they always match the order. */}
+        {(allConfirmed || step === 'pay') && (
+          <div className={step === 'pay' ? 'order-details' : 'order-details preparing'} inert={step !== 'pay'}>
             <PaymentStep code={code} quantity={quantity} onBack={() => setStep('review')} />
           </div>
-        ) : (
+        )}
+        {step === 'review' && (
           <div className="order-details">
             <fieldset className="colours">
               <legend>Colour</legend>
