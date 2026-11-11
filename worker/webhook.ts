@@ -49,8 +49,8 @@ export async function saveOrder(db: D1Database, order: OrderRecord): Promise<voi
        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
        ON CONFLICT (session_id) DO UPDATE SET
          payment_status = excluded.payment_status,
-         -- A shipped order stays shipped if Stripe repeats an event.
-         status = CASE WHEN orders.status = 'shipped' THEN orders.status ELSE excluded.status END,
+         -- An order admin has moved on keeps its status if Stripe repeats an event.
+         status = CASE WHEN orders.status IN ('printing', 'packing', 'labeled', 'shipped', 'delivered') THEN orders.status ELSE excluded.status END,
          updated_at = datetime('now')`,
     )
     .bind(

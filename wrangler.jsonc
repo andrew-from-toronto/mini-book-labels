@@ -25,5 +25,7 @@
       "migrations_dir": "migrations"
     }
   ],
+  // Checks shipped orders' tracking with Chit Chats every 4 hours (worker/tracking.ts).
+  "triggers": { "crons": ["0 */4 * * *"] },
   "observability": { "enabled": true }
 }

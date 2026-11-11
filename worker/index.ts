@@ -12,6 +12,7 @@ import { handleOpenLibrary } from './openLibrary';
 import type { MailEnv } from './mail';
 import { emailOrder, orderDetails, recordDelivery } from './orderEmails';
 import type { ShipFromEnv } from './shipFrom';
+import { refreshTracking } from './tracking';
 import { handleWebhook } from './webhook';
 
 /** Secrets and bindings: .dev.vars locally, Worker secrets and wrangler.jsonc in production. */
@@ -52,5 +53,10 @@ export default {
     if (path.startsWith('/api/ol/') || path.startsWith('/api/cover/')) return handleOpenLibrary(request, context);
     if (path === '/api/image') return handleImage(request, context);
     return json(404, { error: 'Not found.' });
+  },
+
+  /** On the schedule in wrangler.jsonc: checks shipped orders' tracking with Chit Chats. */
+  async scheduled(_controller, env, ctx) {
+    ctx.waitUntil(refreshTracking(env.ORDERS, env).then((r) => console.log('tracking checked', r)));
   },
 } satisfies ExportedHandler<Env>;

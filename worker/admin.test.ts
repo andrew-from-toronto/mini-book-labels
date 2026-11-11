@@ -83,3 +83,17 @@ describe('Chit Chats live or staging', async () => {
     expect((fetcher.mock.calls[0] as unknown as [string])[0]).toBe('https://staging.chitchats.com/api/v1/clients/1/shipments/s1');
   });
 });
+
+describe('tracking moves orders on', async () => {
+  const { statusFromTracking } = await import('./tracking');
+  it('ships a labeled order once Chit Chats has it, and delivers on arrival', () => {
+    expect(statusFromTracking('labeled', 'ready')).toBeNull();
+    expect(statusFromTracking('labeled', 'received')).toBe('shipped');
+    expect(statusFromTracking('labeled', 'in_transit')).toBe('shipped');
+    expect(statusFromTracking('shipped', 'in_transit')).toBeNull();
+    expect(statusFromTracking('shipped', 'exception')).toBeNull();
+    expect(statusFromTracking('shipped', 'delivered')).toBe('delivered');
+    expect(statusFromTracking('labeled', 'delivered')).toBe('delivered');
+    expect(statusFromTracking('delivered', 'delivered')).toBeNull();
+  });
+});
