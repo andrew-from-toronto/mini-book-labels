@@ -13,8 +13,19 @@ import type { ShipFrom } from './shipFrom';
 export interface ChitChatsEnv {
   CHITCHATS_API_KEY: string;
   CHITCHATS_CLIENT_ID: string;
-  /** Optional: https://staging.chitchats.com for the sandbox. */
+  /** https://staging.chitchats.com to use a staging account (its own key and client id); live otherwise. */
   CHITCHATS_BASE_URL?: string;
+}
+
+const LIVE = 'https://chitchats.com';
+const STAGING = 'https://staging.chitchats.com';
+
+/** Which Chit Chats this is. Anything but the two real addresses is refused, so a typo never sends elsewhere. */
+export function chitChatsMode(env: ChitChatsEnv): 'live' | 'staging' {
+  const url = env.CHITCHATS_BASE_URL?.trim().replace(/\/$/, '') || LIVE;
+  if (url === LIVE) return 'live';
+  if (url === STAGING) return 'staging';
+  throw new ShippingError(`CHITCHATS_BASE_URL must be ${LIVE} or ${STAGING}.`);
 }
 
 /** HTS 3926.40.0090: ornamental articles of plastics, other. A miniature book ornament is not a statuette. */
@@ -191,7 +202,7 @@ export function shipmentBody({ to, dims, quantity, unitValue, shipFrom }: QuoteR
 export class ShippingError extends Error {}
 
 const apiBase = (env: ChitChatsEnv) =>
-  `${env.CHITCHATS_BASE_URL ?? 'https://chitchats.com'}/api/v1/clients/${env.CHITCHATS_CLIENT_ID}`;
+  `${chitChatsMode(env) === 'staging' ? STAGING : LIVE}/api/v1/clients/${env.CHITCHATS_CLIENT_ID}`;
 const apiHeaders = (env: ChitChatsEnv) => ({
   Authorization: env.CHITCHATS_API_KEY,
   'Content-Type': 'application/json; charset=utf-8',

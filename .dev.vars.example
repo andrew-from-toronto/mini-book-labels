@@ -12,6 +12,9 @@ STRIPE_WEBHOOK_SECRET=
 # Chit Chats: Settings > Developer > API Access Tokens, and the account's client id.
 CHITCHATS_API_KEY=
 CHITCHATS_CLIENT_ID=
+# Leave empty for live. For staging (free, fake labels), set this and use the staging account's key and
+# client id above: https://staging.chitchats.com
+CHITCHATS_BASE_URL=
 
 # Where blanks are made and shipped from: the manufacturer address on customs forms.
 SHIP_FROM_NAME=

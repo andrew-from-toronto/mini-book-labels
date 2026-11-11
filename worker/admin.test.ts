@@ -68,3 +68,18 @@ describe('admin access', () => {
     expect(await adminUser(at(otherApp.token), access, otherApp.certs as unknown as typeof fetch)).toBeNull();
   });
 });
+
+describe('Chit Chats live or staging', async () => {
+  const { chitChatsMode } = await import('./chitchats');
+  it('is live by default, staging by setting, and refuses anything else', () => {
+    expect(chitChatsMode(env)).toBe('live');
+    expect(chitChatsMode({ ...env, CHITCHATS_BASE_URL: 'https://staging.chitchats.com/' })).toBe('staging');
+    expect(() => chitChatsMode({ ...env, CHITCHATS_BASE_URL: 'https://chitchats.example.com' })).toThrow(/must be/);
+  });
+
+  it('sends staging calls to staging', async () => {
+    const fetcher = vi.fn(async () => reply({ id: 's1', status: 'unpaid' }));
+    await chitChatsShipments({ ...env, CHITCHATS_BASE_URL: 'https://staging.chitchats.com' }, fetcher as unknown as typeof fetch).get('s1');
+    expect((fetcher.mock.calls[0] as unknown as [string])[0]).toBe('https://staging.chitchats.com/api/v1/clients/1/shipments/s1');
+  });
+});

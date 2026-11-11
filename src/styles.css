@@ -669,6 +669,31 @@ a.button:not(.primary) {
   color: var(--ink);
 }
 
+.admin-page .order-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Which Chit Chats labels come from: staging is free and fake, live costs money. */
+.chitchats-mode {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.chitchats-mode.staging {
+  background: color-mix(in srgb, #2e7d32 15%, var(--panel));
+  color: light-dark(#2e7d32, #81c784);
+}
+
+.chitchats-mode.live {
+  background: color-mix(in srgb, #b3261e 15%, var(--panel));
+  color: light-dark(#b3261e, #f28b82);
+}
+
 button.danger {
   border-color: #b3261e;
   background: #b3261e;

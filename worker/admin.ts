@@ -13,7 +13,7 @@ import { decodeOrder, describeOrder } from '../src/lib/orderCode';
 import { costOfBook } from '../src/lib/pricing';
 import { adminUser, type AccessEnv } from './access';
 import { json } from './cache';
-import { chitChatsShipments, parseDays, ShippingError, type ChitChatsEnv, type Shipment } from './chitchats';
+import { chitChatsMode, chitChatsShipments, parseDays, ShippingError, type ChitChatsEnv, type Shipment } from './chitchats';
 import { fromOwnSite } from './imageProxy';
 import { mailMissing, sendMail, shippedEmail, type MailEnv } from './mail';
 import { readShipFrom, type ShipFromEnv } from './shipFrom';
@@ -105,7 +105,13 @@ export async function handleAdmin(request: Request, env: AdminEnv, fetcher: type
 
   if (path === 'orders' && request.method === 'GET') {
     const { results } = await db.prepare('SELECT * FROM orders ORDER BY created_at DESC LIMIT 500').all<OrderRow>();
-    return json(200, { orders: results.map(adminOrder) });
+    let chitchats: string;
+    try {
+      chitchats = chitChatsMode(env);
+    } catch (e) {
+      chitchats = e instanceof Error ? e.message : 'misconfigured';
+    }
+    return json(200, { orders: results.map(adminOrder), chitchats });
   }
 
   const match = path.match(/^orders\/([\w-]+)\/(shipment|buy|refund|shipped)$/);
@@ -122,7 +128,8 @@ export async function handleAdmin(request: Request, env: AdminEnv, fetcher: type
     switch (action) {
       case 'shipment': {
         // Reuse the order's shipment while it is unpaid, so rates can be looked at again without drafts piling up.
-        let shipment = row.chitchats_shipment_id ? await shipments.get(row.chitchats_shipment_id) : null;
+        // A shipment from the other Chit Chats (live or staging) is not found here: start a new one.
+        let shipment = row.chitchats_shipment_id ? await shipments.get(row.chitchats_shipment_id).catch(() => null) : null;
         if (!shipment || shipment.status === 'voided' || shipment.status === 'canceled') {
           const order = decodeOrder(row.order_code);
           const address = row.shipping_address ? (JSON.parse(row.shipping_address) as Address) : null;

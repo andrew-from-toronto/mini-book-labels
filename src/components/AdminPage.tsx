@@ -91,10 +91,14 @@ export function AdminPage() {
   const [filter, setFilter] = useState<Filter>('to-ship');
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [chitchats, setChitchats] = useState('');
 
   useEffect(() => {
-    api<{ orders: Order[] }>('orders')
-      .then((d) => setOrders(d.orders))
+    api<{ orders: Order[]; chitchats: string }>('orders')
+      .then((d) => {
+        setOrders(d.orders);
+        setChitchats(d.chitchats);
+      })
       .catch((e: Error) => setError(e.message));
   }, []);
 
@@ -109,6 +113,11 @@ export function AdminPage() {
           <img src="/favicon.svg" alt="" width={30} height={30} />
           Mini Book Labels
         </a>
+        {chitchats && (
+          <span className={`chitchats-mode ${chitchats === 'live' ? 'live' : 'staging'}`}>
+            Chit Chats {chitchats === 'live' ? 'live' : chitchats === 'staging' ? 'staging' : `error: ${chitchats}`}
+          </span>
+        )}
       </header>
       <div className="admin-body">
         <section className="admin-list">
