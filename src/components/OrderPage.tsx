@@ -244,7 +244,7 @@ export function OrderPage() {
       {/* A dark filament gets a light backdrop, in either theme, so it stays visible. */}
       <aside className={isDark(filamentById(colour)?.swatch ?? '#ffffff') ? 'order-preview on-light' : 'order-preview'}>
         <Suspense fallback={<p className="muted">Loading preview...</p>}>
-          <Book3D book={undefined} cover={undefined} custom={undefined} settings={settings} filament={filamentById(colour)?.swatch} measures />
+          <Book3D book={undefined} cover={undefined} custom={undefined} settings={settings} filament={filamentById(colour)?.swatch} measures refitOnResize />
         </Suspense>
       </aside>
     </main>

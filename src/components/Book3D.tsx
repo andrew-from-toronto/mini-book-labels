@@ -19,6 +19,8 @@ interface Props {
   filament?: string;
   /** Draw the height, width and spine thickness on the book, in mm. */
   measures?: boolean;
+  /** Frame the book afresh when its size changes, rather than keeping the camera where it was. */
+  refitOnResize?: boolean;
 }
 
 interface Measured {
@@ -58,7 +60,8 @@ class Viewer {
     }),
     paper: new THREE.MeshStandardMaterial({ color: PAPER, roughness: 0.9 }),
   };
-  private framed = false;
+  /** The size the camera was last framed for. */
+  private framedFor: string | null = null;
   private home = { position: new THREE.Vector3(), target: new THREE.Vector3() };
 
   constructor(private readonly host: HTMLElement) {
@@ -115,7 +118,8 @@ class Viewer {
     });
   }
 
-  setParts(parts: Map<PartName, ReturnType<typeof partGeometry>>) {
+  /** Shows new parts. The camera is framed the first time, and again for a new `frameKey` when given. */
+  setParts(parts: Map<PartName, ReturnType<typeof partGeometry>>, frameKey = '') {
     for (const child of [...this.group.children]) {
       (child as THREE.Mesh).geometry.dispose();
       this.group.remove(child);
@@ -131,9 +135,9 @@ class Viewer {
       const rest = name === 'pages' ? this.materials.paper : this.materials.plastic;
       this.group.add(new THREE.Mesh(geometry, [this.materials.label, rest]));
     }
-    if (!this.framed) {
+    if (this.framedFor === null || this.framedFor !== frameKey) {
       this.frame();
-      this.framed = true;
+      this.framedFor = frameKey;
     }
     this.render();
   }
@@ -278,7 +282,7 @@ class Viewer {
 }
 
 /** The printable book with the label wrapped on, to turn around and look at before printing. */
-export default function Book3D({ book, cover, custom, settings, filament, measures }: Props) {
+export default function Book3D({ book, cover, custom, settings, filament, measures, refitOnResize }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const viewer = useRef<Viewer | null>(null);
   const [state, setState] = useState<'building' | 'ready' | 'failed'>('building');
@@ -306,14 +310,17 @@ export default function Book3D({ book, cover, custom, settings, filament, measur
       .then((parts) => {
         if (!current || !viewer.current) return;
         viewer.current.setMeasures(measures ? dims : null, model);
-        viewer.current.setParts(new Map([...parts].map(([name, mesh]) => [name, partGeometry(name, mesh, dims)])));
+        viewer.current.setParts(
+          new Map([...parts].map(([name, mesh]) => [name, partGeometry(name, mesh, dims)])),
+          refitOnResize ? `${height}x${width}x${spine}` : '',
+        );
         setState('ready');
       })
       .catch(() => current && setState('failed'));
     return () => {
       current = false;
     };
-  }, [height, width, spine, model, measures]);
+  }, [height, width, spine, model, measures, refitOnResize]);
 
   const wrap = cover?.source === 'wrap' ? (custom?.spine ?? cover.detectedSpine ?? defaultWrapSpine(settings)) : undefined;
   const crop = custom?.crop ?? cover?.detectedCrop;
