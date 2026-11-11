@@ -74,20 +74,24 @@ async function audit(page: Page, name: string) {
         issues.push(`small tap target ${Math.round(target.width)}x${Math.round(target.height)}: ${describe(el)}`);
       }
     }
-    // Buttons on one line under one parent: a primary next to a plain one must still match in height.
+    // Controls on one line under one parent (buttons, text boxes, dropdowns, the file picker) must
+    // match in height: a primary button next to a plain one, or a field next to its button.
     const groups = new Map<Element, DOMRect[]>();
-    for (const el of document.querySelectorAll('button:not(.link), a.button')) {
+    const controls = "button:not(.link), a.button, select, input[type='file'], input:is([type='text'], [type='email'], [type='number'], [type='date'], [type='url'], [type='search'])";
+    for (const el of document.querySelectorAll(controls)) {
       const r = el.getBoundingClientRect();
       if (!r.width || !r.height || r.bottom < 0 || r.top > innerHeight || !el.parentElement) continue;
       if (el.closest('.variant-strip')) continue;
-      groups.set(el.parentElement, [...(groups.get(el.parentElement) ?? []), r]);
+      // A field inside a label is compared at the label's parent, beside the label's neighbours.
+      const parent = el.matches('input, select') && el.parentElement.tagName === 'LABEL' ? el.parentElement.parentElement! : el.parentElement;
+      groups.set(parent, [...(groups.get(parent) ?? []), r]);
     }
     for (const [parent, rects] of groups) {
       for (const a of rects) {
         for (const b of rects) {
           const sameLine = Math.abs(a.top + a.height / 2 - (b.top + b.height / 2)) < 4;
           if (sameLine && Math.abs(a.height - b.height) > 1) {
-            issues.push(`buttons side by side differ in height (${Math.round(a.height)} vs ${Math.round(b.height)}px) in ${describe(parent)}`);
+            issues.push(`controls side by side differ in height (${Math.round(a.height)} vs ${Math.round(b.height)}px) in ${describe(parent)}`);
           }
         }
       }
