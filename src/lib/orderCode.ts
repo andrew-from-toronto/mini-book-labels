@@ -15,7 +15,7 @@
  */
 import type { Dims } from './scales';
 import { DEFAULT_FILAMENT } from './filaments';
-import { DEFAULT_HOLE, HOLE_SIZES } from './hook';
+import { DEFAULT_HOLE, validHole } from './hook';
 import type { HookPosition, HookSide, ModelOptions } from './types';
 
 const VERSION = 'v1';
@@ -48,7 +48,7 @@ export function decodeOrder(code: string): Order | null {
   if (!match) return null;
   const [, h, w, s, spine, position, side, hole, colour] = match;
   const holeSize = hole ? Number(hole) / 10 : undefined;
-  if (holeSize !== undefined && !(HOLE_SIZES as readonly number[]).includes(holeSize)) return null;
+  if (holeSize !== undefined && !validHole(holeSize)) return null;
   const dims = { height: Number(h) / 10, width: Number(w) / 10, spine: Number(s) / 10 };
   if (!dims.height || !dims.width || !dims.spine) return null;
   return {

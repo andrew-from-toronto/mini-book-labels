@@ -93,7 +93,8 @@ export function OrderPage() {
   const [draft, setDraft] = useState(() => ({ height: String(initial.dims.height), width: String(initial.dims.width), spine: String(initial.dims.spine) }));
   const tenth = (v: string) => Math.round(Number(v) * 10) / 10;
   const drafted = { height: tenth(draft.height), width: tenth(draft.width), spine: tenth(draft.spine) };
-  const draftOk = custom ? printable(drafted) : true;
+  const [holeOk, setHoleOk] = useState(true);
+  const draftOk = (custom ? printable(drafted) : true) && (holeOk || !model.hook);
   const setScale = (value: string) => {
     if (value === 'custom') {
       setCustom(true);
@@ -247,7 +248,7 @@ export function OrderPage() {
                   </label>
                 </div>
               )}
-              {model.hook && <HoleSelect options={model} onChange={setModel} />}
+              {model.hook && <HoleSelect options={model} onChange={setModel} onValid={setHoleOk} />}
               <label>
                 Spine
                 <select

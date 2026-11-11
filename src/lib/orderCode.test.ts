@@ -37,8 +37,11 @@ describe('order codes', () => {
     expect(encodeOrder({ ...order, options: { ...order.options, holeSize: 1.6 } })).toBe(encodeOrder(order));
   });
 
-  it('refuse hole sizes that are not offered', () => {
-    expect(decodeOrder('v1-h300-w200-s50-flat-hook-center-front-o25-c-white')).toBeNull();
+  it('take custom hole sizes from 1 to 5 mm, and refuse others', () => {
+    expect(decodeOrder('v1-h300-w200-s50-flat-hook-center-front-o25-c-white')?.options.holeSize).toBe(2.5);
+    expect(decodeOrder('v1-h300-w200-s50-flat-hook-center-front-o50-c-white')?.options.holeSize).toBe(5);
+    expect(decodeOrder('v1-h300-w200-s50-flat-hook-center-front-o9-c-white')).toBeNull();
+    expect(decodeOrder('v1-h300-w200-s50-flat-hook-center-front-o51-c-white')).toBeNull();
   });
 
   it('read codes from before colours as white', () => {
