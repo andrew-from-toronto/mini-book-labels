@@ -6,6 +6,10 @@
   "account_id": "01b44fd7c0832ac1c1dc49b2a4ba859e",
   "main": "worker/index.ts",
   "compatibility_date": "2026-10-28",
+  // Served at minibookornaments.com; Cloudflare creates its DNS record. www is redirected to it by a
+  // Cloudflare Redirect Rule. No workers.dev address, so search engines see one copy of the site.
+  "routes": [{ "pattern": "minibookornaments.com", "custom_domain": true }],
+  "workers_dev": false,
   "assets": {
     // Only /api reaches the Worker; every other request is a static file, served free from the edge.
     "run_worker_first": ["/api/*"],

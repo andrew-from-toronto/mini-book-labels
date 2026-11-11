@@ -45,7 +45,7 @@ pnpm screens
 
 `pnpm screens` runs the app in Chromium through [Playwright](https://playwright.dev) at desktop, tablet and phone sizes and saves screenshots of its main states to `screens/`, for checking layout changes. The first time, install the browsers with `pnpm exec playwright install chromium webkit`. `SITE=https://minibookornaments.com/ pnpm screens` runs the same checks against the live site.
 
-Pushing to `main` deploys to GitHub Pages.
+Pushing to `main` deploys to Cloudflare: one Worker (`wrangler.jsonc`, `worker/`) serves the built site and `/api`, which passes Open Library requests through with edge caching and proxies pasted artwork. `pnpm dev` runs the Worker locally too. GitHub Pages only serves a redirect from the old `github.io` address.
 
 ## Support
 
