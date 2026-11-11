@@ -136,7 +136,7 @@ function BuyBlanks({ dims, options }: { dims: Dims; options: ModelOptions }) {
   if (!printable(dims)) {
     return (
       <p className="muted find">
-        Printed books are made from {PRINTABLE_HEIGHT.min} to {PRINTABLE_HEIGHT.max} mm tall; download the model to
+        Blank books are made from {PRINTABLE_HEIGHT.min} to {PRINTABLE_HEIGHT.max} mm tall; download the model to
         print this size yourself.
       </p>
     );
@@ -181,7 +181,7 @@ function BuyBlanks({ dims, options }: { dims: Dims; options: ModelOptions }) {
         </table>
       </details>
       <button className="primary buy-cta" disabled title={`Order ${code}`}>
-        Order printed books
+        Order blank books
       </button>
     </div>
   );
