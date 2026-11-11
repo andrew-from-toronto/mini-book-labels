@@ -2,7 +2,7 @@
 
 Printable wraparound labels (back, spine, front) for 3D printed miniature books, built from your StoryGraph or Goodreads library.
 
-Live app: https://andrew-from-toronto.github.io/mini-book-labels/
+Live app: https://minibookornaments.com/
 
 ## How it works
 

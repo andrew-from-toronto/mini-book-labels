@@ -13,7 +13,7 @@ export default defineConfig({
   timeout: 60_000,
   fullyParallel: true,
   reporter: [['list']],
-  use: { baseURL: 'http://localhost:5199/mini-book-labels/' },
+  use: { baseURL: 'http://localhost:5199/' },
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 }, ...chromium } },
     // Chromium with a tablet's size and touch.
@@ -41,7 +41,7 @@ export default defineConfig({
   ],
   webServer: {
     command: 'pnpm dev --port 5199 --strictPort',
-    url: 'http://localhost:5199/mini-book-labels/',
+    url: 'http://localhost:5199/',
     reuseExistingServer: true,
   },
 });
