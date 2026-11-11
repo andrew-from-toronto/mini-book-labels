@@ -180,3 +180,46 @@ export function sellerEmail(o: OrderDetails, to: string): Mail {
     replyTo: o.email,
   };
 }
+
+export interface ShippedDetails {
+  name: string;
+  email: string;
+  quantity: number;
+  description: string;
+  trackingUrl: string | null;
+  trackingCode: string | null;
+  site: string;
+}
+
+/** The buyer's shipping notice, with tracking. */
+export function shippedEmail(o: ShippedDetails, replyTo?: string): Mail {
+  const first = o.name.split(/\s+/)[0] || 'there';
+  const tracking = o.trackingUrl ?? null;
+  const text = [
+    `Hi ${first},`,
+    '',
+    'Your order has shipped.',
+    '',
+    blanks(o.quantity),
+    o.description,
+    '',
+    ...(tracking ? [`Track it: ${tracking}`] : []),
+    ...(o.trackingCode ? [`Tracking number: ${o.trackingCode}`] : []),
+    '',
+    'Questions? Reply to this email.',
+    '',
+    'Mini Book Ornaments',
+    o.site,
+  ].join('\n');
+  const html = page(
+    `<p>Hi ${escape(first)},</p>
+<p>Your order has shipped.</p>
+<h2 style="font-size:16px;margin:20px 0 4px">${escape(blanks(o.quantity))}</h2>
+<p style="margin:0 0 12px;color:#6f685e">${escape(o.description)}</p>
+${tracking ? `<p><a href="${escape(tracking)}" style="display:inline-block;padding:10px 16px;background:#8a4b2a;color:#fff;border-radius:6px;text-decoration:none;font-weight:600">Track your order</a></p>` : ''}
+${o.trackingCode ? `<p style="color:#6f685e">Tracking number: ${escape(o.trackingCode)}</p>` : ''}
+<p style="margin-top:20px">Questions? Reply to this email.</p>
+<p style="margin:0;color:#6f685e">Mini Book Ornaments<br><a href="${escape(o.site)}" style="color:#8a4b2a">${escape(o.site.replace(/^https?:\/\//, ''))}</a></p>`,
+  );
+  return { to: o.email, subject: 'Your order has shipped', text, html, replyTo };
+}

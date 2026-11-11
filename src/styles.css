@@ -572,6 +572,120 @@ a.button.primary {
   font-weight: normal;
 }
 
+/* Shop admin: orders down the left, the chosen order on the right. */
+.admin-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 16px 48px;
+}
+
+.admin-body {
+  display: grid;
+  grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+  margin-top: 16px;
+}
+
+.admin-list ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-filters {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.admin-filters button.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.admin-row {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--panel);
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+.admin-row.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.admin-row-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.admin-state {
+  font-weight: 600;
+}
+
+.admin-state.state-needs-label,
+.admin-state.state-label-failed {
+  color: var(--accent);
+}
+
+.admin-detail {
+  position: sticky;
+  top: 16px;
+  padding: 4px 20px 20px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+.admin-order {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-order h2 {
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.admin-order p,
+.admin-order address {
+  margin: 0;
+  font-style: normal;
+}
+
+a.button:not(.primary) {
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--ink);
+}
+
+button.danger {
+  border-color: #b3261e;
+  background: #b3261e;
+  color: #fff;
+  font-weight: 600;
+}
+
+@media (max-width: 800px) {
+  .admin-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-detail {
+    position: static;
+  }
+}
+
 /* Downloading an order's model: one narrow column. */
 .model-page {
   max-width: 560px;

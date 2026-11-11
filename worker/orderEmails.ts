@@ -82,3 +82,11 @@ export async function emailOrder(
     await db.prepare(`UPDATE orders SET ${column} = datetime('now') WHERE session_id = ?1`).bind(sessionId).run();
   }
 }
+
+/** Keeps what the buyer chose for delivery on the order, for buying the label later. */
+export async function recordDelivery(db: D1Database, sessionId: string, details: OrderDetails): Promise<void> {
+  await db
+    .prepare('UPDATE orders SET delivery = ?2, shipping_service = ?3, shipping_amount = ?4 WHERE session_id = ?1')
+    .bind(sessionId, details.delivery, details.service, details.shipping)
+    .run();
+}

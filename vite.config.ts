@@ -25,6 +25,7 @@ export default defineConfig({
             yearInBooks: resolve(import.meta.dirname, 'year-in-books-ornament/index.html'),
             order: resolve(import.meta.dirname, 'order/index.html'),
             model: resolve(import.meta.dirname, 'model/index.html'),
+            admin: resolve(import.meta.dirname, 'admin/index.html'),
             thanks: resolve(import.meta.dirname, 'thanks/index.html'),
           },
         },

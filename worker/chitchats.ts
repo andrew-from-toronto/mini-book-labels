@@ -71,7 +71,7 @@ export interface ShippingQuote {
   days: { min: number; max: number } | null;
 }
 
-interface Rate {
+export interface Rate {
   postage_type: string;
   postage_description?: string | null;
   payment_amount: string;
@@ -190,10 +190,17 @@ export function shipmentBody({ to, dims, quantity, unitValue, shipFrom }: QuoteR
 
 export class ShippingError extends Error {}
 
+const apiBase = (env: ChitChatsEnv) =>
+  `${env.CHITCHATS_BASE_URL ?? 'https://chitchats.com'}/api/v1/clients/${env.CHITCHATS_CLIENT_ID}`;
+const apiHeaders = (env: ChitChatsEnv) => ({
+  Authorization: env.CHITCHATS_API_KEY,
+  'Content-Type': 'application/json; charset=utf-8',
+});
+
 /** Live quotes for an order to an address. Creates a draft shipment, reads its rates, deletes it. */
 export async function quoteShipping(request: QuoteRequest, env: ChitChatsEnv, fetcher: typeof fetch = fetch) {
-  const base = `${env.CHITCHATS_BASE_URL ?? 'https://chitchats.com'}/api/v1/clients/${env.CHITCHATS_CLIENT_ID}`;
-  const headers = { Authorization: env.CHITCHATS_API_KEY, 'Content-Type': 'application/json; charset=utf-8' };
+  const base = apiBase(env);
+  const headers = apiHeaders(env);
   const created = await fetcher(`${base}/shipments`, {
     method: 'POST',
     headers,
@@ -208,4 +215,65 @@ export async function quoteShipping(request: QuoteRequest, env: ChitChatsEnv, fe
   // Drafts are deleted whether or not rates came back; a failed delete only leaves an unpaid draft.
   if (shipment?.id) await fetcher(`${base}/shipments/${shipment.id}`, { method: 'DELETE', headers }).catch(() => undefined);
   return chooseQuotes(shipment?.rates ?? []);
+}
+
+/** A Chit Chats shipment, as far as admin needs it. */
+export interface Shipment {
+  id: string;
+  /** unpaid, postage_requested, postage_purchase_failed, ready, in_transit, delivered, voided, ... */
+  status: string;
+  rates?: Rate[];
+  postage_type?: string | null;
+  carrier?: string | null;
+  carrier_tracking_code?: string | null;
+  tracking_url?: string | null;
+  postage_label_pdf_url?: string | null;
+  postage_label_png_url?: string | null;
+  purchase_amount?: string | null;
+}
+
+/** Chit Chats calls for fulfilment. Each returns the shipment as it is after the call. */
+export function chitChatsShipments(env: ChitChatsEnv, fetcher: typeof fetch = fetch) {
+  const base = apiBase(env);
+  const headers = apiHeaders(env);
+  async function call(path: string, init: RequestInit = {}): Promise<Response> {
+    const res = await fetcher(`${base}${path}`, { ...init, headers });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      throw new ShippingError(`Chit Chats ${init.method ?? 'GET'} ${path}: ${res.status} ${detail.slice(0, 300)}`);
+    }
+    return res;
+  }
+  const read = async (res: Response) => ((await res.json()) as { shipment: Shipment }).shipment;
+  const get = async (id: string) => read(await call(`/shipments/${id}`));
+
+  return {
+    get,
+    /** A new shipment for the order, unpaid, with its rates. */
+    async create(request: QuoteRequest): Promise<Shipment> {
+      return read(await call('/shipments', { method: 'POST', body: JSON.stringify(shipmentBody(request)) }));
+    },
+    /**
+     * Buys postage. Chit Chats buys in the background, normally within 3 seconds: this waits for the
+     * shipment to leave postage_requested, up to about 20 seconds, and returns it as it then is.
+     */
+    async buy(id: string, postageType: string, wait = (ms: number) => new Promise((r) => setTimeout(r, ms))): Promise<Shipment> {
+      await call(`/shipments/${id}/buy`, { method: 'PATCH', body: JSON.stringify({ postage_type: postageType }) });
+      let shipment = await get(id);
+      for (let i = 0; i < 20 && shipment.status === 'postage_requested'; i++) {
+        await wait(1000);
+        shipment = await get(id);
+      }
+      return shipment;
+    },
+    /** Asks for the postage back; the shipment becomes voided once Chit Chats processes it. */
+    async refund(id: string): Promise<Shipment> {
+      await call(`/shipments/${id}/refund`, { method: 'PATCH' });
+      return get(id);
+    },
+    /** Deletes an unpaid shipment. */
+    async remove(id: string): Promise<void> {
+      await call(`/shipments/${id}`, { method: 'DELETE' });
+    },
+  };
 }

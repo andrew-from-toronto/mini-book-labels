@@ -34,3 +34,8 @@ MAIL_FROM="Mini Book Ornaments <support@email.minibookornaments.com>"
 MAIL_REPLY_TO=
 # Where new-order notices go.
 ORDER_NOTIFY_TO=
+
+# Cloudflare Access for /admin: the Zero Trust team domain and the Access application's AUD tag.
+# Leave empty locally: admin then opens on localhost only.
+ACCESS_TEAM_DOMAIN=
+ACCESS_AUD=
