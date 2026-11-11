@@ -65,8 +65,14 @@ export function Preview(props: Props) {
   useEffect(() => {
     const el = viewport.current;
     if (!el) return;
+    let last = { w: 0, h: 0 };
     const observer = new ResizeObserver(() => {
-      if (!framed.current.expanded) latestReframe.current();
+      const size = { w: el.clientWidth, h: el.clientHeight };
+      // A phone's address bar showing or hiding changes only the height a little; reframing then
+      // would throw away the user's pinch zoom. Becoming visible (from a hidden tab) always reframes.
+      const minor = last.w > 0 && size.w === last.w && Math.abs(size.h - last.h) < 120;
+      last = size;
+      if (!framed.current.expanded && !minor && size.w > 0) latestReframe.current();
     });
     observer.observe(el);
     return () => observer.disconnect();
@@ -77,8 +83,9 @@ export function Preview(props: Props) {
       <div className="preview-bar">
         <strong>Print preview</strong>
         {activeId && <span className="muted">Click the label to {guidesHidden ? 'show' : 'hide'} guides</span>}
-        {expanded && pages.length > 0 && (
-          <>
+        {pages.length > 0 && (
+          // Always shown on narrow screens, where the preview has its own tab; only when expanded otherwise.
+          <span className={expanded ? 'zoom-controls shown' : 'zoom-controls'}>
             <button onClick={() => zoomBy(1 / 1.25)} aria-label="Zoom out">
               -
             </button>
@@ -88,8 +95,9 @@ export function Preview(props: Props) {
             <button onClick={() => zoomBy(1.25)} aria-label="Zoom in">
               +
             </button>
-            <span className="muted">Ctrl + scroll to zoom, drag to pan</span>
-          </>
+            <span className="muted hint-mouse">Ctrl + scroll to zoom, drag to pan</span>
+            <span className="muted hint-touch">Pinch to zoom, drag to pan</span>
+          </span>
         )}
         <button className="expand" onClick={() => onExpanded(!expanded)}>
           {expanded ? 'Collapse' : 'Expand'}

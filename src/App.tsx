@@ -27,6 +27,9 @@ const DEFAULT_SETTINGS: Settings = {
   guideWidth: 0.15,
 };
 
+/** On narrow screens one pane shows at a time, picked from a bar along the bottom. */
+type Tab = 'setup' | 'books' | 'preview';
+
 const clamp = (v: number, min: number, max: number) => Math.round(Math.min(max, Math.max(min, v)));
 
 interface HandleProps {
@@ -74,6 +77,7 @@ export function App() {
   /** The book being worked on: its cover controls are open and the preview zooms to its label. */
   const [activeId, setActiveId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [tab, setTab] = useState<Tab>('setup');
 
   const { listed, selected } = useMemo(
     () => selectBooks(books, applyFilters(books, filters), overrides),
@@ -94,6 +98,8 @@ export function App() {
       setOverrides(Object.fromEntries(added.map((b) => [b.id, true])));
       setCustomCovers((c) => Object.fromEntries(Object.entries(c).filter(([id]) => keep.has(id))));
       setError(parsed.length ? '' : 'That file has no books in it.');
+      // On a phone, go straight to the books that were just loaded.
+      if (parsed.length) setTab('books');
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -149,6 +155,7 @@ export function App() {
   return (
     <div
       className={expanded ? 'app expanded' : 'app'}
+      data-tab={tab}
       style={
         {
           '--setup-width': panes.setup && `${panes.setup}px`,
@@ -292,6 +299,21 @@ export function App() {
         onExpanded={setExpanded}
         layoutKey={layoutKey}
       />
+
+      <nav className="tabs" aria-label="Sections">
+        {(
+          [
+            ['setup', 'Setup', null],
+            ['books', 'Books', books.length ? listed.filter((b) => overrides[b.id] !== false).length : null],
+            ['preview', 'Preview', pages.length ? `${pages.length}p` : null],
+          ] as const
+        ).map(([key, text, count]) => (
+          <button key={key} aria-current={tab === key ? 'page' : undefined} onClick={() => setTab(key)}>
+            {text}
+            {count !== null && <span className="tab-count">{count}</span>}
+          </button>
+        ))}
+      </nav>
     </div>
   );
 }

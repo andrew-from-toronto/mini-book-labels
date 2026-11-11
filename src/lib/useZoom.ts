@@ -4,8 +4,9 @@ const MIN = 0.1;
 const MAX = 10;
 
 /**
- * Ctrl + wheel (or trackpad pinch) zoom for a scrollable element, keeping the point under the cursor
- * in place, plus click-and-drag panning. `frame` jumps straight to a zoom level and centres a target.
+ * Ctrl + wheel (or trackpad pinch) and two-finger touch pinch zoom for a scrollable element, keeping the
+ * point under the cursor or fingers in place, plus mouse drag panning (touch pans by native scrolling).
+ * `frame` jumps straight to a zoom level and centres a target.
  */
 export function useZoom(ref: RefObject<HTMLElement | null>) {
   const [zoom, setZoom] = useState(1);
@@ -20,7 +21,8 @@ export function useZoom(ref: RefObject<HTMLElement | null>) {
     anchor.current = {
       x: (clientX ?? rect.left + rect.width / 2) - rect.left,
       y: (clientY ?? rect.top + rect.height / 2) - rect.top,
-      ratio: clamped / current.current,
+      // Several zoom events can arrive before React renders (a pinch fires many); compound them.
+      ratio: (anchor.current?.ratio ?? 1) * (clamped / current.current),
     };
     current.current = clamped;
     setZoom(clamped);
@@ -58,7 +60,8 @@ export function useZoom(ref: RefObject<HTMLElement | null>) {
 
     let drag: { x: number; y: number; left: number; top: number; panning: boolean } | null = null;
     const onDown = (e: PointerEvent) => {
-      if (e.button !== 0) return;
+      // Touch and pen scroll natively; capturing them here would fight the browser's own panning.
+      if (e.button !== 0 || e.pointerType !== 'mouse') return;
       drag = { x: e.clientX, y: e.clientY, left: el.scrollLeft, top: el.scrollTop, panning: false };
     };
     const onMove = (e: PointerEvent) => {
@@ -78,13 +81,44 @@ export function useZoom(ref: RefObject<HTMLElement | null>) {
       el.classList.remove('panning');
     };
 
+    // Two-finger pinch. The viewport's touch-action stops the browser zooming the whole page instead.
+    let pinch: { distance: number; zoom: number } | null = null;
+    const fingers = (e: TouchEvent) => {
+      const [a, b] = [e.touches[0], e.touches[1]];
+      return {
+        distance: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
+        x: (a.clientX + b.clientX) / 2,
+        y: (a.clientY + b.clientY) / 2,
+      };
+    };
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) pinch = { distance: fingers(e).distance, zoom: current.current };
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (!pinch || e.touches.length !== 2) return;
+      e.preventDefault();
+      const f = fingers(e);
+      if (pinch.distance > 0) zoomTo(pinch.zoom * (f.distance / pinch.distance), f.x, f.y);
+    };
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) pinch = null;
+    };
+
     el.addEventListener('wheel', onWheel, { passive: false });
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd);
+    el.addEventListener('touchcancel', onTouchEnd);
     el.addEventListener('pointerdown', onDown);
     el.addEventListener('pointermove', onMove);
     el.addEventListener('pointerup', onUp);
     el.addEventListener('pointercancel', onUp);
     return () => {
       el.removeEventListener('wheel', onWheel);
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+      el.removeEventListener('touchcancel', onTouchEnd);
       el.removeEventListener('pointerdown', onDown);
       el.removeEventListener('pointermove', onMove);
       el.removeEventListener('pointerup', onUp);

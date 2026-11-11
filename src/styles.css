@@ -89,6 +89,54 @@ body {
   padding: 16px;
   cursor: grab;
   user-select: none;
+  /* One-finger panning stays native; two-finger pinch is handled by the app rather than zooming the page. */
+  touch-action: pan-x pan-y;
+}
+
+.zoom-controls {
+  display: none;
+  gap: 6px;
+  align-items: center;
+}
+
+.zoom-controls.shown {
+  display: flex;
+}
+
+.hint-touch {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .hint-mouse,
+  .keys-hint {
+    display: none;
+  }
+
+  .hint-touch {
+    display: inline;
+  }
+}
+
+.nudge {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.nudge .find {
+  flex-basis: 100%;
+}
+
+.nudge button {
+  min-width: 52px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Only used on narrow screens. */
+.tabs {
+  display: none;
 }
 
 .viewport.panning {
@@ -570,29 +618,142 @@ fieldset.crop {
   border-top: none;
 }
 
-@media (max-width: 1100px) {
+/* Narrow screens: one pane at a time, switched from a bar along the bottom. Screen only, so printing
+   (whose page is narrower than this) still lays out the sheet whatever tab is open. */
+@media screen and (max-width: 1100px) {
   .app {
     grid-template-columns: 1fr;
-    height: auto;
-  }
-
-  .controls {
-    border-right: none;
+    grid-template-rows: minmax(0, 1fr) auto;
+    height: 100vh;
+    height: 100dvh;
   }
 
   .handle {
     display: none;
   }
 
+  .controls,
+  .books,
   .preview {
-    height: 70vh;
-    border-left: none;
-    border-top: 1px solid var(--line);
+    grid-row: 1;
+    grid-column: 1;
+    border: none;
+  }
+
+  .app[data-tab='setup'] > :is(.books, .preview),
+  .app[data-tab='books'] > :is(.controls, .preview),
+  .app[data-tab='preview'] > :is(.controls, .books) {
+    display: none;
+  }
+
+  .books {
+    padding: 16px;
+  }
+
+  /* The preview has the whole pane already. */
+  .preview-bar .expand {
+    display: none;
+  }
+
+  .zoom-controls {
+    display: flex;
   }
 
   .app.expanded .preview {
-    inset: 0;
-    height: auto;
+    position: static;
+  }
+
+  .tabs {
+    display: flex;
+    grid-row: 2;
+    background: var(--panel);
+    border-top: 1px solid var(--line);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .tabs button {
+    flex: 1;
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    align-items: center;
+    min-height: 52px;
+    background: none;
+    border: none;
+    border-radius: 0;
+    border-top: 3px solid transparent;
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  .tabs button[aria-current='page'] {
+    border-top-color: var(--accent);
+    color: var(--ink);
+  }
+
+  .tab-count {
+    padding: 0 6px;
+    border-radius: 10px;
+    background: var(--bg);
+    font-size: 0.75rem;
+    font-weight: normal;
+  }
+
+  .rows {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+  }
+
+  /* The open card stacks its cover above the text, as the closed ones do, rather than squeezing a row. */
+  .book.active .book-head {
+    flex-direction: column;
+    padding-left: 14px;
+    text-align: center;
+  }
+
+  .cover-edit {
+    padding: 4px 14px 14px;
+  }
+
+  fieldset.crop {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Fingers need bigger targets than a mouse. */
+@media (pointer: coarse) {
+  button,
+  input[type='number'],
+  input[type='date'],
+  input[type='url'],
+  input[type='search'],
+  select {
+    min-height: 44px;
+  }
+
+  button.link {
+    min-height: 32px;
+  }
+
+  /* 16px stops iOS zooming the page when a text box is focused. */
+  input,
+  select {
+    font-size: 16px;
+  }
+
+  input[type='checkbox'],
+  .book-head input[type='checkbox'] {
+    width: 24px;
+    height: 24px;
+  }
+
+  input[type='range'] {
+    height: 36px;
+  }
+
+  label.check {
+    align-items: center;
+    min-height: 40px;
   }
 }
 
@@ -605,6 +766,7 @@ fieldset.crop {
   .books,
   .handle,
   .preview-bar,
+  .tabs,
   .guides {
     display: none;
   }

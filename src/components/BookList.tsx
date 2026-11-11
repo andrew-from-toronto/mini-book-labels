@@ -34,9 +34,10 @@ interface SpineControlsProps {
   pages: number | undefined;
   manual: boolean;
   onChange: (spine: WrapSpine | undefined) => void;
+  onNudge: (direction: NudgeDirection, big: boolean) => void;
 }
 
-function SpineControls({ spine, from, pages, manual, onChange }: SpineControlsProps) {
+function SpineControls({ spine, from, pages, manual, onChange, onNudge }: SpineControlsProps) {
   const centre = (spine.left + spine.right) / 2;
   const width = spine.right - spine.left;
   const set = (c: number, w: number) => onChange({ left: c - w / 2, right: c + w / 2 });
@@ -51,7 +52,9 @@ function SpineControls({ spine, from, pages, manual, onChange }: SpineControlsPr
             : from === 'pages'
               ? `No spine edges visible in this artwork, so its width is estimated from the page count (${pages} pages). Adjust below if it is off.`
               : 'Could not find the spine or a page count, so it is assumed to match your label. Adjust below.'}{' '}
-        Arrow keys nudge it finely: left and right move it, up and down change its width, Shift for bigger steps.{' '}
+        <span className="keys-hint">
+          Arrow keys nudge it finely: left and right move it, up and down change its width, Shift for bigger steps.
+        </span>{' '}
         {manual && (
           <button className="link" onClick={() => onChange(undefined)}>
             Back to automatic
@@ -80,8 +83,51 @@ function SpineControls({ spine, from, pages, manual, onChange }: SpineControlsPr
           onChange={(e) => set(Number(e.target.value), width)}
         />
       </label>
+      <div className="nudge" role="group" aria-label="Nudge the spine">
+        <span className="muted find">Nudge (hold Shift or double-tap for bigger steps):</span>
+        {NUDGE_BUTTONS.map(([direction, text, label]) => (
+          <button
+            key={direction}
+            type="button"
+            aria-label={label}
+            title={label}
+            onClick={(e) => onNudge(direction, e.shiftKey || e.detail > 1)}
+          >
+            {text}
+          </button>
+        ))}
+      </div>
     </>
   );
+}
+
+type NudgeDirection = 'left' | 'right' | 'narrower' | 'wider';
+
+const NUDGE_BUTTONS: [NudgeDirection, string, string][] = [
+  ['left', '←', 'Move spine left'],
+  ['right', '→', 'Move spine right'],
+  ['narrower', '→←', 'Make spine narrower'],
+  ['wider', '←→', 'Make spine wider'],
+];
+
+const NUDGE_KEYS: Record<string, NudgeDirection> = {
+  ArrowLeft: 'left',
+  ArrowRight: 'right',
+  ArrowUp: 'wider',
+  ArrowDown: 'narrower',
+};
+
+/** Moves or resizes a spine by one nudge step, or returns null if it would get too thin. */
+function nudgeSpine(spine: WrapSpine, direction: NudgeDirection, big: boolean): WrapSpine | null {
+  const step = big ? SPINE_NUDGE * 10 : SPINE_NUDGE;
+  const [dl, dr] = {
+    left: [-step, -step],
+    right: [step, step],
+    narrower: [step / 2, -step / 2],
+    wider: [-step / 2, step / 2],
+  }[direction];
+  const next = { left: spine.left + dl, right: spine.right + dr };
+  return next.right - next.left >= 0.005 ? next : null;
 }
 
 /** Arrow-key step for the spine, as a fraction of the artwork's width (half a pixel on a 1000 px image). */
@@ -164,18 +210,11 @@ export function BookList({
     const onKey = (e: KeyboardEvent) => {
       // Arrow keys already mean something inside text boxes, sliders and dropdowns.
       if (e.target instanceof Element && e.target.closest('input, textarea, select')) return;
-      const step = e.shiftKey ? SPINE_NUDGE * 10 : SPINE_NUDGE;
-      const shift: Record<string, [number, number]> = {
-        ArrowLeft: [-step, -step],
-        ArrowRight: [step, step],
-        ArrowUp: [-step / 2, step / 2],
-        ArrowDown: [step / 2, -step / 2],
-      };
-      const delta = shift[e.key];
-      if (!delta) return;
+      const direction = NUDGE_KEYS[e.key];
+      if (!direction) return;
       e.preventDefault();
-      const next = { left: spine.left + delta[0], right: spine.right + delta[1] };
-      if (next.right - next.left >= 0.005) onCustomCover(book.id, { ...custom, spine: next });
+      const next = nudgeSpine(spine, direction, e.shiftKey);
+      if (next) onCustomCover(book.id, { ...custom, spine: next });
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -335,6 +374,14 @@ export function BookList({
                       pages={cover.pages}
                       manual={Boolean(custom.spine)}
                       onChange={(spine) => onCustomCover(b.id, { ...custom, spine })}
+                      onNudge={(direction, big) => {
+                        const next = nudgeSpine(
+                          custom.spine ?? cover.detectedSpine ?? defaultWrapSpine,
+                          direction,
+                          big,
+                        );
+                        if (next) onCustomCover(b.id, { ...custom, spine: next });
+                      }}
                     />
                   )}
                   {custom && (
