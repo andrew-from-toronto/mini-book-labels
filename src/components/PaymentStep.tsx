@@ -5,6 +5,7 @@ import {
   type StripeCheckoutLoadActionsSuccess,
   type StripeCheckoutSession,
 } from '@stripe/stripe-js';
+import { SHIPPING_COUNTRIES } from '../../worker/shipping';
 
 interface Props {
   /** Order code: the blank's size, options and colour. */
@@ -92,13 +93,25 @@ export function PaymentStep({ code, quantity, onBack }: Props) {
       contact.mount(contactHost.current!);
       destroy.push(() => contact.destroy());
 
-      const shipping = checkout.createShippingAddressElement();
+      // A standalone address form, not the session's own: only our server may set shipping on the session
+      // (so its price always comes from a real quote), and Stripe refuses to confirm while the session's
+      // shipping form is on the page. The server writes this address to the session when it quotes.
+      const shipping = stripe
+        .elements({ appearance: appearance() })
+        .create('address', { mode: 'shipping', allowedCountries: [...SHIPPING_COUNTRIES] });
       shipping.mount(shippingHost.current!);
       destroy.push(() => shipping.destroy());
-      // Quote once the address is complete, after typing settles.
+      // Quote once the address is complete and has changed, after typing settles.
+      let quoted = '';
       shipping.on('change', (event) => {
         clearTimeout(quoteTimer);
-        if (event.complete) quoteTimer = setTimeout(() => void quote(event.value), 400);
+        const key = JSON.stringify(event.value);
+        if (event.complete && key !== quoted) {
+          quoteTimer = setTimeout(() => {
+            quoted = key;
+            void quote(event.value);
+          }, 400);
+        }
       });
 
       const payment = checkout.createPaymentElement();
@@ -130,8 +143,14 @@ export function PaymentStep({ code, quantity, onBack }: Props) {
     setPhase('paying');
     setMessage('');
     // On success Stripe goes to the thanks page; a returned result means it didn't go through.
-    const result = await actions.confirm();
-    if (result.type === 'error') setMessage(result.error.message);
+    try {
+      const result = await actions.confirm();
+      if (result.type === 'error') setMessage(result.error.message);
+    } catch (e) {
+      // Stripe throws for mistakes in the integration rather than returning them; never leave the button stuck.
+      console.error('confirm failed', e);
+      setMessage('Payment could not start. Try again, or contact us if it keeps happening.');
+    }
     setPhase('ready');
   }
 
