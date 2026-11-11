@@ -79,7 +79,7 @@ describe('price breakdowns', () => {
 
   it('name the margin plainly and never show it negative', () => {
     const lines = bookBreakdown(dimsAtScale(7));
-    expect(lines.at(-1)!.label).toBe('Margin that keeps the site running');
+    expect(lines.at(-1)!.label).toBe('Margin');
     expect(lines.every((l) => l.cents >= 0)).toBe(true);
     expect(handlingBreakdown().every((l) => l.cents >= 0)).toBe(true);
   });

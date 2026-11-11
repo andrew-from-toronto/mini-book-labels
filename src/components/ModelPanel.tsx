@@ -114,7 +114,7 @@ function Breakdown({ lines, total, label }: { lines: PriceLine[]; total: number;
   return (
     <>
       {lines.map((line) => (
-        <tr key={line.label} className={line.label.startsWith('Margin') ? 'margin' : undefined}>
+        <tr key={line.label} className={line.label === 'Margin' ? 'margin' : undefined}>
           <td>{line.label}</td>
           <td>{formatCad(line.cents)}</td>
         </tr>
@@ -145,11 +145,16 @@ function BuyBlanks({ dims, options }: { dims: Dims; options: ModelOptions }) {
   const code = encodeOrder({ dims, options });
   return (
     <div className="buy-blanks">
-      <p>
-        <strong>No 3D printer?</strong> Order this model, blank, and ready to apply your covers.
-      </p>
-      <label>
-        How many
+      <div className="buy-head">
+        <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" width={30} height={30} />
+        <p>
+          <strong>No 3D printer?</strong>
+          <span>Order this model, blank, and ready to apply your covers.</span>
+          <span className="buy-each">{formatCad(order.unitPrice)} each</span>
+        </p>
+      </div>
+      <label className="buy-quantity">
+        Quantity
         <input
           type="number"
           min={1}
@@ -163,15 +168,15 @@ function BuyBlanks({ dims, options }: { dims: Dims; options: ModelOptions }) {
           <strong>{formatCad(order.subtotal)}</strong> plus shipping
         </summary>
         <table className="price-breakdown">
-          <caption>How the price adds up</caption>
+          <caption>Breakdown</caption>
           <tbody>
             <Breakdown lines={bookBreakdown(dims)} total={order.unitPrice} label="Each book" />
-            <Breakdown lines={handlingBreakdown()} total={order.handling} label="Packing, once per order" />
+            <Breakdown lines={handlingBreakdown()} total={order.handling} label="Packing" />
           </tbody>
         </table>
       </details>
-      <button className="primary" disabled title={`Order ${code}`}>
-        Checkout opens soon
+      <button className="primary buy-cta" disabled title={`Order ${code}`}>
+        Order printed books
       </button>
     </div>
   );

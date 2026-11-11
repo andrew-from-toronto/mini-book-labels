@@ -128,19 +128,19 @@ export function bookBreakdown(dims: Dims, inputs: CostInputs = COST_INPUTS): Pri
   const c = costOfBook(dims, inputs);
   const withFailures = 1 + inputs.failureAllowance;
   const costs: PriceLine[] = [
-    { label: 'Materials and equipment', cents: toCents((c.filament + c.printer) * withFailures) },
+    { label: 'Equipment', cents: toCents((c.filament + c.printer) * withFailures) },
     { label: 'Labour', cents: toCents(c.labour * withFailures) },
   ];
   const spent = costs.reduce((sum, line) => sum + line.cents, 0);
-  return [...costs, { label: 'Margin that keeps the site running', cents: c.unitPrice - spent }];
+  return [...costs, { label: 'Margin', cents: c.unitPrice - spent }];
 }
 
 /** What packing and handling is made of, in cents, adding up exactly to handlingPrice(). */
 export function handlingBreakdown(inputs: CostInputs = COST_INPUTS): PriceLine[] {
   const costs: PriceLine[] = [
-    { label: 'Materials (mailer and padding)', cents: toCents(inputs.packagingPerOrder) },
+    { label: 'Materials', cents: toCents(inputs.packagingPerOrder) },
     { label: 'Labour', cents: toCents((inputs.packingMinutesPerOrder / 60) * inputs.labourPerHour) },
   ];
   const spent = costs.reduce((sum, line) => sum + line.cents, 0);
-  return [...costs, { label: 'Margin that keeps the site running', cents: handlingPrice(inputs) - spent }];
+  return [...costs, { label: 'Margin', cents: handlingPrice(inputs) - spent }];
 }
