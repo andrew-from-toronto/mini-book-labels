@@ -587,6 +587,78 @@ fieldset.crop {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
+/*
+ * With a mouse, the covers overlap like a fanned deck. Pointing at the strip spreads the fan out a little,
+ * and the cover under the pointer (or keyboard focus) lifts to the front, whole; the cover in use stays in
+ * front of its neighbours. Cards never move sideways on their own hover: one sliding out from under the
+ * pointer would make the hover flicker between neighbours. Touch screens have no hover, so they keep the
+ * plain side-by-side strip.
+ */
+@media (hover: hover) and (pointer: fine) {
+  .variant-strip {
+    gap: 0;
+    /* Room for a lifted card, which overflow-x: auto would otherwise clip. */
+    padding: 8px 12px 8px 4px;
+  }
+
+  .variant-strip li {
+    position: relative;
+    transition:
+      margin 200ms ease,
+      transform 160ms ease;
+  }
+
+  /* Light overlap: most of each cover shows, so any can be pointed at directly. */
+  .variant-strip li + li {
+    margin-left: -16px;
+  }
+
+  .variant-strip:is(:hover, :focus-within) li + li {
+    margin-left: -4px;
+  }
+
+  .variant-strip button {
+    background: var(--panel);
+  }
+
+  .variant-strip button span {
+    opacity: 0;
+    transition: opacity 160ms ease;
+  }
+
+  .variant-strip li:has([aria-pressed='true']) {
+    z-index: 1;
+  }
+
+  .variant-strip li:is(:hover, :focus-within) {
+    z-index: 2;
+    transform: translateY(-4px) scale(1.06);
+  }
+
+  .variant-strip li:is(:hover, :focus-within, :has([aria-pressed='true'])) span {
+    opacity: 1;
+  }
+
+  .variant-strip button:hover {
+    border-color: transparent;
+  }
+
+  .variant-strip li:is(:hover, :focus-within) img {
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .variant-strip li,
+  .variant-strip button span {
+    transition: none;
+  }
+
+  .variant-strip li:is(:hover, :focus-within) {
+    transform: none;
+  }
+}
+
 .add-isbn {
   margin: 12px 0 8px;
 }
