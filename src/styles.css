@@ -498,7 +498,7 @@ button.link {
   box-shadow: 0 0 0 1px var(--accent);
 }
 
-.book.off .book-head > :not(input) {
+.book.off .book-head > :not(.include) {
   opacity: 0.45;
 }
 
@@ -514,10 +514,15 @@ button.link {
   cursor: pointer;
 }
 
-.book-head input[type='checkbox'] {
+.book-head .include {
   position: absolute;
-  top: 10px;
-  left: 10px;
+  top: 0;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
 }
 
 .book-head .book-text {
@@ -1139,7 +1144,31 @@ fieldset.crop {
   }
 
   input[type='range'] {
-    height: 36px;
+    height: 44px;
+  }
+
+  .book-head .include {
+    width: 48px;
+    height: 48px;
+  }
+
+  input[type='file'] {
+    min-height: 44px;
+  }
+
+  input[type='file']::file-selector-button {
+    min-height: 40px;
+    padding: 8px 14px;
+  }
+
+  .zoom-controls button {
+    min-width: 44px;
+  }
+
+  /* Links inside sentences: taller to tap, same look. */
+  :is(footer, .find, .muted) a {
+    display: inline-block;
+    padding: 6px 0;
   }
 
   label.check {

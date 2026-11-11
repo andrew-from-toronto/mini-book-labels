@@ -94,7 +94,10 @@ function SpineControls({ spine, from, pages, manual, onChange, onNudge }: SpineC
         />
       </label>
       <div className="nudge" role="group" aria-label="Nudge the spine">
-        <span className="muted find">Nudge (hold Shift or double-tap for bigger steps):</span>
+        <span className="muted find">
+          Nudge (<span className="hint-mouse">hold Shift or double-click</span>
+          <span className="hint-touch">double-tap</span> for bigger steps):
+        </span>
         {NUDGE_BUTTONS.map(([direction, text, label]) => (
           <button
             key={direction}
@@ -360,13 +363,15 @@ export function BookList({
                   }
                 }}
               >
-                <input
-                  type="checkbox"
-                  aria-label={`Include ${b.title} on the sheet`}
-                  checked={on}
-                  onClick={(e) => e.stopPropagation()}
-                  onChange={(e) => onToggle(b.id, e.target.checked)}
-                />
+                {/* A label around the box gives it a finger-sized target without making it look bigger. */}
+                <label className="include" onClick={(e) => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    aria-label={`Include ${b.title} on the sheet`}
+                    checked={on}
+                    onChange={(e) => onToggle(b.id, e.target.checked)}
+                  />
+                </label>
                 <Label book={b} cover={cover} custom={custom} settings={settings} thumbHeight={110} />
                 <div className="book-text">
                   <strong>{b.title}</strong>

@@ -5,8 +5,56 @@ import { expect, test, type Page } from '@playwright/test';
  * Not assertions about pixels: each step only checks enough to know the screenshot shows the right thing.
  */
 
-const shot = (page: Page, name: string) =>
-  page.screenshot({ path: `screens/${test.info().project.name}-${name}.png` });
+/** Problems found on each screen, written to screens/<project>-audit.json for review. */
+const findings: Record<string, string[]> = {};
+
+/**
+ * Checks the visible screen for what makes a phone layout feel broken: anything wider than the screen,
+ * and controls too small to tap (under 40 x 40 px; text links are allowed 24 px tall).
+ */
+async function audit(page: Page, name: string) {
+  findings[name] = await page.evaluate(() => {
+    const issues: string[] = [];
+    const vw = document.documentElement.clientWidth;
+    if (document.documentElement.scrollWidth > vw + 1) {
+      issues.push(`page scrolls sideways: ${document.documentElement.scrollWidth}px wide on a ${vw}px screen`);
+    }
+    const describe = (el: Element) =>
+      `${el.tagName.toLowerCase()}${el.className ? '.' + String(el.className).split(' ')[0] : ''} "${(el.getAttribute('aria-label') ?? el.textContent ?? '').trim().slice(0, 30)}"`;
+    // Finger-sized targets matter on touch screens; a mouse is precise enough for the desktop sizes.
+    const touch = matchMedia('(pointer: coarse)').matches;
+    for (const el of document.querySelectorAll('button, a, input, select, [role="option"], label.check')) {
+      const r = el.getBoundingClientRect();
+      const style = getComputedStyle(el);
+      if (!r.width || !r.height || style.visibility === 'hidden' || style.opacity === '0') continue;
+      if (r.bottom < 0 || r.top > innerHeight) continue;
+      // Inside a strip that scrolls sideways (the edition covers), being past the edge is the point.
+      let scroller = el.parentElement;
+      while (scroller && !['auto', 'scroll'].includes(getComputedStyle(scroller).overflowX)) scroller = scroller.parentElement;
+      const inScroller = scroller !== null && scroller !== document.documentElement && scroller !== document.body;
+      if (r.right > vw + 1 && !inScroller) issues.push(`runs off the right edge: ${describe(el)} (right at ${Math.round(r.right)}px)`);
+      if (inScroller && r.right > vw) continue;
+      const isTextLink = el.matches('a, button.link');
+      const minH = isTextLink ? 24 : 40;
+      // Inputs inside a tappable label count as the label's size.
+      const target = el.closest('label') && el.matches('input[type="checkbox"], input[type="radio"]') ? el.closest('label')!.getBoundingClientRect() : r;
+      if (touch && (target.height < minH - 0.5 || (!isTextLink && target.width < 40 - 0.5))) {
+        issues.push(`small tap target ${Math.round(target.width)}x${Math.round(target.height)}: ${describe(el)}`);
+      }
+    }
+    return [...new Set(issues)];
+  });
+}
+
+const shot = async (page: Page, name: string) => {
+  await page.screenshot({ path: `screens/${test.info().project.name}-${name}.png` });
+  if (['phone', 'landscape', 'narrow', 'tablet'].includes(test.info().project.name)) await audit(page, name);
+};
+
+test.afterAll(async () => {
+  const { writeFileSync } = await import('node:fs');
+  writeFileSync(`screens/${test.info().project.name}-audit.json`, JSON.stringify(findings, null, 2));
+});
 
 /** On narrow screens the app shows one pane at a time; this opens one if the tab bar is there. */
 async function openTab(page: Page, name: 'Setup' | 'Books' | 'Preview') {
@@ -59,6 +107,33 @@ test('screens', async ({ page }) => {
   await variants.nth(5).hover();
   await page.waitForTimeout(400);
   await page.locator('.variants').screenshot({ path: `screens/${test.info().project.name}-03b-variants.png` });
+
+  // Full-wrap artwork, uploaded: the spine sliders and nudge buttons appear, and the preview shows it.
+  const wrap = await page.evaluate(() => {
+    const c = document.createElement('canvas');
+    c.width = 900;
+    c.height = 600;
+    const g = c.getContext('2d')!;
+    g.fillStyle = '#2c4a6e';
+    g.fillRect(0, 0, 900, 600);
+    g.fillStyle = '#e8c547';
+    g.fillRect(400, 0, 100, 600);
+    g.fillStyle = '#fff';
+    g.font = 'bold 60px sans-serif';
+    g.fillText('BACK', 120, 300);
+    g.fillText('FRONT', 580, 300);
+    return c.toDataURL('image/png').split(',')[1];
+  });
+  await page.getByLabel(/Image is the full wrap/).check();
+  await page.locator('.cover-edit input[type="file"]').setInputFiles({
+    name: 'wrap.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(wrap, 'base64'),
+  });
+  await expect(page.getByText(/Spine width/)).toBeVisible({ timeout: 10_000 });
+  await page.getByText(/Spine width/).scrollIntoViewIfNeeded();
+  await settle(page, 800);
+  await shot(page, '03c-wrap-align');
 
   await openTab(page, 'Preview');
   await settle(page, 1000);
