@@ -24,7 +24,7 @@ Neither StoryGraph nor Goodreads has a public API for this, which is why the app
 
 ## 3D model
 
-Section 5 of the app offers a free STL of a hardcover mini book sized to your label, built in your browser with [Manifold](https://github.com/elalish/manifold), and the preview's 3D view shows it with the label wrapped on. Options:
+Section 5 of the app offers a free 3MF (or STL) of a hardcover mini book sized to your label, built in your browser with [Manifold](https://github.com/elalish/manifold), and the preview's 3D view shows it with the label wrapped on. Options:
 
 - **Ornament hook:** centred, or at the spine or fore-edge corner of the top. Its 1.6 mm hole stays the same size at every scale.
 - **Spine:** flat, which prints best, or slightly rounded.

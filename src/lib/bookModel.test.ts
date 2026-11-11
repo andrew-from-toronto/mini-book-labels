@@ -6,7 +6,7 @@ import {
   DEFAULT_MODEL_OPTIONS,
   meshToStl,
   modelGeometry,
-  stlFileName,
+  modelFileName,
   type BookMesh,
   type Wasm,
 } from './bookModel';
@@ -136,8 +136,8 @@ describe('a hook on the back cover', () => {
   });
 
   it('is named for its side', () => {
-    expect(stlFileName(dims, { hook: true, hookPosition: 'center', hookSide: 'back', roundSpine: true })).toBe(
-      'mini-book-30x20x5mm-round-spine-hook-center-back.stl',
+    expect(modelFileName(dims, { hook: true, hookPosition: 'center', hookSide: 'back', roundSpine: true }, '3mf')).toBe(
+      'mini-book-30x20x5mm-round-spine-hook-center-back.3mf',
     );
   });
 });
@@ -154,7 +154,7 @@ describe('meshToStl', () => {
   });
 
   it('names files by size and hook', () => {
-    expect(stlFileName(dimsAtScale(7), { hook: true, hookPosition: 'spine', hookSide: 'front', roundSpine: false })).toBe(
+    expect(modelFileName(dimsAtScale(7), { hook: true, hookPosition: 'spine', hookSide: 'front', roundSpine: false }, 'stl')).toBe(
       'mini-book-30x20x5mm-flat-spine-hook-spine-corner.stl',
     );
   });

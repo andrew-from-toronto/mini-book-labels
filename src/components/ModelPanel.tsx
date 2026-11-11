@@ -2,12 +2,16 @@ import { useState } from 'react';
 import {
   buildBookMesh,
   meshToStl,
-  stlFileName,
+  modelFileName,
   type HookPosition,
   type HookSide,
   type ModelOptions,
 } from '../lib/bookModel';
+import { saveFile } from '../lib/download';
 import type { Dims } from '../lib/scales';
+import { meshTo3mf } from '../lib/threeMf';
+
+type Format = '3mf' | 'stl';
 
 interface Props {
   dims: Dims;
@@ -17,28 +21,32 @@ interface Props {
   onShow3d: (openTab: boolean) => void;
 }
 
-/** Free STL of a hardcover mini book sized to the current label, built in the browser. */
+/** Free 3MF or STL of a hardcover mini book sized to the current label, built in the browser. */
 export function ModelPanel({ dims, options, onChange, onShow3d }: Props) {
-  const [status, setStatus] = useState<'idle' | 'building' | 'failed'>('idle');
+  const [building, setBuilding] = useState<Format | null>(null);
+  const [failed, setFailed] = useState(false);
   // Changing an option shows the result, so the hook or spine can be seen as it is set.
   const set = (patch: Partial<ModelOptions>) => {
     onChange({ ...options, ...patch });
     onShow3d(false);
   };
 
-  async function download() {
-    setStatus('building');
+  async function download(format: Format) {
+    setBuilding(format);
+    setFailed(false);
     try {
       const mesh = await buildBookMesh(dims, options, true);
-      const url = URL.createObjectURL(new Blob([meshToStl(mesh)], { type: 'model/stl' }));
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = stlFileName(dims, options);
-      link.click();
-      setTimeout(() => URL.revokeObjectURL(url), 10_000);
-      setStatus('idle');
+      const name = modelFileName(dims, options, format);
+      if (format === '3mf') {
+        const title = `Mini book ${dims.height} x ${dims.width} x ${dims.spine} mm`;
+        saveFile(meshTo3mf(mesh, title), name, 'model/3mf');
+      } else {
+        saveFile(meshToStl(mesh), name, 'model/stl');
+      }
     } catch {
-      setStatus('failed');
+      setFailed(true);
+    } finally {
+      setBuilding(null);
     }
   }
 
@@ -80,14 +88,18 @@ export function ModelPanel({ dims, options, onChange, onShow3d }: Props) {
       </label>
       <div className="row">
         <button onClick={() => onShow3d(true)}>View in 3D</button>
-        <button className="grow" onClick={() => void download()} disabled={status === 'building'}>
-          {status === 'building' ? 'Building model' : 'Download STL'}
+        <button className="grow" onClick={() => void download('3mf')} disabled={building !== null}>
+          {building === '3mf' ? 'Building model' : 'Download 3MF'}
+        </button>
+        <button onClick={() => void download('stl')} disabled={building !== null} title="For slicers without 3MF support">
+          {building === 'stl' ? 'Building' : 'STL'}
         </button>
       </div>
-      {status === 'failed' && <p className="error">Could not build the model in this browser.</p>}
+      {failed && <p className="error">Could not build the model in this browser.</p>}
       <p className="muted find">
         Print it lying on its {options.hook && options.hookSide === 'back' ? 'back' : 'front'} cover, as the file is
-        laid out; it needs no supports.
+        laid out; it needs no supports. 3MF is the better format for current slicers (Orca, Bambu, Prusa, Elegoo);
+        STL is there for older ones.
       </p>
     </div>
   );
