@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { AfterPrintDialog } from './components/AfterPrintDialog';
 import { BookList } from './components/BookList';
 import { BookSearch, type FoundBook } from './components/BookSearch';
 import { FiltersPanel } from './components/FiltersPanel';
@@ -19,6 +20,8 @@ import { useCovers } from './lib/useCovers';
 
 // three.js is large, so the 3D view loads only when it is first opened.
 const Book3D = lazy(() => import('./components/Book3D'));
+// Stripe loads only when someone opens the coffee dialog, not on every visit.
+const CoffeeDialog = lazy(() => import('./components/CoffeeDialog').then((m) => ({ default: m.CoffeeDialog })));
 
 const DEFAULT_FILTERS: Filters = { statuses: ['read'], minRating: 0, from: '', to: '', sort: 'rating', count: 20 };
 /** Status given to books added by search, which survive loading a new library. */
@@ -65,6 +68,39 @@ function Handle({ label, onResize, onReset }: HandleProps) {
 
 export function App() {
   const [saved] = useState(loadState);
+  // Back from a bank's own check on a coffee: open straight to the thank-you, and tidy the address.
+  const [coffeeThanks] = useState(() => new URLSearchParams(location.search).get('coffee') === 'thanks');
+  const [coffee, setCoffee] = useState(coffeeThanks);
+  useEffect(() => {
+    if (!coffeeThanks) return;
+    const params = new URLSearchParams(location.search);
+    params.delete('coffee');
+    const query = params.toString();
+    history.replaceState(null, '', `${location.pathname}${query ? `?${query}` : ''}${location.hash}`);
+  }, [coffeeThanks]);
+  const [afterPrint, setAfterPrint] = useState(false);
+
+  // After the sheet is printed (the button or Ctrl+P), offer the books once a visit.
+  useEffect(() => {
+    const shown = () => {
+      try {
+        return sessionStorage.getItem('after-print-shown') === '1';
+      } catch {
+        return false;
+      }
+    };
+    const onAfterPrint = () => {
+      if (shown()) return;
+      try {
+        sessionStorage.setItem('after-print-shown', '1');
+      } catch {
+        // Private browsing: it may show again next print.
+      }
+      setAfterPrint(true);
+    };
+    window.addEventListener('afterprint', onAfterPrint);
+    return () => window.removeEventListener('afterprint', onAfterPrint);
+  }, []);
   const [books, setBooks] = useState<Book[]>(saved.books ?? []);
   const [error, setError] = useState('');
   const [filters, setFilters] = useState<Filters>({ ...DEFAULT_FILTERS, ...saved.filters });
@@ -344,6 +380,7 @@ export function App() {
               dims={{ height: settings.height, width: settings.width, spine: settings.spine }}
               options={settings.model}
               settings={settings}
+              sheetCount={selected.length}
               onChange={(model) => setSettings((s) => ({ ...s, model }))}
               onShow3d={(openTab) => {
                 setView('3d');
@@ -368,12 +405,20 @@ export function App() {
               <a href="https://github.com/andrew-from-toronto/mini-book-labels">Source</a>
             </li>
             <li>
-              <a href="https://buymeacoffee.com/andrew.from.toronto">Buy me a coffee</a>
+              <button type="button" className="link" onClick={() => setCoffee(true)}>
+                Buy me a coffee
+              </button>
             </li>
           </ul>
           <p className="muted">
             Covers from <a href="https://openlibrary.org">Open Library</a>
           </p>
+          {afterPrint && <AfterPrintDialog settings={settings} sheetCount={selected.length} onCoffee={() => setCoffee(true)} onClose={() => setAfterPrint(false)} />}
+          {coffee && (
+            <Suspense fallback={null}>
+              <CoffeeDialog thanks={coffeeThanks} onClose={() => setCoffee(false)} />
+            </Suspense>
+          )}
         </footer>
       </aside>
 

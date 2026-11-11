@@ -123,3 +123,16 @@ describe('admin sign-in', () => {
     expect(await adminUser(req, { ACCESS_TEAM_DOMAIN: domain, ACCESS_AUD: 'aud1' }, certs)).toBeNull();
   });
 });
+
+describe('coffee tips', async () => {
+  const { tipParams } = await import('./tip');
+  it('take only whole-cent amounts from $1 to $200, as a payment on our own form', () => {
+    for (const bad of [0, 99, 20_001, 2.5, '500', null]) expect(tipParams(bad, 'https://minibookornaments.com')).toHaveProperty('error');
+    const ok = tipParams(500, 'https://minibookornaments.com');
+    if ('error' in ok) throw new Error(ok.error);
+    expect(ok.params).toMatchObject({ mode: 'payment', ui_mode: 'elements', metadata: { kind: 'tip' } });
+    expect(ok.params.line_items?.[0].price_data?.unit_amount).toBe(500);
+    // No order code, so the webhook never makes a tip into an order.
+    expect(ok.params.metadata).not.toHaveProperty('order_code');
+  });
+});

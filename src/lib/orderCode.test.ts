@@ -92,3 +92,12 @@ describe('filament tones', () => {
     ]);
   });
 });
+
+describe('order links', async () => {
+  const { orderUrl } = await import('./shop');
+  it('start with one blank per cover on the sheet, within an order', () => {
+    expect(orderUrl('v1-x', 28)).toContain('qty=28');
+    expect(orderUrl('v1-x', 250)).toContain('qty=100');
+    expect(orderUrl('v1-x', 0)).toContain('qty=5');
+  });
+});

@@ -16,13 +16,15 @@ interface Props {
   options: ModelOptions;
   /** The label settings: the order page starts from this size and design. */
   settings: Settings;
+  /** Covers on the sheet: the order starts with one blank for each. */
+  sheetCount: number;
   onChange: (options: ModelOptions) => void;
   /** Shows the book in the preview's 3D view; `openTab` also brings the preview forward on a phone. */
   onShow3d: (openTab: boolean) => void;
 }
 
 /** Free 3MF or STL of a hardcover mini book sized to the current label, built in the browser. */
-export function ModelPanel({ dims, options, settings, onChange, onShow3d }: Props) {
+export function ModelPanel({ dims, options, settings, sheetCount, onChange, onShow3d }: Props) {
   const [building, setBuilding] = useState<Format | null>(null);
   const [failed, setFailed] = useState(false);
   // Changing an option shows the result, so the hook or spine can be seen as it is set.
@@ -90,7 +92,7 @@ export function ModelPanel({ dims, options, settings, onChange, onShow3d }: Prop
         </button>
       </div>
       {failed && <p className="error">Could not build the model in this browser.</p>}
-      {shopVisible() && <BuyBlanks settings={settings} />}
+      {shopVisible() && <BuyBlanks settings={settings} sheetCount={sheetCount} />}
       <p className="muted find">
         Print it lying on its {options.hook && options.hookSide === 'back' ? 'back' : 'front'} cover, as the file is
         laid out; it needs no supports. 3MF is the better format for current slicers (Orca, Bambu, Prusa, Elegoo);
@@ -117,7 +119,7 @@ function ParcelIcon() {
 }
 
 /** The blanks offer: opens the order page in a new tab, starting from this book. */
-function BuyBlanks({ settings }: { settings: Settings }) {
+function BuyBlanks({ settings, sheetCount }: { settings: Settings; sheetCount: number }) {
   const dims = { height: settings.height, width: settings.width, spine: settings.spine };
   if (!printable(dims)) {
     return (
@@ -139,7 +141,7 @@ function BuyBlanks({ settings }: { settings: Settings }) {
       </div>
       <a
         className="button primary buy-cta"
-        href={orderUrl(encodeOrder({ dims, options: settings.model, colour: DEFAULT_FILAMENT }))}
+        href={orderUrl(encodeOrder({ dims, options: settings.model, colour: DEFAULT_FILAMENT }), sheetCount)}
         target="_blank"
         rel="noopener"
       >

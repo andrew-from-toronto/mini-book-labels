@@ -2,21 +2,6 @@
 
 Ideas to do later, not started.
 
-## After printing: offer blanks or a coffee
-
-Once someone prints a label sheet, show a small prompt with two choices:
-
-- **Order blanks**: opens the order page for the book they designed (`orderUrl` in `src/lib/shop.ts`).
-- **Buy me a coffee**: a tip.
-
-Notes:
-
-- Show it after printing (the browser's `afterprint` event), not before, and at most once per visit. Make it easy to dismiss.
-- Only offer blanks while the shop is open (`shopVisible()`), and only for printable sizes (`printable()`).
-- Move "buy me a coffee" to Stripe, off buymeacoffee.com. It's linked in `src/App.tsx` and `README.md`. A Stripe
-  Payment Link with "customer chooses price" is likely the simplest; a tips product in the existing
-  checkout would also work.
-
 ## Also waiting
 
 - Real packing and labour costs in `src/lib/pricing.ts`, and the real packed parcel (size, weight) in

@@ -6,6 +6,7 @@ import {
   type StripeCheckoutSession,
 } from '@stripe/stripe-js';
 import { SHIPPING_COUNTRIES } from '../../worker/shipping/countries';
+import { PaymentHeading, stripeAppearance } from './stripeUi';
 
 interface Props {
   /** Order code: the blank's size, options and colour. */
@@ -15,21 +16,6 @@ interface Props {
 }
 
 type Actions = StripeCheckoutLoadActionsSuccess;
-
-/** Stripe's fields in the site's colours, following light and dark mode. */
-function appearance() {
-  const dark = matchMedia('(prefers-color-scheme: dark)').matches;
-  return {
-    theme: dark ? ('night' as const) : ('stripe' as const),
-    variables: {
-      colorPrimary: dark ? '#e0a27c' : '#8a4b2a',
-      colorBackground: dark ? '#262421' : '#fffdf9',
-      colorText: dark ? '#ece7df' : '#23201c',
-      fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif",
-      borderRadius: '6px',
-    },
-  };
-}
 
 const days = (option: StripeCheckoutSession['shippingOptions'][number]) => {
   const e = option.deliveryEstimate;
@@ -87,7 +73,7 @@ export function PaymentStep({ code, quantity, onBack }: Props) {
 
       const checkout = stripe.initCheckoutElementsSdk({
         clientSecret: data.clientSecret,
-        elementsOptions: { appearance: appearance() },
+        elementsOptions: { appearance: stripeAppearance() },
       });
       checkout.on('change', (s) => !cancelled && setSession(s));
 
@@ -100,7 +86,7 @@ export function PaymentStep({ code, quantity, onBack }: Props) {
       // (so its price always comes from a real quote), and Stripe refuses to confirm while the session's
       // shipping form is on the page. The server writes this address to the session when it quotes.
       const shipping = stripe
-        .elements({ appearance: appearance() })
+        .elements({ appearance: stripeAppearance() })
         .create('address', { mode: 'shipping', allowedCountries: [...SHIPPING_COUNTRIES] });
       shipping.mount(shippingHost.current!);
       destroy.push(() => shipping.destroy());
@@ -187,18 +173,7 @@ export function PaymentStep({ code, quantity, onBack }: Props) {
         </fieldset>
       )}
 
-      <div className="pay-heading">
-        <h3>
-          <svg viewBox="0 0 16 16" width={14} height={14} aria-hidden="true">
-            <path d="M4.5 7V5a3.5 3.5 0 0 1 7 0v2" fill="none" stroke="currentColor" strokeWidth="1.6" />
-            <rect x="2.5" y="7" width="11" height="8" rx="1.5" fill="currentColor" />
-          </svg>
-          Payment
-        </h3>
-        <a className="stripe-badge" href="https://stripe.com" target="_blank" rel="noopener">
-          <img src="/powered-by-stripe.svg" alt="Powered by Stripe" width={106} height={24} />
-        </a>
-      </div>
+      <PaymentHeading />
       {phase === 'loading' && <div className="field-placeholder" aria-hidden="true" />}
       <div ref={paymentHost} />
 

@@ -5,6 +5,9 @@
  */
 import type { Dims } from './scales';
 
+/** The most blanks one order holds (matches MAX_QUANTITY in pricing.ts). */
+const MAX_ORDER_QUANTITY = 100;
+
 /** Set to true once Stripe Checkout is live. */
 export const SHOP_OPEN = true;
 
@@ -31,7 +34,9 @@ export function shopVisible(search: string = (globalThis as { location?: { searc
 
 /** The order page, opened in its own tab: the book as an order code, and how many. Keeps ?shop=preview. */
 export function orderUrl(code: string, quantity = 5): string {
-  const params = new URLSearchParams({ code, qty: String(quantity) });
+  // One blank per cover on the sheet, within what an order can hold; 5 when the sheet is empty.
+  const qty = quantity > 0 ? Math.min(MAX_ORDER_QUANTITY, Math.floor(quantity)) : 5;
+  const params = new URLSearchParams({ code, qty: String(qty) });
   if (!SHOP_OPEN && shopVisible()) params.set('shop', 'preview');
   return `/order/?${params}`;
 }

@@ -12,6 +12,7 @@ import { handleOpenLibrary } from './openLibrary';
 import type { MailEnv } from './mail';
 import { emailOrder, orderDetails, recordDelivery } from './orderEmails';
 import type { ShipFromEnv } from './shipFrom';
+import { handleTip } from './tip';
 import { refreshTracking } from './tracking';
 import { handleWebhook } from './webhook';
 
@@ -34,6 +35,8 @@ export default {
     switch (path) {
       case '/api/checkout':
         return handleCheckout(request, stripeFor(env), env.STRIPE_PUBLISHABLE_KEY);
+      case '/api/checkout/tip':
+        return handleTip(request, stripeFor(env), env.STRIPE_PUBLISHABLE_KEY);
       case '/api/checkout/shipping':
         return handleShipping(request, stripeFor(env), env);
       case '/api/stripe/webhook': {

@@ -49,7 +49,7 @@ Pushing to `main` deploys to Cloudflare: one Worker (`wrangler.jsonc`, `worker/`
 
 ## Support
 
-If this saved you some fiddly cutting and pasting, you can [buy me a coffee](https://buymeacoffee.com/andrew.from.toronto).
+If this saved you some fiddly cutting and pasting, you can [buy me a coffee](https://minibookornaments.com) (in the footer).
 
 ## License
 
