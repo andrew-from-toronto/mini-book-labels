@@ -5,7 +5,8 @@
  * options and colour) and a quantity; the price is worked out here, with the same pricing the app shows
  * (src/lib/pricing.ts), so it cannot be changed on the way.
  *
- * POST /api/checkout/shipping takes the buyer's address, quotes it live with Chit Chats and sets the
+ * POST /api/checkout/shipping takes the buyer's address, quotes it live with every shipping vendor set up
+ * (worker/shipping) and sets the
  * address and shipping options on the session. Only the server may set shipping
  * (permissions.update_shipping_details = server_only), so the options always come from a real quote.
  *
@@ -19,9 +20,9 @@ import { costOfBook, handlingPrice, priceOrder } from '../src/lib/pricing';
 import { printable } from '../src/lib/shop';
 import { json } from './cache';
 import { fromOwnSite } from './imageProxy';
-import { quoteShipping, ShippingError, type ChitChatsEnv } from './chitchats';
+import { chooseQuotes, quoteAll, ShippingError, type ShippingEnv, type ShippingQuote } from './shipping';
 import { readShipFrom, type ShipFromEnv } from './shipFrom';
-import { SHIPPING_COUNTRIES } from './shipping';
+import { SHIPPING_COUNTRIES } from './shipping/countries';
 
 /** Tags these sessions in the Dashboard; Stripe asks for 8 random letters at the end. */
 export const INTEGRATION_ID = 'mini-book-blanks-qhwzrtkd';
@@ -125,16 +126,16 @@ export interface ShippingRequest {
   shipping: BuyerAddress;
 }
 
-type Quotes = Awaited<ReturnType<typeof quoteShipping>>;
+type Quotes = ShippingQuote[];
 
-/** Stripe shipping options from Chit Chats quotes. */
+/** Stripe shipping options from the chosen quotes; the metadata says which vendor and service to buy. */
 export function shippingOptions(quotes: Quotes): Stripe.Checkout.SessionUpdateParams.ShippingOption[] {
   return quotes.map((q) => ({
     shipping_rate_data: {
       type: 'fixed_amount',
       display_name: q.label,
       fixed_amount: { amount: q.amount, currency: 'cad' },
-      metadata: { chitchats_service: q.service },
+      metadata: { provider: q.provider, service: q.service },
       ...(q.days
         ? {
             delivery_estimate: {
@@ -152,8 +153,8 @@ const CANT_SHIP = "We can't ship there yet.";
 export async function handleShipping(
   request: Request,
   stripe: Pick<Stripe, 'checkout'>,
-  env: ChitChatsEnv & ShipFromEnv,
-  quote: typeof quoteShipping = quoteShipping,
+  env: ShippingEnv & ShipFromEnv,
+  quote: typeof quoteAll = quoteAll,
 ): Promise<Response> {
   if (request.method !== 'POST') return json(405, { error: 'Method not allowed.' });
   if (!fromOwnSite(request)) return json(403, { error: 'Checkout starts from this site.' });
@@ -193,7 +194,7 @@ export async function handleShipping(
 
   let quotes: Quotes;
   try {
-    quotes = await quote(
+    const rates = await quote(
       {
         to: { name, line1: a.line1, line2: a.line2, city: a.city, state: a.state, postalCode: a.postal_code, country: a.country },
         dims: order.dims,
@@ -203,6 +204,7 @@ export async function handleShipping(
       },
       env,
     );
+    quotes = chooseQuotes(rates);
   } catch (e) {
     console.error('shipping quote failed', e instanceof ShippingError || e instanceof Error ? e.message : e);
     return json(502, { error: "We couldn't get shipping prices for that address. Check it and try again." });

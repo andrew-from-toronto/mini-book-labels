@@ -9,6 +9,8 @@ STRIPE_PUBLISHABLE_KEY=
 # From `stripe listen` locally, or the webhook endpoint's signing secret in the Dashboard.
 STRIPE_WEBHOOK_SECRET=
 
+# Shipping vendors (worker/shipping). Checkout and admin use every vendor whose settings are filled in.
+
 # Chit Chats: Settings > Developer > API Access Tokens, and the account's client id.
 CHITCHATS_API_KEY=
 CHITCHATS_CLIENT_ID=

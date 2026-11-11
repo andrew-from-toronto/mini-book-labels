@@ -20,6 +20,7 @@ const order: OrderDetails = {
   shipping: 448,
   total: 1648,
   delivery: 'Standard',
+  provider: 'chitchats',
   service: 'chit_chats_canada_tracked',
   paymentIntent: 'pi_123',
   livemode: false,
@@ -45,7 +46,7 @@ describe('order emails', () => {
     expect(mail.text).toContain('https://minibookornaments.com/model/?code=v1-h300-w200-s50-flat-nohook-c-black');
     expect(mail.text).toContain('https://minibookornaments.com/#order=v1-h300-w200-s50-flat-nohook-c-black');
     expect(mail.text).toContain('https://dashboard.stripe.com/test/payments/pi_123');
-    expect(mail.text).toContain('Delivery: Standard · chit_chats_canada_tracked');
+    expect(mail.text).toContain('Delivery: Standard · chitchats · chit_chats_canada_tracked');
     expect(mail.replyTo).toBe('ada@example.com');
   });
 

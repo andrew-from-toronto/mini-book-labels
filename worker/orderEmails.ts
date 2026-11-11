@@ -47,7 +47,9 @@ export async function orderDetails(
     shipping: session.shipping_cost?.amount_total ?? 0,
     total: session.amount_total ?? 0,
     delivery: rate?.display_name ?? null,
-    service: rate?.metadata?.chitchats_service ?? null,
+    // Older sessions named only the Chit Chats service.
+    provider: rate?.metadata?.provider ?? (rate?.metadata?.chitchats_service ? 'chitchats' : null),
+    service: rate?.metadata?.service ?? rate?.metadata?.chitchats_service ?? null,
     paymentIntent: typeof session.payment_intent === 'string' ? session.payment_intent : (session.payment_intent?.id ?? null),
     livemode: session.livemode,
     site,
@@ -86,7 +88,7 @@ export async function emailOrder(
 /** Keeps what the buyer chose for delivery on the order, for buying the label later. */
 export async function recordDelivery(db: D1Database, sessionId: string, details: OrderDetails): Promise<void> {
   await db
-    .prepare('UPDATE orders SET delivery = ?2, shipping_service = ?3, shipping_amount = ?4 WHERE session_id = ?1')
-    .bind(sessionId, details.delivery, details.service, details.shipping)
+    .prepare('UPDATE orders SET delivery = ?2, shipping_provider = ?3, shipping_service = ?4, shipping_amount = ?5 WHERE session_id = ?1')
+    .bind(sessionId, details.delivery, details.provider, details.service, details.shipping)
     .run();
 }

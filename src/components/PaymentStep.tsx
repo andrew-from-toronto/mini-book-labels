@@ -5,7 +5,7 @@ import {
   type StripeCheckoutLoadActionsSuccess,
   type StripeCheckoutSession,
 } from '@stripe/stripe-js';
-import { SHIPPING_COUNTRIES } from '../../worker/shipping';
+import { SHIPPING_COUNTRIES } from '../../worker/shipping/countries';
 
 interface Props {
   /** Order code: the blank's size, options and colour. */

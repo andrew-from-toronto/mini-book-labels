@@ -6,7 +6,7 @@ import type { AccessEnv } from './access';
 import { handleAdmin } from './admin';
 import { json } from './cache';
 import { handleCheckout, handleShipping } from './checkout';
-import type { ChitChatsEnv } from './chitchats';
+import type { ShippingEnv } from './shipping';
 import { handleImage } from './imageProxy';
 import { handleOpenLibrary } from './openLibrary';
 import type { MailEnv } from './mail';
@@ -16,7 +16,7 @@ import { refreshTracking } from './tracking';
 import { handleWebhook } from './webhook';
 
 /** Secrets and bindings: .dev.vars locally, Worker secrets and wrangler.jsonc in production. */
-export interface Env extends ChitChatsEnv, ShipFromEnv, MailEnv, AccessEnv {
+export interface Env extends ShippingEnv, ShipFromEnv, MailEnv, AccessEnv {
   STRIPE_API_KEY: string;
   STRIPE_PUBLISHABLE_KEY: string;
   STRIPE_WEBHOOK_SECRET: string;

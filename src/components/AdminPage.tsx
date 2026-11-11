@@ -28,12 +28,16 @@ interface Order {
   status: string;
   created_at: string;
   delivery: string | null;
+  shipping_provider: string | null;
   shipping_service: string | null;
   shipping_amount: number | null;
-  chitchats_shipment_id: string | null;
+  shipment_provider: string | null;
+  shipment_id: string | null;
+  /** unpaid, buying, failed, label, in_transit, delivered, exception, voided (worker/shipping/types.ts) */
   label_status: string | null;
   postage_type: string | null;
-  postage_cost: string | null;
+  /** cents */
+  label_cost: number | null;
   tracking_code: string | null;
   tracking_url: string | null;
   label_pdf_url: string | null;
@@ -44,11 +48,21 @@ interface Order {
 }
 
 interface Rate {
-  postage_type: string;
-  description: string;
+  provider: string;
+  service: string;
+  name: string;
   amount: number;
   days: { min: number; max: number } | null;
 }
+
+/** A shipping vendor set up on the server: live, test, or what's wrong with its settings. */
+interface Provider {
+  id: string;
+  name: string;
+  mode: string;
+}
+
+const rateKey = (r: { provider: string | null; service: string | null }) => `${r.provider}:${r.service}`;
 
 type Filter = 'to-do' | 'on-the-way' | 'delivered' | 'all';
 
@@ -81,23 +95,12 @@ function orderState(o: Pick<Order, 'status' | 'label_status'>): string {
   if (o.status === 'delivered') return 'Delivered';
   if (o.status === 'labeled') return 'Labeled';
   if (o.status === 'shipped') {
-    switch (o.label_status) {
-      case 'exception':
-        return 'Problem';
-      case 'received':
-      case 'released':
-      case 'inducted':
-      case 'in_transit':
-      case 'resolved':
-        return 'In transit';
-      default:
-        return 'Shipped';
-    }
+    return o.label_status === 'exception' ? 'Problem' : o.label_status === 'in_transit' ? 'In transit' : 'Shipped';
   }
   switch (o.label_status) {
-    case 'postage_requested':
+    case 'buying':
       return 'Buying label';
-    case 'postage_purchase_failed':
+    case 'failed':
       return 'Label failed';
     case 'voided':
       return 'Label voided';
@@ -128,14 +131,14 @@ export function AdminPage() {
   const [filter, setFilter] = useState<Filter>('to-do');
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState('');
-  const [chitchats, setChitchats] = useState('');
+  const [providers, setProviders] = useState<Provider[]>([]);
   const [checking, setChecking] = useState(false);
 
   useEffect(() => {
-    api<{ orders: Order[]; chitchats: string }>('orders')
+    api<{ orders: Order[]; providers: Provider[] }>('orders')
       .then((d) => {
         setOrders(d.orders);
-        setChitchats(d.chitchats);
+        setProviders(d.providers);
       })
       .catch((e: Error) => setError(e.message));
   }, []);
@@ -164,12 +167,20 @@ export function AdminPage() {
             <img src="/favicon.svg" alt="" width={30} height={30} />
             Mini Book Labels
           </a>
-          {chitchats && (
-            <span className={`chitchats-mode ${chitchats === 'live' ? 'live' : 'staging'}`}>
-              Chit Chats {chitchats === 'live' ? 'live' : chitchats === 'staging' ? 'staging' : `error: ${chitchats}`}
-            </span>
-          )}
         </header>
+        {orders && (
+          <div className="vendor-modes">
+            {providers.length ? (
+              providers.map((p) => (
+                <span key={p.id} className={`vendor-mode ${p.mode === 'live' ? 'live' : p.mode === 'test' ? 'test' : 'error'}`}>
+                  {p.name} {p.mode === 'live' || p.mode === 'test' ? p.mode : `error: ${p.mode}`}
+                </span>
+              ))
+            ) : (
+              <span className="vendor-mode error">No shipping vendor set up</span>
+            )}
+          </div>
+        )}
         <div className="admin-filters" role="tablist">
           {FILTERS.map(([f, label]) => (
             <button
@@ -216,7 +227,7 @@ export function AdminPage() {
       </aside>
       <section className="admin-main">
         {current ? (
-          <OrderDetail key={current.session_id} order={current} onChange={replace} />
+          <OrderDetail key={current.session_id} order={current} providers={providers} onChange={replace} />
         ) : (
           <p className="muted admin-empty">Choose an order.</p>
         )}
@@ -257,9 +268,9 @@ const NEXT: Record<string, [string, string]> = {
   printing: ['packing', 'Printed, start packing'],
 };
 
-function OrderDetail({ order: o, onChange }: { order: Order; onChange: (o: Order) => void }) {
+function OrderDetail({ order: o, providers, onChange }: { order: Order; providers: Provider[]; onChange: (o: Order) => void }) {
   const [rates, setRates] = useState<Rate[] | null>(null);
-  const [service, setService] = useState(o.shipping_service ?? '');
+  const [choice, setChoice] = useState(rateKey({ provider: o.shipping_provider, service: o.shipping_service }));
   const [busy, setBusy] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<'buy' | 'refund' | null>(null);
   const [error, setError] = useState('');
@@ -274,7 +285,7 @@ function OrderDetail({ order: o, onChange }: { order: Order; onChange: (o: Order
       if (data.rates) {
         setRates(data.rates);
         // The buyer's service when it is offered, else the cheapest.
-        if (!data.rates.some((r) => r.postage_type === service)) setService(data.rates[0]?.postage_type ?? '');
+        if (!data.rates.some((r) => rateKey(r) === choice)) setChoice(data.rates[0] ? rateKey(data.rates[0]) : '');
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -284,7 +295,9 @@ function OrderDetail({ order: o, onChange }: { order: Order; onChange: (o: Order
   }
 
   const a = o.address;
-  const chosen = rates?.find((r) => r.postage_type === service);
+  const chosen = rates?.find((r) => rateKey(r) === choice);
+  const buyersChoice = rateKey({ provider: o.shipping_provider, service: o.shipping_service });
+  const vendorName = (id: string | null) => providers.find((p) => p.id === id)?.name ?? id ?? '';
   const manual = MANUAL.includes(o.status);
   const stageIndex = STAGES.findIndex(([s]) => s === o.status);
   const next = NEXT[o.status];
@@ -357,7 +370,7 @@ function OrderDetail({ order: o, onChange }: { order: Order; onChange: (o: Order
         )}
         <p className="muted">
           Buyer chose {o.delivery ?? 'unknown'}
-          {o.shipping_service ? ` (${o.shipping_service})` : ''}
+          {o.shipping_service ? ` (${[vendorName(o.shipping_provider), o.shipping_service].filter(Boolean).join(' · ')})` : ''}
           {o.shipping_amount != null ? `, paid ${formatCad(o.shipping_amount)}` : ''}
         </p>
 
@@ -366,11 +379,11 @@ function OrderDetail({ order: o, onChange }: { order: Order; onChange: (o: Order
           <>
             <dl className="spec">
               <dt>Service</dt>
-              <dd>{o.postage_type}</dd>
-              {o.postage_cost && (
+              <dd>{[vendorName(o.shipment_provider), o.postage_type].filter(Boolean).join(' · ')}</dd>
+              {o.label_cost != null && (
                 <>
                   <dt>Cost</dt>
-                  <dd>${o.postage_cost}</dd>
+                  <dd>{formatCad(o.label_cost)}</dd>
                 </>
               )}
               {o.tracking_code && (
@@ -410,10 +423,10 @@ function OrderDetail({ order: o, onChange }: { order: Order; onChange: (o: Order
           </>
         ) : o.status !== 'packing' ? (
           <p className="muted">Bought while packing.</p>
-        ) : o.label_status === 'postage_requested' ? (
+        ) : o.label_status === 'buying' ? (
           <p>
-            Chit Chats is still buying the label.{' '}
-            <button type="button" className="link" disabled={busy !== null} onClick={() => void run('shipment')}>
+            {vendorName(o.shipment_provider)} is still buying the label.{' '}
+            <button type="button" className="link" disabled={busy !== null} onClick={() => void run('track')}>
               Check again
             </button>
           </p>
@@ -424,19 +437,20 @@ function OrderDetail({ order: o, onChange }: { order: Order; onChange: (o: Order
               <fieldset className="shipping-options">
                 <legend>Service</legend>
                 {rates.map((r) => (
-                  <label key={r.postage_type} className="shipping-option">
+                  <label key={rateKey(r)} className="shipping-option">
                     <input
                       type="radio"
                       name="service"
-                      checked={service === r.postage_type}
+                      checked={choice === rateKey(r)}
                       onChange={() => {
-                        setService(r.postage_type);
+                        setChoice(rateKey(r));
                         setConfirming(null);
                       }}
                     />
                     <span>
-                      {r.description}
-                      {r.postage_type === o.shipping_service && <span className="muted"> · buyer's choice</span>}
+                      <span className="muted">{vendorName(r.provider)} · </span>
+                      {r.name}
+                      {rateKey(r) === buyersChoice && <span className="muted"> · buyer's choice</span>}
                     </span>
                     <span className="muted">{r.days ? days(r.days) : ''}</span>
                     <strong>
@@ -449,15 +463,15 @@ function OrderDetail({ order: o, onChange }: { order: Order; onChange: (o: Order
                 ))}
               </fieldset>
             ) : (
-              <button type="button" className="primary" disabled={busy !== null} onClick={() => void run('shipment')}>
-                {busy === 'shipment' ? 'Getting rates...' : 'Get rates'}
+              <button type="button" className="primary" disabled={busy !== null} onClick={() => void run('rates')}>
+                {busy === 'rates' ? 'Getting rates...' : 'Get rates'}
               </button>
             )}
             {rates &&
               chosen &&
               (confirming === 'buy' ? (
                 <div className="row">
-                  <button type="button" className="primary" disabled={busy !== null} onClick={() => void run('buy', { postage_type: service })}>
+                  <button type="button" className="primary" disabled={busy !== null} onClick={() => void run('buy', { provider: chosen.provider, service: chosen.service })}>
                     {busy === 'buy' ? 'Buying...' : `Confirm: pay ${formatCad(chosen.amount)}`}
                   </button>
                   <button type="button" onClick={() => setConfirming(null)}>
@@ -477,7 +491,7 @@ function OrderDetail({ order: o, onChange }: { order: Order; onChange: (o: Order
             <h2>Tracking</h2>
             <dl className="spec">
               <dt>Status</dt>
-              <dd className={stateClass(o)}>{o.status === 'labeled' ? 'Waiting for Chit Chats' : orderState(o)}</dd>
+              <dd className={stateClass(o)}>{o.status === 'labeled' ? 'Waiting for the carrier' : orderState(o)}</dd>
               {o.shipped_at && (
                 <>
                   <dt>Shipped</dt>

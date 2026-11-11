@@ -71,7 +71,8 @@ export interface OrderDetails {
   total: number;
   /** "Standard", "Express"; what the buyer chose. */
   delivery: string | null;
-  /** The Chit Chats service to buy the label with. */
+  /** The shipping vendor and its service, to buy the label with. */
+  provider: string | null;
   service: string | null;
   paymentIntent: string | null;
   livemode: boolean;
@@ -150,7 +151,7 @@ export function sellerEmail(o: OrderDetails, to: string): Mail {
     ['Quantity', String(o.quantity)],
     ['Book', o.description],
     ['Code', o.code],
-    ['Delivery', [o.delivery, o.service].filter(Boolean).join(' · ') || 'unknown'],
+    ['Delivery', [o.delivery, o.provider, o.service].filter(Boolean).join(' · ') || 'unknown'],
     ['Total', formatCad(o.total)],
     ['Buyer', `${o.name} <${o.email}>`],
   ]);

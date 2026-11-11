@@ -800,20 +800,27 @@ a.button {
   font-size: inherit;
 }
 
-/* Which Chit Chats labels come from: staging is free and fake, live costs money. */
-.chitchats-mode {
+/* The shipping vendors set up: test is free and fake, live costs money. */
+.vendor-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.vendor-mode {
   padding: 3px 10px;
   border-radius: 999px;
   font-size: 0.8rem;
   font-weight: 700;
 }
 
-.chitchats-mode.staging {
+.vendor-mode.test {
   background: color-mix(in srgb, #2e7d32 15%, var(--panel));
   color: light-dark(#2e7d32, #81c784);
 }
 
-.chitchats-mode.live {
+.vendor-mode.live,
+.vendor-mode.error {
   background: color-mix(in srgb, #b3261e 15%, var(--panel));
   color: light-dark(#b3261e, #f28b82);
 }
