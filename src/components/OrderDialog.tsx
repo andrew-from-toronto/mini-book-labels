@@ -18,7 +18,7 @@ const mm = (v: number) => `${Number(v.toFixed(1))}`;
 const CONFIRMATIONS = [
   'I confirm the size and colour are correct.',
   "I understand these are made to order and can't be returned.",
-  'I understand 3D printed items have small imperfections, such as faint layer lines and slight variations in size and colour.',
+  'I understand 3D printed items have small imperfections, such as faint layer lines and minor surface marks.',
 ];
 
 /** "Flat spine · Hook centred, front": the design choices, as a buyer reads them. */
