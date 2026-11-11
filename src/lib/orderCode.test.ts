@@ -6,37 +6,55 @@ import { printable, shopVisible } from './shop';
 const order: Order = {
   dims: dimsAtScale(7),
   options: { hook: true, hookPosition: 'center', hookSide: 'front', roundSpine: false },
+  colour: 'white',
 };
 
 describe('order codes', () => {
   it('read like the book they describe', () => {
-    expect(encodeOrder(order)).toBe('v1-h300-w200-s50-flat-hook-center-front');
+    expect(encodeOrder(order)).toBe('v1-h300-w200-s50-flat-hook-center-front-c-white');
     expect(
-      encodeOrder({ dims: dimsAtScale(12), options: { ...order.options, hook: false, roundSpine: true } }),
-    ).toBe('v1-h175-w117-s29-round-nohook');
+      encodeOrder({ dims: dimsAtScale(12), options: { ...order.options, hook: false, roundSpine: true }, colour: 'black' }),
+    ).toBe('v1-h175-w117-s29-round-nohook-c-black');
   });
 
-  it('round-trip every preset and hook placement', () => {
+  it('round-trip every preset, hook placement and colour', () => {
     for (const ratio of [4, 5, 6, 7, 10, 12, 24]) {
       for (const hookPosition of ['center', 'spine', 'fore-edge'] as const) {
         for (const hookSide of ['front', 'back'] as const) {
-          const o: Order = { dims: dimsAtScale(ratio), options: { hook: true, hookPosition, hookSide, roundSpine: true } };
-          expect(decodeOrder(encodeOrder(o))).toEqual(o);
+          for (const colour of ['white', 'black']) {
+            const o: Order = { dims: dimsAtScale(ratio), options: { hook: true, hookPosition, hookSide, roundSpine: true }, colour };
+            expect(decodeOrder(encodeOrder(o))).toEqual(o);
+          }
         }
       }
     }
   });
 
+  it('read codes from before colours as white', () => {
+    expect(decodeOrder('v1-h300-w200-s50-flat-hook-center-front')).toEqual(order);
+  });
+
   it('fit Stripe order references: letters, digits, dashes, at most 200 characters', () => {
-    const code = encodeOrder({ dims: { height: 999.9, width: 999.9, spine: 999.9 }, options: { ...order.options, hookPosition: 'fore-edge', hookSide: 'back' } });
+    const code = encodeOrder({
+      dims: { height: 999.9, width: 999.9, spine: 999.9 },
+      options: { ...order.options, hookPosition: 'fore-edge', hookSide: 'back' },
+      colour: 'translucentglowgreen',
+    });
     expect(code).toMatch(/^[A-Za-z0-9_-]{1,200}$/);
   });
 
   it('reject anything else, tolerating surrounding spaces', () => {
     expect(decodeOrder('  v1-h300-w200-s50-flat-nohook ')).not.toBeNull();
-    for (const bad of ['', 'hello', 'v2-h300-w200-s50-flat-nohook', 'v1-h0-w200-s50-flat-nohook', 'v1-h300-w200-s50-flat-hook-top-front']) {
-      expect(decodeOrder(bad)).toBeNull();
-    }
+    const bad = [
+      '',
+      'hello',
+      'v2-h300-w200-s50-flat-nohook',
+      'v1-h0-w200-s50-flat-nohook',
+      'v1-h300-w200-s50-flat-hook-top-front',
+      'v1-h300-w200-s50-flat-nohook-c-',
+      'v1-h300-w200-s50-flat-nohook-c-Black!',
+    ];
+    for (const code of bad) expect(decodeOrder(code)).toBeNull();
   });
 });
 

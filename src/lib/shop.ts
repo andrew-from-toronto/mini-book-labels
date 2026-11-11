@@ -14,6 +14,7 @@ export const PRINTABLE_HEIGHT = { min: 8, max: 60 };
 export const printable = (dims: Dims) => dims.height >= PRINTABLE_HEIGHT.min && dims.height <= PRINTABLE_HEIGHT.max;
 
 /** Whether to show the shop: open, or previewed with ?shop=preview. */
-export function shopVisible(search: string = typeof location === 'undefined' ? '' : location.search): boolean {
+// Shared with the Worker, which has no window: read the address only where there is one.
+export function shopVisible(search: string = (globalThis as { location?: { search: string } }).location?.search ?? ''): boolean {
   return SHOP_OPEN || new URLSearchParams(search).get('shop') === 'preview';
 }

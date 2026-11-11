@@ -8,6 +8,7 @@ import {
   type ModelOptions,
 } from '../lib/bookModel';
 import { saveFile } from '../lib/download';
+import { DEFAULT_FILAMENT } from '../lib/filaments';
 import { encodeOrder } from '../lib/orderCode';
 import { bookBreakdown, formatCad, handlingBreakdown, MAX_QUANTITY, priceOrder, type PriceLine } from '../lib/pricing';
 import { PRINTABLE_HEIGHT, printable, shopVisible } from '../lib/shop';
@@ -154,7 +155,7 @@ function BuyBlanks({ dims, options }: { dims: Dims; options: ModelOptions }) {
     );
   }
   const order = priceOrder(dims, quantity);
-  const code = encodeOrder({ dims, options });
+  const code = encodeOrder({ dims, options, colour: DEFAULT_FILAMENT });
   return (
     <div className="buy-blanks">
       <div className="buy-head">
