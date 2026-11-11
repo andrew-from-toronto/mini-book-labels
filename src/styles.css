@@ -769,16 +769,6 @@ a.button.primary {
   }
 }
 
-details.advanced summary {
-  color: var(--muted);
-  font-size: 0.9rem;
-  cursor: pointer;
-}
-
-details.advanced[open] summary {
-  margin-bottom: 8px;
-}
-
 .model-choices {
   display: grid;
   gap: 10px;

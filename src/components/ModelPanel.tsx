@@ -13,7 +13,7 @@ import { orderUrl, PRINTABLE_HEIGHT, printable, shopVisible } from '../lib/shop'
 import type { Dims } from '../lib/scales';
 import type { Settings } from '../lib/types';
 import { encodeOrder } from '../lib/orderCode';
-import { HookAdvanced } from './HookAdvanced';
+import { HoleSelect } from './HoleSelect';
 import { DEFAULT_FILAMENT } from '../lib/filaments';
 import { meshTo3mf } from '../lib/threeMf';
 
@@ -90,7 +90,7 @@ export function ModelPanel({ dims, options, settings, onChange, onShow3d }: Prop
           </label>
         </div>
       )}
-      {options.hook && <HookAdvanced options={options} onChange={set} />}
+      {options.hook && <HoleSelect options={options} onChange={set} />}
       <label className="check">
         <input type="checkbox" checked={options.roundSpine} onChange={(e) => set({ roundSpine: e.target.checked })} />
         Slightly rounded spine (flat prints best)
