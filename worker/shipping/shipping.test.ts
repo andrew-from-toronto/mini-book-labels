@@ -4,7 +4,7 @@ import { chitChats, chitChatsMode, shipmentBody, stateOf } from './chitchats';
 import { chooseQuotes, configuredProviders, quoteAll, type Rate, type ShippingProvider } from './index';
 import { HS_TARIFF_CODE, parcelFor, parseDays } from './parcel';
 
-const shipFrom = { name: 'Maker', street: '1 Example St', street2: null, city: 'Toronto', province: 'ON', postalCode: 'M5V 1A1', country: 'CA' };
+const shipFrom = { name: 'Maker', street: '1 Example St', street2: null, city: 'Toronto', province: 'ON', postalCode: 'M5V 1A1', country: 'CA', phone: '416-555-0100' };
 const to = { name: 'Buyer', line1: '20 W 34th St', city: 'New York', state: 'NY', postalCode: '10001', country: 'US' };
 const request = { to, dims: dimsAtScale(7), quantity: 5, unitValue: 175, shipFrom };
 const env = { CHITCHATS_API_KEY: 'k', CHITCHATS_CLIENT_ID: '1' };

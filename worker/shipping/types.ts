@@ -6,7 +6,7 @@ import type { Dims } from '../../src/lib/scales';
 import type { ShipFrom } from '../shipFrom';
 
 /** Ids are stored on orders and Stripe shipping rates: never rename one in use. */
-export type ProviderId = 'chitchats';
+export type ProviderId = 'chitchats' | 'shipstation';
 
 export interface Destination {
   name: string;

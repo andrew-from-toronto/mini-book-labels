@@ -4,15 +4,16 @@
  * .dev.vars.example, and list it in PROVIDERS. Checkout and admin pick it up once its settings are set.
  */
 import { chitChats, type ChitChatsEnv } from './chitchats';
+import { shipStation, type ShipStationEnv } from './shipstation';
 import { ShippingError, type ProviderId, type Rate, type ShipmentRequest, type ShippingProvider } from './types';
 
 export * from './types';
 export { SHIPPING_COUNTRIES } from './countries';
 
 /** Every vendor's settings. */
-export type ShippingEnv = ChitChatsEnv;
+export type ShippingEnv = ChitChatsEnv & ShipStationEnv;
 
-export const PROVIDERS: ShippingProvider<ShippingEnv>[] = [chitChats];
+export const PROVIDERS: ShippingProvider<ShippingEnv>[] = [chitChats, shipStation];
 
 export function providerFor(id: string): ShippingProvider<ShippingEnv> {
   const provider = PROVIDERS.find((p) => p.id === id);

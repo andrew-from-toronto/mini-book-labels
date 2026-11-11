@@ -11,6 +11,8 @@ export interface ShipFromEnv {
   SHIP_FROM_PROVINCE?: string;
   SHIP_FROM_POSTAL_CODE?: string;
   SHIP_FROM_COUNTRY?: string;
+  /** Some carriers need a phone number on the label (ShipStation does). */
+  SHIP_FROM_PHONE?: string;
 }
 
 export interface ShipFrom {
@@ -22,6 +24,7 @@ export interface ShipFrom {
   postalCode: string;
   /** Two letters, e.g. CA. */
   country: string;
+  phone: string | null;
 }
 
 const REQUIRED = [
@@ -47,6 +50,7 @@ export function readShipFrom(env: ShipFromEnv): { address: ShipFrom } | { missin
       province: value('SHIP_FROM_PROVINCE').toUpperCase(),
       postalCode: value('SHIP_FROM_POSTAL_CODE').toUpperCase(),
       country: value('SHIP_FROM_COUNTRY').toUpperCase(),
+      phone: env.SHIP_FROM_PHONE?.trim() || null,
     },
   };
 }

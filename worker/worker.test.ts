@@ -173,6 +173,7 @@ describe('ship-from address', () => {
         province: 'ON',
         postalCode: 'M5V 1A1',
         country: 'CA',
+        phone: null,
       },
     });
   });
