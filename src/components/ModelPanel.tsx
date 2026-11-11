@@ -146,7 +146,7 @@ function BuyBlanks({ dims, options }: { dims: Dims; options: ModelOptions }) {
   return (
     <div className="buy-blanks">
       <p>
-        <strong>No 3D printer?</strong> Order this book printed and posted, blank and ready for your covers.
+        <strong>No 3D printer?</strong> Order this model, blank, and ready to apply your covers.
       </p>
       <label>
         How many
