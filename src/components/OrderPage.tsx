@@ -105,11 +105,11 @@ export function OrderPage() {
     <main className="order-page">
       <header className="order-header">
         <a href="/" className="brand">
-          <img src="/favicon.svg" alt="" width={24} height={24} />
+          <img src="/favicon.svg" alt="" width={30} height={30} />
           Mini Book Labels
         </a>
-        <h1>Order blanks</h1>
       </header>
+      <h1 className="order-title">Order blanks</h1>
       <div className="order-body">
         {/* A dark filament gets a light backdrop, in either theme, so it stays visible. */}
         <div className={isDark(filamentById(colour)?.swatch ?? '#ffffff') ? 'order-preview on-light' : 'order-preview'}>

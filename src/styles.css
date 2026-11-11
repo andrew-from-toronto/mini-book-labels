@@ -557,31 +557,23 @@ a.button.primary {
 }
 
 .order-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 20px;
-  padding: 16px 0;
+  padding: 14px 0;
   border-bottom: 1px solid var(--line);
-  margin-bottom: 20px;
 }
 
 .order-header .brand {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
   color: var(--ink);
-  font-weight: 600;
+  font-size: 1.5rem;
+  font-weight: 700;
   text-decoration: none;
 }
 
-.order-header .brand img {
-  align-self: center;
-}
-
-.order-header h1 {
-  margin: 0;
-  font-size: 1.4rem;
+.order-title {
+  margin: 24px 0 16px;
+  font-size: 1.25rem;
 }
 
 .order-body {
