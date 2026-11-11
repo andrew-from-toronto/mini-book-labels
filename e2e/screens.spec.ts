@@ -41,7 +41,8 @@ const findings: Record<string, string[]> = {};
 
 /**
  * Checks the visible screen for what makes a phone layout feel broken: anything wider than the screen,
- * and controls too small to tap (under 40 x 40 px; text links are allowed 24 px tall).
+ * and controls too small to tap (under 40 x 40 px; text links are allowed 24 px tall). On every screen,
+ * buttons side by side must be the same height.
  */
 async function audit(page: Page, name: string) {
   findings[name] = await page.evaluate(() => {
@@ -73,6 +74,24 @@ async function audit(page: Page, name: string) {
         issues.push(`small tap target ${Math.round(target.width)}x${Math.round(target.height)}: ${describe(el)}`);
       }
     }
+    // Buttons on one line under one parent: a primary next to a plain one must still match in height.
+    const groups = new Map<Element, DOMRect[]>();
+    for (const el of document.querySelectorAll('button:not(.link), a.button')) {
+      const r = el.getBoundingClientRect();
+      if (!r.width || !r.height || r.bottom < 0 || r.top > innerHeight || !el.parentElement) continue;
+      if (el.closest('.variant-strip')) continue;
+      groups.set(el.parentElement, [...(groups.get(el.parentElement) ?? []), r]);
+    }
+    for (const [parent, rects] of groups) {
+      for (const a of rects) {
+        for (const b of rects) {
+          const sameLine = Math.abs(a.top + a.height / 2 - (b.top + b.height / 2)) < 4;
+          if (sameLine && Math.abs(a.height - b.height) > 1) {
+            issues.push(`buttons side by side differ in height (${Math.round(a.height)} vs ${Math.round(b.height)}px) in ${describe(parent)}`);
+          }
+        }
+      }
+    }
     return [...new Set(issues)];
   });
 }
@@ -81,7 +100,7 @@ const started = Date.now();
 const shot = async (page: Page, name: string) => {
   if (process.env.STEPS) console.log(`${test.info().project.name} ${name} at ${((Date.now() - started) / 1000).toFixed(1)}s`);
   await page.screenshot({ path: `screens/${test.info().project.name}-${name}.png` });
-  if (test.info().project.name !== 'desktop') await audit(page, name);
+  await audit(page, name);
 };
 
 test.afterAll(async () => {
