@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "typecheck": "tsc",
     "test": "vitest run",
-    "screens": "playwright test e2e/screens.spec.ts"
+    "screens": "playwright test e2e/screens.spec.ts",
+    "og": "playwright test e2e/og-image.spec.ts --project=desktop"
   },
   "dependencies": {
     "manifold-3d": "3.5.4",

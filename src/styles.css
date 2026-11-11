@@ -231,6 +231,16 @@ h1 {
   font-size: 1.5rem;
 }
 
+h1.brand {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+h1.brand img {
+  flex: none;
+}
+
 h2 {
   margin: 0 0 8px;
   font-size: 1rem;

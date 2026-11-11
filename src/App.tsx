@@ -225,9 +225,13 @@ export function App() {
       }
     >
       <aside className="controls">
-        <h1>Mini Book Labels</h1>
+        <h1 className="brand">
+          <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" width={30} height={30} />
+          Mini Book Labels
+        </h1>
         <p className="muted">
-          Wraparound labels for 3D printed mini books, from your StoryGraph or Goodreads library. Your file stays in your browser.
+          Wraparound covers for mini book ornaments and 3D printed miniature books, from your StoryGraph or Goodreads
+          library. Your file stays in your browser.
         </p>
 
         <section>
@@ -335,6 +339,7 @@ export function App() {
         )}
 
         <footer className="muted">
+          <a href={`${import.meta.env.BASE_URL}mini-book-ornaments/`}>How to make mini book ornaments</a>.{' '}
           Covers from <a href="https://openlibrary.org">Open Library</a>.{' '}
           <a href="https://github.com/andrew-from-toronto/mini-book-labels">Source</a>.{' '}
           <a href="https://buymeacoffee.com/andrew.from.toronto">Buy me a coffee</a>.

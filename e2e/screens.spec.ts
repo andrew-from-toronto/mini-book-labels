@@ -164,3 +164,11 @@ test('screens', async ({ page }) => {
   await settle(page, 1500);
   await shot(page, '07-search');
 });
+
+test('guide', async ({ page }) => {
+  await page.goto('./mini-book-ornaments/');
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  await shot(page, '08-guide');
+  await page.getByRole('heading', { name: 'Mini book sizes' }).evaluate((h) => h.scrollIntoView({ block: 'start' }));
+  await shot(page, '09-guide-sizes');
+});

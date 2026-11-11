@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Mini Book Labels</title>
+  <!-- A small hardcover book hanging from an ornament loop. -->
+  <circle cx="32" cy="9" r="5" fill="none" stroke="#8a4b2a" stroke-width="3"/>
+  <rect x="17" y="14" width="30" height="44" rx="3" fill="#8a4b2a"/>
+  <rect x="17" y="14" width="7" height="44" rx="2" fill="#6a3519"/>
+  <rect x="44" y="18" width="4" height="36" fill="#f4ecdc"/>
+  <rect x="28" y="26" width="13" height="3" rx="1.5" fill="#f4ecdc"/>
+  <rect x="28" y="32" width="9" height="3" rx="1.5" fill="#f4ecdc"/>
+</svg>
