@@ -1,8 +1,8 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { FILAMENTS, filamentById, isDark } from '../lib/filaments';
+import { CUSTOM_COLOUR, FILAMENTS, filamentById, isDark, orderableColour } from '../lib/filaments';
 import { DEFAULT_SETTINGS } from '../lib/defaults';
 import { decodeOrder, encodeOrder } from '../lib/orderCode';
-import { bookBreakdown, formatCad, handlingBreakdown, MAX_QUANTITY, priceOrder, type PriceLine } from '../lib/pricing';
+import { bookBreakdown, CUSTOM_COLOUR_SURCHARGE, formatCad, handlingBreakdown, MAX_QUANTITY, priceOrder, type PriceLine } from '../lib/pricing';
 import { dimsAtScale, matchingScale, SCALES, type Dims } from '../lib/scales';
 import { printable, shopVisible } from '../lib/shop';
 import type { HookPosition, HookSide, ModelOptions } from '../lib/types';
@@ -15,7 +15,7 @@ function fromAddress() {
   const params = new URLSearchParams(location.search);
   const order = decodeOrder(params.get('code') ?? '');
   const quantity = Math.min(MAX_QUANTITY, Math.max(1, Math.floor(Number(params.get('qty'))) || 5));
-  const colour = order && FILAMENTS.some((f) => f.available && f.id === order.colour) ? order.colour : FILAMENTS.find((f) => f.available)!.id;
+  const colour = order && orderableColour(order.colour) ? order.colour : FILAMENTS.find((f) => f.available)!.id;
   return {
     dims: order && printable(order.dims) ? order.dims : { height: DEFAULT_SETTINGS.height, width: DEFAULT_SETTINGS.width, spine: DEFAULT_SETTINGS.spine },
     model: order?.options ?? DEFAULT_SETTINGS.model,
@@ -64,12 +64,17 @@ export function OrderPage() {
   const [dims, setDims] = useState<Dims>(initial.dims);
   const [model, setModelOptions] = useState<ModelOptions>(initial.model);
   const [colour, setColour] = useState(initial.colour);
+  const [customHex, setCustomHex] = useState('#6f8fbf');
+  const [customNote, setCustomNote] = useState('');
+  const custom = colour === CUSTOM_COLOUR;
+  const swatch = custom ? customHex : (filamentById(colour)?.swatch ?? '#ffffff');
   const [quantity, setQuantity] = useState(initial.quantity);
   const [confirmed, setConfirmed] = useState<boolean[]>(CONFIRMATIONS.map(() => false));
   const [step, setStep] = useState<'review' | 'pay'>('review');
   const allConfirmed = confirmed.every(Boolean);
+  const ready = allConfirmed && (!custom || customNote.trim() !== '');
   const settings = { ...DEFAULT_SETTINGS, ...dims, model };
-  const order = priceOrder(dims, quantity);
+  const order = priceOrder(dims, quantity, { customColour: custom });
   const code = encodeOrder({ dims, options: model, colour });
 
   // A changed choice needs confirming again.
@@ -112,14 +117,19 @@ export function OrderPage() {
       </header>
       <div className="order-body">
         {/* A dark filament gets a light backdrop, in either theme, so it stays visible. */}
-        <div className={isDark(filamentById(colour)?.swatch ?? '#ffffff') ? 'order-preview on-light' : 'order-preview'}>
+        <div className={isDark(swatch) ? 'order-preview on-light' : 'order-preview'}>
           <Suspense fallback={<p className="muted">Loading preview...</p>}>
-            <Book3D book={undefined} cover={undefined} custom={undefined} settings={settings} filament={filamentById(colour)?.swatch} />
+            <Book3D book={undefined} cover={undefined} custom={undefined} settings={settings} filament={swatch} />
           </Suspense>
         </div>
         {step === 'pay' ? (
           <div className="order-details">
-            <PaymentStep code={code} quantity={quantity} onBack={() => setStep('review')} />
+            <PaymentStep
+              code={code}
+              quantity={quantity}
+              customColour={custom ? { description: customNote.trim(), hex: customHex } : undefined}
+              onBack={() => setStep('review')}
+            />
           </div>
         ) : (
           <div className="order-details">
@@ -132,7 +142,37 @@ export function OrderPage() {
                   {f.name}
                 </label>
               ))}
+              <label className="swatch">
+                <input
+                  type="radio"
+                  name="colour"
+                  value={CUSTOM_COLOUR}
+                  checked={custom}
+                  onChange={() => setColour(CUSTOM_COLOUR)}
+                />
+                <span className="custom-swatch" aria-hidden="true" />
+                Custom <small className="surcharge">+{formatCad(CUSTOM_COLOUR_SURCHARGE)}</small>
+              </label>
             </fieldset>
+            {custom && (
+              <div className="custom-colour">
+                <label>
+                  Colour wanted
+                  <input
+                    type="text"
+                    value={customNote}
+                    maxLength={200}
+                    placeholder="e.g. forest green, matte"
+                    onChange={(e) => setCustomNote(e.target.value)}
+                  />
+                </label>
+                <label className="custom-pick">
+                  Preview
+                  <input type="color" value={customHex} onChange={(e) => setCustomHex(e.target.value)} />
+                </label>
+                <p className="muted">We'll email you to confirm the match before printing.</p>
+              </div>
+            )}
             <div className="model-choices">
               <label>
                 Size
@@ -216,10 +256,18 @@ export function OrderPage() {
               <table className="price-breakdown">
                 <Breakdown lines={bookBreakdown(dims)} total={order.unitPrice} label="Each blank" />
                 <Breakdown lines={handlingBreakdown()} total={order.handling} label="Packing" />
+                {custom && (
+                  <tbody>
+                    <tr className="group">
+                      <th scope="row">Custom colour</th>
+                      <td>{formatCad(order.customColour)}</td>
+                    </tr>
+                  </tbody>
+                )}
                 <tfoot>
                   <tr>
                     <th scope="row">
-                      Total <span>{quantity === 1 ? '1 blank' : `${quantity} blanks`} + packing</span>
+                      Total <span>{quantity === 1 ? '1 blank' : `${quantity} blanks`} + packing{custom ? ' + colour' : ''}</span>
                     </th>
                     <td>{formatCad(order.subtotal)}</td>
                   </tr>
@@ -238,7 +286,7 @@ export function OrderPage() {
                 </label>
               ))}
             </div>
-            <button type="button" className="primary" disabled={!allConfirmed} onClick={() => setStep('pay')}>
+            <button type="button" className="primary" disabled={!ready} onClick={() => setStep('pay')}>
               Continue to shipping
             </button>
           </div>

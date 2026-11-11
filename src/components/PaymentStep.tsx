@@ -10,6 +10,8 @@ interface Props {
   /** Order code: the blank's size, options and colour. */
   code: string;
   quantity: number;
+  /** For a custom colour: what the buyer wants, and the colour they previewed. */
+  customColour?: { description: string; hex: string };
   onBack: () => void;
 }
 
@@ -37,7 +39,7 @@ const days = (option: StripeCheckoutSession['shippingOptions'][number]) => {
 };
 
 /** Shipping and payment, on our page with Stripe Elements. Shipping prices come live from Chit Chats. */
-export function PaymentStep({ code, quantity, onBack }: Props) {
+export function PaymentStep({ code, quantity, customColour, onBack }: Props) {
   const shippingHost = useRef<HTMLDivElement>(null);
   const paymentHost = useRef<HTMLDivElement>(null);
   const actionsRef = useRef<Actions | null>(null);
@@ -73,7 +75,7 @@ export function PaymentStep({ code, quantity, onBack }: Props) {
       const res = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, quantity }),
+        body: JSON.stringify({ code, quantity, customColour }),
       });
       const data = (await res.json().catch(() => ({}))) as { clientSecret?: string; publishableKey?: string; error?: string };
       if (!res.ok || !data.clientSecret || !data.publishableKey) throw new Error(data.error ?? 'Checkout is not available.');
@@ -116,6 +118,7 @@ export function PaymentStep({ code, quantity, onBack }: Props) {
       clearTimeout(quoteTimer);
       destroy.forEach((d) => d());
     };
+    // The step is remounted for a new order, so the custom colour is read once.
   }, [code, quantity]);
 
   async function pay() {
@@ -161,7 +164,7 @@ export function PaymentStep({ code, quantity, onBack }: Props) {
 
       {session && (
         <dl className="pay-total">
-          <dt>Blanks and packing</dt>
+          <dt>{customColour ? 'Blanks, packing, colour' : 'Blanks and packing'}</dt>
           <dd>{session.total.subtotal.amount}</dd>
           <dt>Shipping</dt>
           <dd>{session.shipping ? session.total.shippingRate.amount : '—'}</dd>

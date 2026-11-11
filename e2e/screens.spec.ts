@@ -262,4 +262,15 @@ test('shop preview', async ({ page }) => {
   await expect(page).toHaveURL(/code=v1-[^&]*-c-black/);
   await proceed.scrollIntoViewIfNeeded();
   await shot(page, '15-order-confirmed');
+
+  // A custom colour: described by the buyer, previewed with a picker, and needed before continuing.
+  await form.getByText('Custom').click();
+  await expect(proceed).toBeDisabled();
+  await form.getByLabel('Colour wanted').fill('Forest green');
+  await form.getByLabel(/confirm the size and colour/).check();
+  await form.getByLabel(/made to order/).check();
+  await form.getByLabel(/small imperfections/).check();
+  await expect(proceed).toBeEnabled();
+  await form.locator('.custom-colour').scrollIntoViewIfNeeded();
+  await shot(page, '16-order-custom-colour');
 });

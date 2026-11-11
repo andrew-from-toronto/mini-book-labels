@@ -93,19 +93,31 @@ export interface OrderPrice {
   quantity: number;
   books: number;
   handling: number;
+  /** A colour we buy filament for, once per order; 0 for stocked colours. */
+  customColour: number;
   /** Before shipping, which is chosen at checkout. No sales tax is charged (small supplier, under $30,000 a year). */
   subtotal: number;
 }
 
 export const MAX_QUANTITY = 50;
 
-export function priceOrder(dims: Dims, quantity: number, inputs: CostInputs = COST_INPUTS): OrderPrice {
+/** Added once to an order in a colour we don't stock, toward buying matching filament. */
+export const CUSTOM_COLOUR_SURCHARGE = 1000;
+
+export function priceOrder(
+  dims: Dims,
+  quantity: number,
+  { customColour = false }: { customColour?: boolean } = {},
+  inputs: CostInputs = COST_INPUTS,
+): OrderPrice {
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_QUANTITY) {
     throw new RangeError(`Quantity must be a whole number from 1 to ${MAX_QUANTITY}.`);
   }
   const { unitPrice } = costOfBook(dims, inputs);
   const handling = handlingPrice(inputs);
-  return { unitPrice, quantity, books: unitPrice * quantity, handling, subtotal: unitPrice * quantity + handling };
+  const surcharge = customColour ? CUSTOM_COLOUR_SURCHARGE : 0;
+  const books = unitPrice * quantity;
+  return { unitPrice, quantity, books, handling, customColour: surcharge, subtotal: books + handling + surcharge };
 }
 
 export const formatCad = (cents: number) => `$${(cents / 100).toFixed(2)}`;

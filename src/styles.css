@@ -592,6 +592,8 @@ a.button.primary {
 }
 
 .order-preview {
+  /* On the right, as in the designer. */
+  order: 2;
   position: sticky;
   top: 16px;
   display: flex;
@@ -657,6 +659,44 @@ a.button.primary {
   outline-offset: 2px;
 }
 
+.colours {
+  flex-wrap: wrap;
+}
+
+.custom-swatch {
+  background: conic-gradient(#e05a4f, #e8b04a, #6dbb63, #4f9ad8, #9b6bd0, #e05a4f);
+}
+
+.swatch .surcharge {
+  margin-left: -4px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.custom-colour {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 12px;
+  align-items: end;
+}
+
+.custom-colour label {
+  display: grid;
+  gap: 4px;
+}
+
+.custom-colour input[type='color'] {
+  width: 56px;
+  height: 36px;
+  padding: 2px;
+}
+
+.custom-colour p {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 0.85rem;
+}
+
 .spec {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -711,6 +751,7 @@ a.button.primary {
   }
 
   .order-preview {
+    order: 0;
     position: static;
     height: 280px;
   }
