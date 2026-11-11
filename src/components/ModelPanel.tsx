@@ -136,8 +136,8 @@ function BuyBlanks({ dims, options }: { dims: Dims; options: ModelOptions }) {
   if (!printable(dims)) {
     return (
       <p className="muted find">
-        Blank books are made from {PRINTABLE_HEIGHT.min} to {PRINTABLE_HEIGHT.max} mm tall; download the model to
-        print this size yourself.
+        Blanks are made from {PRINTABLE_HEIGHT.min} to {PRINTABLE_HEIGHT.max} mm tall; download the model to print
+        this size yourself.
       </p>
     );
   }
@@ -168,12 +168,12 @@ function BuyBlanks({ dims, options }: { dims: Dims; options: ModelOptions }) {
           <strong>{formatCad(order.subtotal)}</strong> plus shipping
         </summary>
         <table className="price-breakdown">
-          <Breakdown lines={bookBreakdown(dims)} total={order.unitPrice} label="Each book" />
+          <Breakdown lines={bookBreakdown(dims)} total={order.unitPrice} label="Each blank" />
           <Breakdown lines={handlingBreakdown()} total={order.handling} label="Packing" />
           <tfoot>
             <tr>
               <th scope="row">
-                Total <span>{quantity === 1 ? '1 book' : `${quantity} books`} + packing</span>
+                Total <span>{quantity === 1 ? '1 blank' : `${quantity} blanks`} + packing</span>
               </th>
               <td>{formatCad(order.subtotal)}</td>
             </tr>
@@ -181,7 +181,7 @@ function BuyBlanks({ dims, options }: { dims: Dims; options: ModelOptions }) {
         </table>
       </details>
       <button className="primary buy-cta" disabled title={`Order ${code}`}>
-        Order blank books
+        Order blanks
       </button>
     </div>
   );
