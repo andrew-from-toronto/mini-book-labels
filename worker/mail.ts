@@ -11,7 +11,7 @@ export interface MailEnv {
   MAILGUN_DOMAIN?: string;
   /** https://api.eu.mailgun.net for an EU account; the US API otherwise. */
   MAILGUN_BASE_URL?: string;
-  /** Who emails come from, e.g. "Mini Book Ornaments <orders@minibookornaments.com>". */
+  /** Who emails come from, on MAILGUN_DOMAIN, e.g. "Mini Book Ornaments <support@email.minibookornaments.com>". */
   MAIL_FROM?: string;
   /** Where buyers' replies go; the From address when not set. */
   MAIL_REPLY_TO?: string;

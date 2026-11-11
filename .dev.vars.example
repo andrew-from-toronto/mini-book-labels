@@ -28,7 +28,8 @@ MAILGUN_API_KEY=
 MAILGUN_DOMAIN=
 # Only for an EU Mailgun account: https://api.eu.mailgun.net
 MAILGUN_BASE_URL=
-MAIL_FROM="Mini Book Ornaments <orders@minibookornaments.com>"
+# Must be an address on MAILGUN_DOMAIN: Mailgun refuses other domains as "unverified".
+MAIL_FROM="Mini Book Ornaments <support@email.minibookornaments.com>"
 # Where buyers' replies go (optional; MAIL_FROM otherwise).
 MAIL_REPLY_TO=
 # Where new-order notices go.
