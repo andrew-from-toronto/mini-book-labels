@@ -713,6 +713,14 @@ fieldset.crop {
   overscroll-behavior-x: contain;
 }
 
+/*
+ * Full width, never squeezed: a flex row shrinks its items to fit, which left wide covers spilling over
+ * their neighbours and taking their clicks. The strip scrolls sideways instead.
+ */
+.variant-strip li {
+  flex: none;
+}
+
 .variant-strip button {
   display: grid;
   gap: 2px;
@@ -791,10 +799,11 @@ fieldset.crop {
   }
 
   /*
-   * The cover in use, and the one pointed at, come fully out of the stack: the covers after them slide
-   * right. Only the later covers move, never the pointed-at one, so the pointer stays on it.
+   * The cover in use comes fully out of the stack: the cover after it slides right. The pointed-at
+   * cover is brought out by lifting it to the front instead (below), never by moving its neighbours:
+   * covers sliding as the pointer passes would move the one being aimed at out from under it.
    */
-  .variant-strip li:is(:hover, :focus-within, :has([aria-pressed='true'])) + li {
+  .variant-strip li:has([aria-pressed='true']) + li {
     margin-left: 6px;
   }
 

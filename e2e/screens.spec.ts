@@ -77,7 +77,9 @@ async function audit(page: Page, name: string) {
   });
 }
 
+const started = Date.now();
 const shot = async (page: Page, name: string) => {
+  if (process.env.STEPS) console.log(`${test.info().project.name} ${name} at ${((Date.now() - started) / 1000).toFixed(1)}s`);
   await page.screenshot({ path: `screens/${test.info().project.name}-${name}.png` });
   if (test.info().project.name !== 'desktop') await audit(page, name);
 };
@@ -141,6 +143,10 @@ test('screens', async ({ page }) => {
   // The edition covers: pick one, then point at another, to see both un-stacked.
   const variants = page.locator('.variant-strip li');
   await expect(variants.first()).toBeVisible({ timeout: 15_000 });
+  // Like a person with a mouse: onto the strip first, so the fan spreads and settles (200 ms), then
+  // the click. Jumping straight to a cover lands mid-spread, on whichever cover has just moved there.
+  await variants.first().hover();
+  await page.waitForTimeout(400);
   await variants.nth(2).locator('button').click();
   await settle(page, 1500);
   await variants.nth(5).hover();
@@ -170,7 +176,8 @@ test('screens', async ({ page }) => {
     buffer: Buffer.from(wrap, 'base64'),
   });
   await expect(page.getByText(/Spine width/)).toBeVisible({ timeout: 10_000 });
-  await page.getByText(/Spine width/).scrollIntoViewIfNeeded();
+  // The panel redraws as spine detection finishes, so the label can be swapped mid-scroll: retry.
+  await expect(async () => page.getByText(/Spine width/).scrollIntoViewIfNeeded({ timeout: 1000 })).toPass();
   await settle(page, 800);
   await shot(page, '03c-wrap-align');
 
