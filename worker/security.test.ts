@@ -9,7 +9,7 @@ import { priceOrder } from '../src/lib/pricing';
 import { dimsAtScale } from '../src/lib/scales';
 import { printable } from '../src/lib/shop';
 import { adminUser } from './access';
-import { handleShipping, MAX_QUOTES } from './checkout';
+import { handleShipping, MAX_QUOTES, sessionParams } from './checkout';
 import { orderFromSession, sessionProblems } from './webhook';
 
 const dims = dimsAtScale(7);
@@ -134,5 +134,18 @@ describe('coffee tips', async () => {
     expect(ok.params.line_items?.[0].price_data?.unit_amount).toBe(500);
     // No order code, so the webhook never makes a tip into an order.
     expect(ok.params.metadata).not.toHaveProperty('order_code');
+  });
+});
+
+describe('campaign source', () => {
+  it('goes on the session cleaned, and never overrides the order', () => {
+    const built = sessionParams({ code, quantity: 5, source: { utm_source: 'pinterest', utm_campaign: 'holiday', order_code: 'evil', quantity: '99' } }, 'https://x');
+    if ('error' in built) throw new Error(built.error);
+    expect(built.params.metadata).toEqual({ order_code: code, quantity: '5', utm_source: 'pinterest', utm_campaign: 'holiday' });
+  });
+
+  it('is saved with the order', () => {
+    expect(orderFromSession(paid({ metadata: { order_code: code, quantity: '5', utm_source: 'pinterest' } }), 'paid')?.source).toBe('{"utm_source":"pinterest"}');
+    expect(orderFromSession(paid(), 'paid')?.source).toBeNull();
   });
 });

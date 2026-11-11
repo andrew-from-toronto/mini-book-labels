@@ -20,6 +20,8 @@ interface Order {
   session_id: string;
   order_code: string;
   description: string;
+  /** "pinterest / cpc / holiday-test": the campaign link that brought the buyer. */
+  source: string | null;
   quantity: number;
   amount_total: number;
   email: string | null;
@@ -345,6 +347,7 @@ function OrderDetail({ order: o, providers, onChange }: { order: Order; provider
         <p className="muted">
           {date(o.created_at)} · {formatCad(o.amount_total)} ·{' '}
           {o.email ? <a href={`mailto:${o.email}`}>{o.email}</a> : 'no email'}
+          {o.source && <> · From {o.source}</>}
           {stripePayment(o) && (
             <>
               {' · '}

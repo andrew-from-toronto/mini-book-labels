@@ -15,6 +15,7 @@
  * Dashboard. No tax is collected (small supplier).
  */
 import type Stripe from 'stripe';
+import { cleanSource } from '../src/lib/attribution';
 import { decodeOrder, describeOrder } from '../src/lib/orderCode';
 import { costOfBook, handlingPrice, MAX_QUANTITY, priceOrder } from '../src/lib/pricing';
 import { printable } from '../src/lib/shop';
@@ -36,6 +37,8 @@ export function describeBlank(code: string): string | null {
 export interface CheckoutRequest {
   code: string;
   quantity: number;
+  /** The campaign link that brought the buyer (src/lib/attribution.ts), if any. */
+  source?: unknown;
 }
 
 /** The parameters for a session, or an error for the buyer. Separate from the API call so it can be tested. */
@@ -75,7 +78,7 @@ export function sessionParams(
       // Shipping options are added once the address is known (handleShipping).
       shipping_address_collection: { allowed_countries: [...SHIPPING_COUNTRIES] },
       client_reference_id: code,
-      metadata: { order_code: code, quantity: String(price.quantity) },
+      metadata: { order_code: code, quantity: String(price.quantity), ...cleanSource(body.source) },
       payment_intent_data: { metadata: { order_code: code } },
       // Where Stripe returns after payment, and after a bank's own confirmation page if one is needed.
       return_url: `${origin}/thanks/?session_id={CHECKOUT_SESSION_ID}`,

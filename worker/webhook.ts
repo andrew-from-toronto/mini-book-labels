@@ -6,6 +6,7 @@
  * session is paid; a delayed payment method can complete unpaid and succeed later), and
  * checkout.session.async_payment_failed. Writes are idempotent, so Stripe's retries do no harm.
  */
+import { cleanSource } from '../src/lib/attribution';
 import Stripe from 'stripe';
 import { decodeOrder } from '../src/lib/orderCode';
 import { priceOrder } from '../src/lib/pricing';
@@ -26,6 +27,8 @@ export interface OrderRecord {
   livemode: number;
   /** Why the order needs checking before it's made, or null: the price or shipping doesn't add up. */
   flag: string | null;
+  /** The campaign that brought the buyer, as JSON utm_* fields, or null. */
+  source: string | null;
   status: 'paid' | 'failed';
 }
 
@@ -53,6 +56,12 @@ export function sessionProblems(session: Stripe.Checkout.Session): string | null
   return problems.length ? problems.join('; ') : null;
 }
 
+/** The utm_* fields on the session, as JSON, or null when there are none. */
+function sourceOf(session: Stripe.Checkout.Session): string | null {
+  const source = cleanSource(session.metadata);
+  return Object.keys(source).length ? JSON.stringify(source) : null;
+}
+
 /** The order row for a session, or null if it is not one of ours (only our checkout sets order_code). */
 export function orderFromSession(session: Stripe.Checkout.Session, status: OrderRecord['status']): OrderRecord | null {
   const code = session.metadata?.order_code;
@@ -71,6 +80,7 @@ export function orderFromSession(session: Stripe.Checkout.Session, status: Order
     payment_intent: typeof session.payment_intent === 'string' ? session.payment_intent : (session.payment_intent?.id ?? null),
     livemode: session.livemode ? 1 : 0,
     flag: sessionProblems(session),
+    source: sourceOf(session),
     status,
   };
 }
@@ -79,8 +89,8 @@ export function orderFromSession(session: Stripe.Checkout.Session, status: Order
 export async function saveOrder(db: D1Database, order: OrderRecord): Promise<void> {
   await db
     .prepare(
-      `INSERT INTO orders (session_id, order_code, quantity, amount_total, currency, email, name, shipping_address, payment_status, status, payment_intent, livemode, flag)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
+      `INSERT INTO orders (session_id, order_code, quantity, amount_total, currency, email, name, shipping_address, payment_status, status, payment_intent, livemode, flag, source)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
        ON CONFLICT (session_id) DO UPDATE SET
          payment_status = excluded.payment_status,
          payment_intent = COALESCE(excluded.payment_intent, orders.payment_intent),
@@ -104,6 +114,7 @@ export async function saveOrder(db: D1Database, order: OrderRecord): Promise<voi
       order.payment_intent,
       order.livemode,
       order.flag,
+      order.source,
     )
     .run();
 }

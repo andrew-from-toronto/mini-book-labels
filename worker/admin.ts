@@ -13,6 +13,7 @@
  *
  * Every call needs Cloudflare Access (worker/access.ts); changes must also come from this site.
  */
+import { cleanSource, describeSource } from '../src/lib/attribution';
 import { decodeOrder, describeOrder } from '../src/lib/orderCode';
 import { costOfBook } from '../src/lib/pricing';
 import { adminUser, type AccessEnv } from './access';
@@ -76,6 +77,8 @@ export interface OrderRow {
   cancelled_at: string | null;
   /** Why the paid order needs checking before it's made (worker/webhook.ts). */
   flag: string | null;
+  /** The campaign that brought the buyer, as JSON utm_* fields (src/lib/attribution.ts). */
+  source: string | null;
 }
 
 interface Address {
@@ -94,6 +97,7 @@ export function adminOrder(row: OrderRow) {
     ...row,
     address: row.shipping_address ? (JSON.parse(row.shipping_address) as Address) : null,
     description: order ? describeOrder(order) : row.order_code,
+    source: row.source ? describeSource(cleanSource(JSON.parse(row.source))) : null,
   };
 }
 

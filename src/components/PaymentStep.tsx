@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { savedSource } from '../lib/attribution';
 import {
   loadStripe,
   type StripeAddressElementChangeEvent,
@@ -63,7 +64,7 @@ export function PaymentStep({ code, quantity, onBack }: Props) {
       const res = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, quantity }),
+        body: JSON.stringify({ code, quantity, source: savedSource() }),
       });
       const data = (await res.json().catch(() => ({}))) as { clientSecret?: string; publishableKey?: string; quoteToken?: string; error?: string };
       if (!res.ok || !data.clientSecret || !data.publishableKey) throw new Error(data.error ?? 'Checkout is not available.');
