@@ -46,9 +46,12 @@ class Viewer {
   private home = { position: new THREE.Vector3(), target: new THREE.Vector3() };
 
   constructor(private readonly host: HTMLElement) {
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    // The canvas joins the page before its WebGL context is made: WebKit can leave a canvas whose context
+    // was made while detached without a compositing layer, drawing frames that never appear.
+    const canvas = document.createElement('canvas');
+    host.appendChild(canvas);
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    host.appendChild(this.renderer.domElement);
 
     // The book is modelled z-up, as for printing.
     this.camera.up.set(0, 0, 1);
@@ -75,8 +78,18 @@ class Viewer {
     this.render();
   }
 
+  private frame_: number | null = null;
+
+  /**
+   * Draws on the next animation frame. Several changes in one frame (a resize, a new model, a new label)
+   * become one draw, and frames drawn outside an animation frame are not always shown by WebKit.
+   */
   render() {
-    this.renderer.render(this.scene, this.camera);
+    if (this.frame_ !== null) return;
+    this.frame_ = requestAnimationFrame(() => {
+      this.frame_ = null;
+      this.renderer.render(this.scene, this.camera);
+    });
   }
 
   setParts(parts: Map<PartName, ReturnType<typeof partGeometry>>) {
@@ -143,6 +156,7 @@ class Viewer {
   }
 
   dispose() {
+    if (this.frame_ !== null) cancelAnimationFrame(this.frame_);
     this.observer.disconnect();
     this.controls.dispose();
     for (const child of this.group.children) (child as THREE.Mesh).geometry.dispose();

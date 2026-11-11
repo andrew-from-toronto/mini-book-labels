@@ -48,7 +48,7 @@ async function audit(page: Page, name: string) {
 
 const shot = async (page: Page, name: string) => {
   await page.screenshot({ path: `screens/${test.info().project.name}-${name}.png` });
-  if (['phone', 'landscape', 'narrow', 'tablet'].includes(test.info().project.name)) await audit(page, name);
+  if (test.info().project.name !== 'desktop') await audit(page, name);
 };
 
 test.afterAll(async () => {
@@ -66,6 +66,12 @@ async function openTab(page: Page, name: 'Setup' | 'Books' | 'Preview') {
 const settle = (page: Page, ms = 2500) => page.waitForTimeout(ms);
 
 test.beforeEach(async ({ page }) => {
+  // Script errors and console errors belong in the audit too: a blank screen is often one of these.
+  const errors: string[] = (findings['errors'] = []);
+  page.on('pageerror', (e) => errors.push(`page error: ${e.message}`));
+  page.on('console', (m) => {
+    if (m.type() === 'error' || /webgl/i.test(m.text())) errors.push(`console ${m.type()}: ${m.text().slice(0, 200)}`);
+  });
   // The same sample every run, so screenshots can be compared before and after a change.
   await page.addInitScript(() => {
     let seed = 42;
@@ -75,6 +81,7 @@ test.beforeEach(async ({ page }) => {
     };
   });
   await page.goto('./');
+  await expect(page.getByRole('heading', { name: 'Mini Book Labels' })).toBeVisible();
 });
 
 test('screens', async ({ page }) => {
