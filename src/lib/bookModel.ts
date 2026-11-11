@@ -7,6 +7,7 @@
  * cover's overhang has a 45 degree bevel under it, and the hook sits flush with the cover on the bed.
  * That is the front cover unless the hook is set to the back.
  */
+import { DEFAULT_HOLE } from './hook';
 import type { Dims } from './scales';
 import type { HookPosition, HookSide, ModelOptions } from './types';
 
@@ -33,7 +34,6 @@ const SPINE_ROUND = 0.3;
 const PAGE_LINE_PITCH = 0.6;
 const PAGE_LINE_WIDTH = 0.2;
 const PAGE_LINE_DEPTH = 0.25;
-const HOOK_HOLE = 1.6;
 const HOOK_WALL = 0.8;
 const HOOK_THICKNESS = 1.2;
 const EPS = 0.01;
@@ -82,13 +82,19 @@ export function roundSpineProfile(S: number, board: number): [number, number][] 
   return [[EPS, 0], [board, 0], [board, S], [EPS, S], ...arc];
 }
 
-export function hookGeometry({ height: H, width: W, spine: S }: Dims, position: HookPosition, overhang: number) {
-  const r = HOOK_HOLE / 2 + HOOK_WALL;
+export function hookGeometry(
+  { height: H, width: W, spine: S }: Dims,
+  position: HookPosition,
+  overhang: number,
+  holeSize: number = DEFAULT_HOLE,
+) {
+  // A bigger hole gets a bigger ring with the same wall, so it is no weaker.
+  const r = holeSize / 2 + HOOK_WALL;
   // Corner hooks sit a hair in from the book's side rather than exactly flush, for a clean mesh.
   const x = position === 'spine' ? r + EPS : position === 'fore-edge' ? W - r - EPS : W / 2;
   // The hole clears the top of the covers by a little under a wall's thickness.
-  const z = H + HOOK_HOLE / 2 + HOOK_WALL * 0.75;
-  return { r, x, z, hole: HOOK_HOLE / 2, thickness: Math.min(HOOK_THICKNESS, S), neckBottom: H - overhang - 0.5 };
+  const z = H + holeSize / 2 + HOOK_WALL * 0.75;
+  return { r, x, z, hole: holeSize / 2, thickness: Math.min(HOOK_THICKNESS, S), neckBottom: H - overhang - 0.5 };
 }
 
 export type Wasm = Awaited<ReturnType<typeof import('manifold-3d').default>>;
@@ -172,7 +178,7 @@ async function buildParts(dims: Dims, options: ModelOptions, load: () => Promise
   if (options.hook) {
     // Flush with the front cover, the side the book prints on, so it needs no supports. A back hook is
     // built the same way and mirrored below.
-    const h = hookGeometry(dims, options.hookPosition, overhang);
+    const h = hookGeometry(dims, options.hookPosition, overhang, options.holeSize);
     const ring = CrossSection.hull([
       CrossSection.circle(h.r, SEGMENTS).translate([h.x, h.z]),
       CrossSection.square([2 * h.r, EPS]).translate([h.x - h.r, h.neckBottom]),
@@ -263,6 +269,7 @@ export function meshToStl({ positions, triangles }: BookMesh, name = 'mini book'
 export function modelFileName({ height, width, spine }: Dims, options: ModelOptions, ext: 'stl' | '3mf'): string {
   const spineShape = options.roundSpine ? '-round-spine' : '-flat-spine';
   const where = options.hookPosition === 'center' ? 'center' : `${options.hookPosition}-corner`;
-  const hook = options.hook ? `-hook-${where}${options.hookSide === 'back' ? '-back' : ''}` : '';
+  const hole = options.holeSize && options.holeSize !== DEFAULT_HOLE ? `-hole-${options.holeSize}mm` : '';
+  const hook = options.hook ? `-hook-${where}${options.hookSide === 'back' ? '-back' : ''}${hole}` : '';
   return `mini-book-${height}x${width}x${spine}mm${spineShape}${hook}.${ext}`;
 }

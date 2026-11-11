@@ -6,6 +6,7 @@ import { bookBreakdown, formatCad, handlingBreakdown, MAX_QUANTITY, priceOrder, 
 import { dimsAtScale, matchingScale, SCALES, type Dims } from '../lib/scales';
 import { printable, shopVisible } from '../lib/shop';
 import type { HookPosition, HookSide, ModelOptions } from '../lib/types';
+import { HookAdvanced } from './HookAdvanced';
 import { PaymentStep } from './PaymentStep';
 
 const Book3D = lazy(() => import('./Book3D'));
@@ -183,6 +184,7 @@ export function OrderPage() {
                   </label>
                 </div>
               )}
+              {model.hook && <HookAdvanced options={model} onChange={setModel} />}
               <label>
                 Spine
                 <select

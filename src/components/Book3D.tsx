@@ -205,7 +205,7 @@ class Viewer {
       if (model?.hook) {
         // The hole's diameter, across it on the hook's outer face, labelled above with a leader line, so
         // buyers can check their ornament hooks or ribbon will pass through.
-        const h = hookGeometry(dims, model.hookPosition, 0);
+        const h = hookGeometry(dims, model.hookPosition, 0, model.holeSize);
         const y = model.hookSide === 'back' ? S : 0;
         const a = v(h.x - h.hole, y, h.z);
         const b = v(h.x + h.hole, y, h.z);

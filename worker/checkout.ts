@@ -34,7 +34,8 @@ export function describeBlank(code: string): string | null {
   const { height, width, spine } = order.dims;
   const o: ModelOptions = order.options;
   const where = { center: 'centred', spine: 'at the spine corner', 'fore-edge': 'at the fore-edge corner' }[o.hookPosition];
-  const hook = o.hook ? `hook ${where}, ${o.hookSide}` : 'no hook';
+  const hole = o.holeSize ? `, ${o.holeSize} mm hole` : '';
+  const hook = o.hook ? `hook ${where}, ${o.hookSide}${hole}` : 'no hook';
   return `${height} x ${width} x ${spine} mm, ${order.colour}, ${o.roundSpine ? 'rounded' : 'flat'} spine, ${hook}`;
 }
 

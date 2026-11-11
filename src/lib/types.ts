@@ -58,6 +58,8 @@ export interface ModelOptions {
   hookSide: HookSide;
   /** A slight outward bow on the spine. Flat prints best. */
   roundSpine: boolean;
+  /** The hook's hole in mm, from HOLE_SIZES; missing means the default, for settings saved before it. */
+  holeSize?: number;
 }
 export type PaperKey = 'letter' | 'a4';
 

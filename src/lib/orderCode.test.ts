@@ -30,6 +30,17 @@ describe('order codes', () => {
     }
   });
 
+  it('carry a non-default hook hole, and leave the default out', () => {
+    const big: Order = { ...order, options: { ...order.options, holeSize: 3 } };
+    expect(encodeOrder(big)).toBe('v1-h300-w200-s50-flat-hook-center-front-o30-c-white');
+    expect(decodeOrder(encodeOrder(big))).toEqual(big);
+    expect(encodeOrder({ ...order, options: { ...order.options, holeSize: 1.6 } })).toBe(encodeOrder(order));
+  });
+
+  it('refuse hole sizes that are not offered', () => {
+    expect(decodeOrder('v1-h300-w200-s50-flat-hook-center-front-o25-c-white')).toBeNull();
+  });
+
   it('read codes from before colours as white', () => {
     expect(decodeOrder('v1-h300-w200-s50-flat-hook-center-front')).toEqual(order);
   });
