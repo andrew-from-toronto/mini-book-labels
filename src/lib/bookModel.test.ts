@@ -1,6 +1,15 @@
 import Module from 'manifold-3d';
 import { describe, expect, it } from 'vitest';
-import { buildBookMesh, buildBookParts, meshToStl, modelGeometry, stlFileName, type BookMesh, type Wasm } from './bookModel';
+import {
+  buildBookMesh,
+  buildBookParts,
+  DEFAULT_MODEL_OPTIONS,
+  meshToStl,
+  modelGeometry,
+  stlFileName,
+  type BookMesh,
+  type Wasm,
+} from './bookModel';
 import { dimsAtScale } from './scales';
 
 // Under Node the wasm sits next to the script, so the default lookup finds it.
@@ -54,6 +63,48 @@ describe('buildBookMesh', () => {
       }
     }
   });
+});
+
+/**
+ * Edges of a closed, outward-facing solid as an STL stores it (single precision, no shared vertices):
+ * every edge must appear exactly once in each direction. Returns how many do not.
+ */
+function badEdges({ positions, triangles }: BookMesh): number {
+  const key = (v: number) => `${positions[v * 3]},${positions[v * 3 + 1]},${positions[v * 3 + 2]}`;
+  const directed = new Map<string, number>();
+  for (let t = 0; t < triangles.length; t += 3) {
+    for (let k = 0; k < 3; k++) {
+      const edge = `${key(triangles[t + k])}>${key(triangles[t + ((k + 1) % 3)])}`;
+      directed.set(edge, (directed.get(edge) ?? 0) + 1);
+    }
+  }
+  let bad = 0;
+  for (const [edge, count] of directed) {
+    const [a, b] = edge.split('>');
+    if (count !== 1 || directed.get(`${b}>${a}`) !== 1) bad++;
+  }
+  return bad;
+}
+
+describe('the printable mesh', () => {
+  // Presets plus the awkward ones: very thin books, where covers and spine are at their limits.
+  const sizes = [...[4, 7, 12, 24].map(dimsAtScale), { height: 12.3, width: 9.1, spine: 2.2 }, { height: 20, width: 15, spine: 1.2 }];
+
+  it('is a clean closed solid for every size, spine and hook placement', async () => {
+    for (const dims of sizes) {
+      for (const roundSpine of [false, true]) {
+        for (const hookSide of ['front', 'back'] as const) {
+          for (const hookPosition of ['center', 'spine', 'fore-edge'] as const) {
+            const options = { hook: true, hookPosition, hookSide, roundSpine };
+            const mesh = await buildBookMesh(dims, options, true, nodeLoader);
+            expect(badEdges(mesh), `${JSON.stringify(dims)} ${JSON.stringify(options)}`).toBe(0);
+          }
+        }
+        const plain = await buildBookMesh(dims, { ...DEFAULT_MODEL_OPTIONS, roundSpine }, true, nodeLoader);
+        expect(badEdges(plain)).toBe(0);
+      }
+    }
+  }, 60_000);
 });
 
 describe('a hook on the back cover', () => {

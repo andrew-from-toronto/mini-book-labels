@@ -37,6 +37,10 @@ const HOOK_HOLE = 1.6;
 const HOOK_WALL = 0.8;
 const HOOK_THICKNESS = 1.2;
 const EPS = 0.01;
+/** How far the bevel stops short of the cover's edges; unlike EPS, so it never lines up with a corner hook. */
+const BEVEL_INSET = 0.02;
+/** In mm: points closer than this are merged before export. */
+const WELD_TOLERANCE = 0.001;
 const SEGMENTS = 64;
 
 /** Every measurement the model is built from, in mm. Exported so it can be checked without WebAssembly. */
@@ -54,9 +58,34 @@ export function modelGeometry({ height: H, width: W, spine: S }: Dims) {
   return { H, W, S, board, overhang, pages, bevel, lines };
 }
 
+/** Arc segments across the rounded spine: smooth at any scale without bloating the file. */
+const SPINE_SEGMENTS = 32;
+
+/**
+ * The rounded spine's outline seen from above, counter-clockwise: the inner edge, then an arc that bows
+ * SPINE_ROUND past the covers. Built from exact points, because clipping a circle to a rectangle leaves
+ * slivers at the corners. The arc ends a hair inside the covers' outer corners rather than on them, so
+ * the solids overlap instead of meeting at a point, which also gives doubled edges in an STL.
+ */
+export function roundSpineProfile(S: number, board: number): [number, number][] {
+  const r = ((S / 2) ** 2 + SPINE_ROUND ** 2) / (2 * SPINE_ROUND);
+  // The arc's chord runs at x = EPS, its middle bowing out to x = EPS - SPINE_ROUND.
+  const cx = EPS + r - SPINE_ROUND;
+  // Half the angle the arc spans, seen from the circle's centre.
+  const half = Math.atan2(S / 2, cx - EPS);
+  const arc: [number, number][] = [];
+  // From the (EPS, S) end round to (EPS, 0), ends excluded: they are added exactly below.
+  for (let i = 1; i < SPINE_SEGMENTS; i++) {
+    const a = Math.PI - half + (2 * half * i) / SPINE_SEGMENTS;
+    arc.push([cx + r * Math.cos(a), S / 2 + r * Math.sin(a)]);
+  }
+  return [[EPS, 0], [board, 0], [board, S], [EPS, S], ...arc];
+}
+
 export function hookGeometry({ height: H, width: W, spine: S }: Dims, position: HookPosition, overhang: number) {
   const r = HOOK_HOLE / 2 + HOOK_WALL;
-  const x = position === 'spine' ? r : position === 'fore-edge' ? W - r : W / 2;
+  // Corner hooks sit a hair in from the book's side rather than exactly flush, for a clean mesh.
+  const x = position === 'spine' ? r + EPS : position === 'fore-edge' ? W - r - EPS : W / 2;
   // The hole clears the top of the covers by a little under a wall's thickness.
   const z = H + HOOK_HOLE / 2 + HOOK_WALL * 0.75;
   return { r, x, z, hole: HOOK_HOLE / 2, thickness: Math.min(HOOK_THICKNESS, S), neckBottom: H - overhang - 0.5 };
@@ -106,17 +135,13 @@ async function buildParts(dims: Dims, options: ModelOptions, load: () => Promise
   parts.set('back', box(0, S - board, 0, W, board, H));
 
   if (options.roundSpine) {
-    // A circle through both outer corners whose arc bulges SPINE_ROUND past them.
-    const r = ((S / 2) ** 2 + SPINE_ROUND ** 2) / (2 * SPINE_ROUND);
-    const profile = CrossSection.circle(r, 360)
-      .translate([r - SPINE_ROUND, S / 2])
-      .intersect(CrossSection.square([SPINE_ROUND + board, S]).translate([-SPINE_ROUND, 0]));
-    parts.set('spine', profile.extrude(H));
+    parts.set('spine', new CrossSection([roundSpineProfile(S, board)]).extrude(H));
   } else {
     parts.set('spine', box(0, 0, 0, board, S, H));
   }
 
-  let block = box(p.x0, p.y0, p.z0, p.x1 - p.x0, p.y1 - p.y0, p.z1 - p.z0);
+  // The page block reaches a hair into the covers and spine rather than just touching them.
+  let block = box(p.x0 - EPS, p.y0 - EPS, p.z0, p.x1 - p.x0 + EPS, p.y1 - p.y0 + 2 * EPS, p.z1 - p.z0);
   if (lines.length) {
     // Each line is a U-shaped slot around the top, fore-edge and bottom of the page block.
     const slot = box(p.x0 - 1, 0, p.z0 - 1, p.x1 - p.x0 + 2, PAGE_LINE_WIDTH, p.z1 - p.z0 + 2).subtract(
@@ -133,10 +158,12 @@ async function buildParts(dims: Dims, options: ModelOptions, load: () => Promise
   }
   if (bevel > 0) {
     // 45 degrees under the back cover's overhang (the top, when printing), so it needs no supports.
+    // It reaches a hair into the spine and the cover and stops a hair short of the cover's edges: solids
+    // that only touch along shared edges and faces give doubled edges in the exported mesh.
     block = block.add(
       Manifold.hull([
-        box(p.x0, p.y1 - bevel, p.z0, p.x1 - p.x0, EPS, p.z1 - p.z0),
-        box(p.x0, p.y1 - EPS, 0, W - p.x0, EPS, H),
+        box(p.x0 - EPS, p.y1 - bevel, p.z0, p.x1 - p.x0 + EPS, EPS, p.z1 - p.z0),
+        box(p.x0 - EPS, p.y1 - EPS, BEVEL_INSET, W - BEVEL_INSET - p.x0 + EPS, 2 * EPS, H - 2 * BEVEL_INSET),
       ]),
     );
   }
@@ -186,7 +213,10 @@ export async function buildBookMesh(
   load: () => Promise<Wasm> = loadManifold,
 ): Promise<BookMesh> {
   const { Manifold, parts, S } = await buildParts(dims, options, load);
-  let book = Manifold.union([...parts.values()]);
+  // Parts that meet flush (a corner hook on the book's side, the rounded spine at the covers) can leave
+  // vertices a hair apart, which merge once saved at STL's single precision and give doubled edges.
+  // Simplifying to a micron, far below anything a printer resolves, merges them in the solid first.
+  let book = Manifold.union([...parts.values()]).simplify(WELD_TOLERANCE);
   if (layFlat) {
     // Rotating about x takes the thickness axis up: +90 puts the front cover (y = 0) on the bed, -90
     // turns it over onto the back cover (y = S), lifted back to the bed.
