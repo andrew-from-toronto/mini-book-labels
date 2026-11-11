@@ -572,6 +572,13 @@ a.button.primary {
   font-weight: normal;
 }
 
+/* Downloading an order's model: one narrow column. */
+.model-page {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 0 16px 48px;
+}
+
 /* Ordering blanks: the form down the left, the 3D preview filling the right, split by the app's divider. */
 .order-page {
   display: grid;

@@ -14,10 +14,9 @@
  * Dashboard. No tax is collected (small supplier).
  */
 import type Stripe from 'stripe';
-import { decodeOrder } from '../src/lib/orderCode';
+import { decodeOrder, describeOrder } from '../src/lib/orderCode';
 import { costOfBook, handlingPrice, priceOrder } from '../src/lib/pricing';
 import { printable } from '../src/lib/shop';
-import type { ModelOptions } from '../src/lib/types';
 import { json } from './cache';
 import { fromOwnSite } from './imageProxy';
 import { quoteShipping, ShippingError, type ChitChatsEnv } from './chitchats';
@@ -30,13 +29,7 @@ export const INTEGRATION_ID = 'mini-book-blanks-qhwzrtkd';
 /** "30 x 20 x 5 mm, black, flat spine, hook centred, front": what the buyer sees for the line item. */
 export function describeBlank(code: string): string | null {
   const order = decodeOrder(code);
-  if (!order) return null;
-  const { height, width, spine } = order.dims;
-  const o: ModelOptions = order.options;
-  const where = { center: 'centred', spine: 'at the spine corner', 'fore-edge': 'at the fore-edge corner' }[o.hookPosition];
-  const hole = o.holeSize ? `, ${o.holeSize} mm hole` : '';
-  const hook = o.hook ? `hook ${where}, ${o.hookSide}${hole}` : 'no hook';
-  return `${height} x ${width} x ${spine} mm, ${order.colour}, ${o.roundSpine ? 'rounded' : 'flat'} spine, ${hook}`;
+  return order ? describeOrder(order) : null;
 }
 
 export interface CheckoutRequest {

@@ -63,3 +63,11 @@ export function decodeOrder(code: string): Order | null {
     colour: colour ?? DEFAULT_FILAMENT,
   };
 }
+
+/** "30 x 20 x 5 mm, black, flat spine, hook centred, front": the book in words, for buyers and the shop. */
+export function describeOrder({ dims, options: o, colour }: Order): string {
+  const where = { center: 'centred', spine: 'at the spine corner', 'fore-edge': 'at the fore-edge corner' }[o.hookPosition];
+  const hole = o.holeSize ? `, ${o.holeSize} mm hole` : '';
+  const hook = o.hook ? `hook ${where}, ${o.hookSide}${hole}` : 'no hook';
+  return `${dims.height} x ${dims.width} x ${dims.spine} mm, ${colour}, ${o.roundSpine ? 'rounded' : 'flat'} spine, ${hook}`;
+}

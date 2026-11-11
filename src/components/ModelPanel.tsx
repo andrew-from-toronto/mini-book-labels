@@ -1,13 +1,6 @@
 import { useState } from 'react';
-import {
-  buildBookMesh,
-  meshToStl,
-  modelFileName,
-  type HookPosition,
-  type HookSide,
-  type ModelOptions,
-} from '../lib/bookModel';
-import { saveFile } from '../lib/download';
+import type { HookPosition, HookSide, ModelOptions } from '../lib/bookModel';
+import { downloadModel, type ModelFormat } from '../lib/modelDownload';
 import { costOfBook, formatCad } from '../lib/pricing';
 import { orderUrl, PRINTABLE_HEIGHT, printable, shopVisible } from '../lib/shop';
 import type { Dims } from '../lib/scales';
@@ -15,9 +8,8 @@ import type { Settings } from '../lib/types';
 import { encodeOrder } from '../lib/orderCode';
 import { HoleSelect } from './HoleSelect';
 import { DEFAULT_FILAMENT } from '../lib/filaments';
-import { meshTo3mf } from '../lib/threeMf';
 
-type Format = '3mf' | 'stl';
+type Format = ModelFormat;
 
 interface Props {
   dims: Dims;
@@ -43,14 +35,7 @@ export function ModelPanel({ dims, options, settings, onChange, onShow3d }: Prop
     setBuilding(format);
     setFailed(false);
     try {
-      const mesh = await buildBookMesh(dims, options, true);
-      const name = modelFileName(dims, options, format);
-      if (format === '3mf') {
-        const title = `Mini book ${dims.height} x ${dims.width} x ${dims.spine} mm`;
-        saveFile(meshTo3mf(mesh, title), name, 'model/3mf');
-      } else {
-        saveFile(meshToStl(mesh), name, 'model/stl');
-      }
+      await downloadModel(dims, options, format);
     } catch {
       setFailed(true);
     } finally {

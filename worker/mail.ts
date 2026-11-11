@@ -142,6 +142,7 @@ ${money.html}
 /** The shop's notice: what to print, where to send it, and links to the model and the payment. */
 export function sellerEmail(o: OrderDetails, to: string): Mail {
   const model = `${o.site}/#order=${encodeURIComponent(o.code)}`;
+  const download = `${o.site}/model/?code=${encodeURIComponent(o.code)}`;
   const payment = o.paymentIntent
     ? `https://dashboard.stripe.com/${o.livemode ? '' : 'test/'}payments/${o.paymentIntent}`
     : null;
@@ -159,14 +160,15 @@ export function sellerEmail(o: OrderDetails, to: string): Mail {
     'Ship to',
     ...o.address,
     '',
-    `Model: ${model}`,
+    `Download the model: ${download}`,
+    `Open in the designer: ${model}`,
     ...(payment ? [`Payment: ${payment}`] : []),
   ].join('\n');
   const html = page(
     `${details.html}
 <h2 style="font-size:16px;margin:20px 0 4px">Ship to</h2>
 <p style="margin:0">${o.address.map(escape).join('<br>')}</p>
-<p style="margin-top:20px"><a href="${escape(model)}" style="color:#8a4b2a">Open the model</a>${
+<p style="margin-top:20px"><a href="${escape(download)}" style="color:#8a4b2a;font-weight:600">Download the model</a> · <a href="${escape(model)}" style="color:#8a4b2a">Open in the designer</a>${
       payment ? ` · <a href="${escape(payment)}" style="color:#8a4b2a">Payment in Stripe</a>` : ''
     }</p>`,
   );
