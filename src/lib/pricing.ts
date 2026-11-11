@@ -93,7 +93,7 @@ export interface OrderPrice {
   quantity: number;
   books: number;
   handling: number;
-  /** Before shipping and tax, which Stripe adds at checkout. */
+  /** Before shipping, which is chosen at checkout. No sales tax is charged (small supplier, under $30,000 a year). */
   subtotal: number;
 }
 
