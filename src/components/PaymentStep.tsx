@@ -38,6 +38,7 @@ const days = (option: StripeCheckoutSession['shippingOptions'][number]) => {
 
 /** Shipping and payment, on our page with Stripe Elements. Shipping prices come live from Chit Chats. */
 export function PaymentStep({ code, quantity, onBack }: Props) {
+  const contactHost = useRef<HTMLDivElement>(null);
   const shippingHost = useRef<HTMLDivElement>(null);
   const paymentHost = useRef<HTMLDivElement>(null);
   const actionsRef = useRef<Actions | null>(null);
@@ -85,6 +86,11 @@ export function PaymentStep({ code, quantity, onBack }: Props) {
         elementsOptions: { appearance: appearance() },
       });
       checkout.on('change', (s) => !cancelled && setSession(s));
+
+      // The buyer's email, for Stripe's receipt and ours; Stripe needs it before payment.
+      const contact = checkout.createContactDetailsElement();
+      contact.mount(contactHost.current!);
+      destroy.push(() => contact.destroy());
 
       const shipping = checkout.createShippingAddressElement();
       shipping.mount(shippingHost.current!);
@@ -135,6 +141,8 @@ export function PaymentStep({ code, quantity, onBack }: Props) {
   return (
     <div className="payment-step">
       <h3>Shipping</h3>
+      {phase === 'loading' && <div className="field-placeholder short" aria-hidden="true" />}
+      <div ref={contactHost} />
       {phase === 'loading' && <div className="field-placeholder tall" aria-hidden="true" />}
       <div ref={shippingHost} />
       {phase === 'quoting' && <p className="muted">Getting shipping prices...</p>}

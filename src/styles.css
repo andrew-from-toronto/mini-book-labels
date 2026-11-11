@@ -828,6 +828,10 @@ a.button.primary {
   animation: shimmer 1.2s linear infinite;
 }
 
+.field-placeholder.short {
+  height: 70px;
+}
+
 .field-placeholder.tall {
   height: 230px;
 }
