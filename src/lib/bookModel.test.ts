@@ -85,8 +85,8 @@ describe('a hook on the back cover', () => {
   });
 
   it('is named for its side', () => {
-    expect(stlFileName(dims, { hook: true, hookPosition: 'center', hookSide: 'back', roundSpine: false })).toBe(
-      'mini-book-30x20x5mm-hook-center-back.stl',
+    expect(stlFileName(dims, { hook: true, hookPosition: 'center', hookSide: 'back', roundSpine: true })).toBe(
+      'mini-book-30x20x5mm-round-spine-hook-center-back.stl',
     );
   });
 });
@@ -104,7 +104,7 @@ describe('meshToStl', () => {
 
   it('names files by size and hook', () => {
     expect(stlFileName(dimsAtScale(7), { hook: true, hookPosition: 'spine', hookSide: 'front', roundSpine: false })).toBe(
-      'mini-book-30x20x5mm-hook-spine.stl',
+      'mini-book-30x20x5mm-flat-spine-hook-spine-corner.stl',
     );
   });
 });

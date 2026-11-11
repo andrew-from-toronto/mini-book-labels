@@ -231,6 +231,8 @@ export function meshToStl({ positions, triangles }: BookMesh, name = 'mini book'
 }
 
 export function stlFileName({ height, width, spine }: Dims, options: ModelOptions): string {
-  const hook = options.hook ? `-hook-${options.hookPosition}${options.hookSide === 'back' ? '-back' : ''}` : '';
-  return `mini-book-${height}x${width}x${spine}mm${hook}.stl`;
+  const spineShape = options.roundSpine ? '-round-spine' : '-flat-spine';
+  const where = options.hookPosition === 'center' ? 'center' : `${options.hookPosition}-corner`;
+  const hook = options.hook ? `-hook-${where}${options.hookSide === 'back' ? '-back' : ''}` : '';
+  return `mini-book-${height}x${width}x${spine}mm${spineShape}${hook}.stl`;
 }
