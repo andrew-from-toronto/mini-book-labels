@@ -210,7 +210,7 @@ export function OrderPage() {
             </label>
             <details className="price-detail">
               <summary>
-                <strong>{formatCad(order.subtotal)}</strong> plus shipping
+                <strong>{formatCad(order.subtotal)} CAD</strong> plus shipping
               </summary>
               <table className="price-breakdown">
                 <Breakdown lines={bookBreakdown(dims)} total={order.unitPrice} label="Each blank" />
@@ -220,7 +220,7 @@ export function OrderPage() {
                     <th scope="row">
                       Total <span>{quantity === 1 ? '1 blank' : `${quantity} blanks`} + packing</span>
                     </th>
-                    <td>{formatCad(order.subtotal)}</td>
+                    <td>{formatCad(order.subtotal)} CAD</td>
                   </tr>
                 </tfoot>
               </table>

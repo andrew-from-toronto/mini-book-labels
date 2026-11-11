@@ -130,7 +130,7 @@ function BuyBlanks({ settings }: { settings: Settings }) {
         <p>
           <strong>No 3D printer?</strong>
           <span>Order this model, blank, and ready to apply your covers.</span>
-          <span className="buy-each">{formatCad(costOfBook(dims).unitPrice)} each</span>
+          <span className="buy-each">{formatCad(costOfBook(dims).unitPrice)} CAD each</span>
         </p>
       </div>
       <a
