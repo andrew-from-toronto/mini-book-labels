@@ -43,7 +43,7 @@ pnpm screens
 
 `mini-book-ornaments/index.html` is a static how-to guide, built as a second page so search engines can read it without running the app. `pnpm og` regenerates `public/og-image.png`, the picture shown when the site is shared, from the app's own 3D view.
 
-`pnpm screens` runs the app in Chromium through [Playwright](https://playwright.dev) at desktop, tablet and phone sizes and saves screenshots of its main states to `screens/`, for checking layout changes. The first time, install the browser with `pnpm exec playwright install chromium`.
+`pnpm screens` runs the app in Chromium through [Playwright](https://playwright.dev) at desktop, tablet and phone sizes and saves screenshots of its main states to `screens/`, for checking layout changes. The first time, install the browsers with `pnpm exec playwright install chromium webkit`. `SITE=https://minibookornaments.com/ pnpm screens` runs the same checks against the live site.
 
 Pushing to `main` deploys to GitHub Pages.
 

@@ -13,7 +13,8 @@ export default defineConfig({
   timeout: 60_000,
   fullyParallel: true,
   reporter: [['list']],
-  use: { baseURL: 'http://localhost:5199/' },
+  // SITE=https://minibookornaments.com/ pnpm screens checks the live site instead of the dev server.
+  use: { baseURL: process.env.SITE ?? 'http://localhost:5199/' },
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 }, ...chromium } },
     // Chromium with a tablet's size and touch.
