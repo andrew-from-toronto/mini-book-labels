@@ -239,7 +239,19 @@ test('shop preview', async ({ page }) => {
   await page.getByRole('button', { name: /Try a sample/ }).first().click();
   await expect(page.locator('.book').first()).toBeAttached();
   await openTab(page, 'Setup');
-  await page.locator('.price-detail summary').click();
   await page.locator('.buy-blanks').evaluate((el) => el.scrollIntoView({ block: 'start' }));
   await shot(page, '13-shop-preview');
+
+  await page.getByRole('button', { name: 'Order blanks' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Order blanks' });
+  await expect(dialog).toBeVisible();
+  await dialog.getByText('Black').click();
+  await expect(dialog.getByText(/Drag to turn/)).toBeVisible({ timeout: 20_000 });
+  await page.waitForTimeout(1000);
+  await shot(page, '14-order-dialog');
+  await dialog.locator('.price-detail summary').click();
+  await dialog.getByLabel(/confirm the size and colour/).check();
+  await expect(dialog.getByRole('button', { name: 'Continue to shipping' })).toBeEnabled();
+  await dialog.locator('.order-details').evaluate((el) => el.scrollIntoView({ block: 'end' }));
+  await shot(page, '15-order-confirmed');
 });

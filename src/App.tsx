@@ -357,6 +357,7 @@ export function App() {
             <ModelPanel
               dims={{ height: settings.height, width: settings.width, spine: settings.spine }}
               options={settings.model}
+              settings={settings}
               onChange={(model) => setSettings((s) => ({ ...s, model }))}
               onShow3d={(openTab) => {
                 setView('3d');

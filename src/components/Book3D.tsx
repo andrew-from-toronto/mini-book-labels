@@ -14,6 +14,8 @@ interface Props {
   cover: CoverResult | undefined;
   custom: CustomCover | undefined;
   settings: Settings;
+  /** Show the book as printed, all in this filament colour and with no label: the blank as it arrives. */
+  filament?: string;
 }
 
 /** Most pixels across the label texture; GPUs take 2048 everywhere. */
@@ -139,6 +141,17 @@ class Viewer {
     this.render();
   }
 
+  /** Every surface in one filament colour, or back to the usual plastic and paper. */
+  setFilament(colour: string | null) {
+    this.materials.label.map?.dispose();
+    this.materials.label.map = null;
+    this.materials.label.color.set(colour ?? PLASTIC);
+    this.materials.plastic.color.set(colour ?? PLASTIC);
+    this.materials.paper.color.set(colour ?? PAPER);
+    this.materials.label.needsUpdate = true;
+    this.render();
+  }
+
   setLabel(canvas: HTMLCanvasElement | null) {
     this.materials.label.map?.dispose();
     if (canvas) {
@@ -168,7 +181,7 @@ class Viewer {
 }
 
 /** The printable book with the label wrapped on, to turn around and look at before printing. */
-export default function Book3D({ book, cover, custom, settings }: Props) {
+export default function Book3D({ book, cover, custom, settings, filament }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const viewer = useRef<Viewer | null>(null);
   const [state, setState] = useState<'building' | 'ready' | 'failed'>('building');
@@ -211,6 +224,11 @@ export default function Book3D({ book, cover, custom, settings }: Props) {
 
   useEffect(() => {
     if (!viewer.current) return;
+    if (filament) {
+      viewer.current.setFilament(filament);
+      return;
+    }
+    viewer.current.setFilament(null);
     if (!book || !cover) {
       viewer.current.setLabel(null);
       return;
@@ -224,7 +242,7 @@ export default function Book3D({ book, cover, custom, settings }: Props) {
       pxPerMm,
     });
     viewer.current.setLabel(canvas);
-  }, [book, cover, height, width, spine, style, wrapKey, cropKey]);
+  }, [book, cover, height, width, spine, style, wrapKey, cropKey, filament]);
 
   return (
     <div className="book3d">

@@ -8,11 +8,11 @@ import {
   type ModelOptions,
 } from '../lib/bookModel';
 import { saveFile } from '../lib/download';
-import { DEFAULT_FILAMENT } from '../lib/filaments';
-import { encodeOrder } from '../lib/orderCode';
-import { bookBreakdown, formatCad, handlingBreakdown, MAX_QUANTITY, priceOrder, type PriceLine } from '../lib/pricing';
+import { costOfBook, formatCad } from '../lib/pricing';
 import { PRINTABLE_HEIGHT, printable, shopVisible } from '../lib/shop';
 import type { Dims } from '../lib/scales';
+import type { Settings } from '../lib/types';
+import { OrderDialog } from './OrderDialog';
 import { meshTo3mf } from '../lib/threeMf';
 
 type Format = '3mf' | 'stl';
@@ -20,13 +20,15 @@ type Format = '3mf' | 'stl';
 interface Props {
   dims: Dims;
   options: ModelOptions;
+  /** The label settings: the order dialog previews the book from them. */
+  settings: Settings;
   onChange: (options: ModelOptions) => void;
   /** Shows the book in the preview's 3D view; `openTab` also brings the preview forward on a phone. */
   onShow3d: (openTab: boolean) => void;
 }
 
 /** Free 3MF or STL of a hardcover mini book sized to the current label, built in the browser. */
-export function ModelPanel({ dims, options, onChange, onShow3d }: Props) {
+export function ModelPanel({ dims, options, settings, onChange, onShow3d }: Props) {
   const [building, setBuilding] = useState<Format | null>(null);
   const [failed, setFailed] = useState(false);
   // Changing an option shows the result, so the hook or spine can be seen as it is set.
@@ -100,7 +102,7 @@ export function ModelPanel({ dims, options, onChange, onShow3d }: Props) {
         </button>
       </div>
       {failed && <p className="error">Could not build the model in this browser.</p>}
-      {shopVisible() && <BuyBlanks dims={dims} options={options} />}
+      {shopVisible() && <BuyBlanks settings={settings} />}
       <p className="muted find">
         Print it lying on its {options.hook && options.hookSide === 'back' ? 'back' : 'front'} cover, as the file is
         laid out; it needs no supports. 3MF is the better format for current slicers (Orca, Bambu, Prusa, Elegoo);
@@ -122,30 +124,10 @@ function ParcelIcon() {
   );
 }
 
-/** A group of a price breakdown: its total first, then the parts it is made of. */
-function Breakdown({ lines, total, label }: { lines: PriceLine[]; total: number; label: string }) {
-  return (
-    <tbody>
-      <tr className="group">
-        <th scope="row">{label}</th>
-        <td>{formatCad(total)}</td>
-      </tr>
-      {lines.map((line) => (
-        <tr key={line.label} className={line.label === 'Margin' ? 'part margin' : 'part'}>
-          <td>{line.label}</td>
-          <td>{formatCad(line.cents)}</td>
-        </tr>
-      ))}
-    </tbody>
-  );
-}
-
-/**
- * Printed blank books of exactly this size and design. The price is shown openly, line by line,
- * margin included: printed books are how the free label maker pays for itself.
- */
-function BuyBlanks({ dims, options }: { dims: Dims; options: ModelOptions }) {
-  const [quantity, setQuantity] = useState(5);
+/** The blanks offer: opens the order dialog, where the book, colour and quantity are confirmed. */
+function BuyBlanks({ settings }: { settings: Settings }) {
+  const [ordering, setOrdering] = useState(false);
+  const dims = { height: settings.height, width: settings.width, spine: settings.spine };
   if (!printable(dims)) {
     return (
       <p className="muted find">
@@ -154,8 +136,6 @@ function BuyBlanks({ dims, options }: { dims: Dims; options: ModelOptions }) {
       </p>
     );
   }
-  const order = priceOrder(dims, quantity);
-  const code = encodeOrder({ dims, options, colour: DEFAULT_FILAMENT });
   return (
     <div className="buy-blanks">
       <div className="buy-head">
@@ -163,39 +143,13 @@ function BuyBlanks({ dims, options }: { dims: Dims; options: ModelOptions }) {
         <p>
           <strong>No 3D printer?</strong>
           <span>Order this model, blank, and ready to apply your covers.</span>
-          <span className="buy-each">{formatCad(order.unitPrice)} each</span>
+          <span className="buy-each">{formatCad(costOfBook(dims).unitPrice)} each</span>
         </p>
       </div>
-      <label className="buy-quantity">
-        Quantity
-        <input
-          type="number"
-          min={1}
-          max={MAX_QUANTITY}
-          value={quantity}
-          onChange={(e) => setQuantity(Math.min(MAX_QUANTITY, Math.max(1, Math.floor(Number(e.target.value)) || 1)))}
-        />
-      </label>
-      <details className="price-detail">
-        <summary>
-          <strong>{formatCad(order.subtotal)}</strong> plus shipping
-        </summary>
-        <table className="price-breakdown">
-          <Breakdown lines={bookBreakdown(dims)} total={order.unitPrice} label="Each blank" />
-          <Breakdown lines={handlingBreakdown()} total={order.handling} label="Packing" />
-          <tfoot>
-            <tr>
-              <th scope="row">
-                Total <span>{quantity === 1 ? '1 blank' : `${quantity} blanks`} + packing</span>
-              </th>
-              <td>{formatCad(order.subtotal)}</td>
-            </tr>
-          </tfoot>
-        </table>
-      </details>
-      <button className="primary buy-cta" disabled title={`Order ${code}`}>
+      <button type="button" className="primary buy-cta" onClick={() => setOrdering(true)}>
         Order blanks
       </button>
+      {ordering && <OrderDialog settings={settings} onClose={() => setOrdering(false)} />}
     </div>
   );
 }
