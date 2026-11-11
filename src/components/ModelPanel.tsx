@@ -109,21 +109,21 @@ export function ModelPanel({ dims, options, onChange, onShow3d }: Props) {
   );
 }
 
-/** Rows of a price breakdown, then its total. */
+/** A group of a price breakdown: its total first, then the parts it is made of. */
 function Breakdown({ lines, total, label }: { lines: PriceLine[]; total: number; label: string }) {
   return (
-    <>
+    <tbody>
+      <tr className="group">
+        <th scope="row">{label}</th>
+        <td>{formatCad(total)}</td>
+      </tr>
       {lines.map((line) => (
-        <tr key={line.label} className={line.label === 'Margin' ? 'margin' : undefined}>
+        <tr key={line.label} className={line.label === 'Margin' ? 'part margin' : 'part'}>
           <td>{line.label}</td>
           <td>{formatCad(line.cents)}</td>
         </tr>
       ))}
-      <tr className="subtotal">
-        <th scope="row">{label}</th>
-        <td>{formatCad(total)}</td>
-      </tr>
-    </>
+    </tbody>
   );
 }
 
@@ -168,11 +168,16 @@ function BuyBlanks({ dims, options }: { dims: Dims; options: ModelOptions }) {
           <strong>{formatCad(order.subtotal)}</strong> plus shipping
         </summary>
         <table className="price-breakdown">
-          <caption>Breakdown</caption>
-          <tbody>
-            <Breakdown lines={bookBreakdown(dims)} total={order.unitPrice} label="Each book" />
-            <Breakdown lines={handlingBreakdown()} total={order.handling} label="Packing" />
-          </tbody>
+          <Breakdown lines={bookBreakdown(dims)} total={order.unitPrice} label="Each book" />
+          <Breakdown lines={handlingBreakdown()} total={order.handling} label="Packing" />
+          <tfoot>
+            <tr>
+              <th scope="row">
+                Total <span>{quantity === 1 ? '1 book' : `${quantity} books`} + packing</span>
+              </th>
+              <td>{formatCad(order.subtotal)}</td>
+            </tr>
+          </tfoot>
         </table>
       </details>
       <button className="primary buy-cta" disabled title={`Order ${code}`}>

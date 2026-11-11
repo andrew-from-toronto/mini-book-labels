@@ -487,12 +487,6 @@ a.button.primary {
   font-variant-numeric: tabular-nums;
 }
 
-.price-breakdown caption {
-  text-align: left;
-  font-weight: 600;
-  padding-bottom: 4px;
-}
-
 .price-breakdown td,
 .price-breakdown th {
   padding: 3px 0;
@@ -504,14 +498,35 @@ a.button.primary {
   text-align: right;
 }
 
-.price-breakdown tr.margin td {
+.price-breakdown tr.group > * {
+  padding-top: 8px;
+  font-weight: 600;
+}
+
+/* The parts of a group: indented and quieter, so the group's total reads first. */
+.price-breakdown tr.part td {
+  padding: 1px 0;
+  color: var(--muted);
+}
+
+.price-breakdown tr.part td:first-child {
+  padding-left: 14px;
+}
+
+.price-breakdown tr.part.margin td {
   color: var(--accent);
 }
 
-.price-breakdown tr.subtotal > * {
-  padding-bottom: 10px;
+.price-breakdown tfoot > tr > * {
+  padding-top: 8px;
   border-top: 1px solid var(--line);
-  font-weight: 600;
+  font-weight: 700;
+}
+
+.price-breakdown tfoot span {
+  margin-left: 6px;
+  color: var(--muted);
+  font-weight: normal;
 }
 
 .order-loaded {
