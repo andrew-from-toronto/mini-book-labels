@@ -11,7 +11,7 @@ import { backupFileName, makeBackup, parseBackup } from './lib/backup';
 import { decodeOrder } from './lib/orderCode';
 import { parseLibraryCsv } from './lib/csv';
 import { saveFile } from './lib/download';
-import { applyFilters, selectBooks } from './lib/filter';
+import { applyFilters, applyOrder, moveBook, selectBooks } from './lib/filter';
 import { defaultWrapSpine, gridFor, paginate } from './lib/layout';
 import { isSample, sampleLibrary } from './lib/sample';
 import { loadState, saveState, type Panes } from './lib/storage';
@@ -109,12 +109,14 @@ export function App() {
   const [customCovers, setCustomCovers] = useState<Record<string, CustomCover>>(saved.customCovers ?? {});
 
   const [panes, setPanes] = useState<Panes>(saved.panes ?? {});
+  /** Book ids in a hand-set order; empty means the sheet follows the sort. */
+  const [order, setOrder] = useState<string[]>(saved.order ?? []);
 
   useEffect(() => {
     // Debounced: sliders change state many times a second and the library can be large.
-    const timer = setTimeout(() => saveState({ books, filters, settings, overrides, customCovers, panes }), 300);
+    const timer = setTimeout(() => saveState({ books, filters, settings, overrides, customCovers, panes, order }), 300);
     return () => clearTimeout(timer);
-  }, [books, filters, settings, overrides, customCovers, panes]);
+  }, [books, filters, settings, overrides, customCovers, panes, order]);
   /** The book being worked on: its cover controls are open and the preview zooms to its label. */
   const [activeId, setActiveId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
@@ -140,8 +142,8 @@ export function App() {
   }, []);
 
   const { listed, selected } = useMemo(
-    () => selectBooks(books, applyFilters(books, filters), overrides),
-    [books, filters, overrides],
+    () => selectBooks(books, applyOrder(applyFilters(books, filters), order), overrides),
+    [books, filters, overrides, order],
   );
   const coverOf = useCovers(listed, customCovers);
   const grid = gridFor(settings);
@@ -156,6 +158,7 @@ export function App() {
     setBooks([...next, ...added]);
     setActiveId(null);
     setOverrides(Object.fromEntries(added.map((b) => [b.id, true])));
+    setOrder([]);
     setCustomCovers((c) => Object.fromEntries(Object.entries(c).filter(([id]) => keep.has(id))));
     setError(next.length ? '' : 'That file has no books in it.');
     // On a phone, go straight to the books that were just loaded.
@@ -185,7 +188,7 @@ export function App() {
   const sampleLoaded = isSample(libraryBooks);
 
   function backUp() {
-    saveFile(makeBackup({ books, filters, settings, overrides, customCovers, panes }), backupFileName(), 'application/json');
+    saveFile(makeBackup({ books, filters, settings, overrides, customCovers, panes, order }), backupFileName(), 'application/json');
   }
 
   async function restore(file: File | undefined) {
@@ -205,6 +208,7 @@ export function App() {
       setOverrides(backup.overrides ?? {});
       setCustomCovers(backup.customCovers ?? {});
       setPanes(backup.panes ?? {});
+      setOrder(backup.order ?? []);
       setActiveId(null);
       setError('');
       if (count) setTab('books');
@@ -220,6 +224,7 @@ export function App() {
     setSettings(DEFAULT_SETTINGS);
     setOverrides({});
     setCustomCovers({});
+    setOrder([]);
     setActiveId(null);
     setError('');
   }
@@ -341,7 +346,13 @@ export function App() {
           <>
             <section>
               <h2>2. Filters</h2>
-              <FiltersPanel books={books} filters={filters} onChange={setFilters} />
+              <FiltersPanel
+                books={books}
+                filters={filters}
+                ordered={order.length > 0}
+                onChange={setFilters}
+                onResetOrder={() => setOrder([])}
+              />
             </section>
 
             <section>
@@ -444,6 +455,9 @@ export function App() {
             onActive={setActiveId}
             coverOf={coverOf}
             onToggle={(id, on) => setOverrides((o) => ({ ...o, [id]: on }))}
+            ordered={order.length > 0}
+            onMove={(id, to) => setOrder(moveBook(listed, id, to))}
+            onResetOrder={() => setOrder([])}
             onCustomCover={(id, cover) =>
               setCustomCovers(({ [id]: _old, ...rest }) => (cover ? { ...rest, [id]: cover } : rest))
             }

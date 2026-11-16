@@ -9,6 +9,8 @@ export interface SavedState {
   overrides: Record<string, boolean>;
   customCovers: Record<string, CustomCover>;
   panes: Panes;
+  /** Book ids in a hand-set order for the sheet; empty follows the sort. */
+  order: string[];
 }
 
 /** Column widths in px set by dragging the handles. Unset means the responsive default. */

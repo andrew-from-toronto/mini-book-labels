@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyFilters, selectBooks } from './filter';
+import { applyFilters, applyOrder, moveBook, selectBooks } from './filter';
 import type { Book, Filters } from './types';
 
 const book = (id: string, patch: Partial<Book> = {}): Book => ({
@@ -53,5 +53,28 @@ describe('selectBooks', () => {
     const { listed, selected } = selectBooks(books, top, { c: false, d: true });
     expect(ids(listed)).toBe('cad');
     expect(ids(selected)).toBe('ad');
+  });
+});
+
+describe('applyOrder', () => {
+  it('puts ordered books first, in that order, then the rest as they came', () => {
+    expect(ids(applyOrder(books, ['d', 'b']))).toBe('dbace');
+  });
+
+  it('skips ids that are no longer listed and leaves an empty order alone', () => {
+    expect(ids(applyOrder(books.slice(0, 3), ['z', 'c', 'a']))).toBe('cab');
+    expect(applyOrder(books, [])).toBe(books);
+  });
+});
+
+describe('moveBook', () => {
+  it('moves a book to a new position', () => {
+    expect(moveBook(books, 'a', 2).join('')).toBe('bcade');
+    expect(moveBook(books, 'e', 0).join('')).toBe('eabcd');
+  });
+
+  it('clamps positions past either end', () => {
+    expect(moveBook(books, 'c', -1).join('')).toBe('cabde');
+    expect(moveBook(books, 'c', 99).join('')).toBe('abdec');
   });
 });

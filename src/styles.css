@@ -1395,9 +1395,10 @@ button.link {
 }
 
 .rows {
+  --rows-gap: 12px;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 12px;
+  gap: var(--rows-gap);
 }
 
 /* The active card takes a full row so its cover controls have room. */
@@ -1501,6 +1502,49 @@ button.link {
 
 .book.active .book-hint {
   display: block;
+}
+
+/* Reordering by dragging a card (useDragOrder): it lifts and follows the pointer, and a bar in the gap shows where it lands. */
+.book {
+  position: relative;
+}
+
+.book.movable .book-head {
+  /* A long press lifts the card, so no text selection or image menu. */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.book.dragging {
+  z-index: 10;
+  pointer-events: none;
+  box-shadow: 0 10px 28px rgb(0 0 0 / 0.25);
+  opacity: 0.9;
+}
+
+.book.drop-before::before,
+.book.drop-after::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  width: 4px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+/* Centred in the gap between cards. */
+.book.drop-before::before {
+  left: calc(var(--rows-gap) / -2 - 3px);
+}
+
+.book.drop-after::after {
+  right: calc(var(--rows-gap) / -2 - 3px);
+}
+
+.order-note {
+  margin: 0;
 }
 
 .book-head:hover {
@@ -1993,8 +2037,8 @@ fieldset.crop {
   }
 
   .rows {
+    --rows-gap: 10px;
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 10px;
   }
 
   /* The open card stacks its cover above the text, as the closed ones do, rather than squeezing a row. */

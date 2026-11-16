@@ -20,6 +20,7 @@ const state: SavedState = {
   overrides: { '0': true },
   customCovers: { '0': { url: 'data:image/jpeg;base64,AAAA', wrap: false } },
   panes: { setup: 320 },
+  order: ['0'],
 };
 
 describe('backups', () => {

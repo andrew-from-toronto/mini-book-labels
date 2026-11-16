@@ -49,5 +49,7 @@ export function parseBackup(text: string): Partial<SavedState> {
     ...(isObject(data.overrides) && { overrides: data.overrides as SavedState['overrides'] }),
     ...(isObject(data.customCovers) && { customCovers: data.customCovers as SavedState['customCovers'] }),
     ...(isObject(data.panes) && { panes: data.panes as SavedState['panes'] }),
+    ...(Array.isArray(data.order) &&
+      data.order.every((id) => typeof id === 'string') && { order: data.order as string[] }),
   };
 }

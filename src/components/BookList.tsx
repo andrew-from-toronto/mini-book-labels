@@ -12,6 +12,7 @@ import {
 } from '../lib/covers';
 import type { Book, Crop, CustomCover, Settings, WrapSpine } from '../lib/types';
 import { Label } from './Label';
+import { useDragOrder } from './useDragOrder';
 
 interface Props {
   books: Book[];
@@ -26,6 +27,11 @@ interface Props {
   onActive: (id: string | null) => void;
   coverOf: (book: Book) => CoverResult | undefined;
   onToggle: (id: string, on: boolean) => void;
+  /** The books are in a hand-set order rather than the sort's. */
+  ordered: boolean;
+  /** Moves a book to a position in `listed`, which is also its position on the sheet. */
+  onMove: (id: string, to: number) => void;
+  onResetOrder: () => void;
   onCustomCover: (id: string, cover: CustomCover | null) => void;
 }
 
@@ -260,12 +266,19 @@ export function BookList({
   onActive,
   coverOf,
   onToggle,
+  ordered,
+  onMove,
+  onResetOrder,
   onCustomCover,
 }: Props) {
   const [url, setUrl] = useState('');
   const [wrap, setWrap] = useState(false);
   const [query, setQuery] = useState('');
   const list = useRef<HTMLUListElement>(null);
+  const { dragId, slot, onPointerDown } = useDragOrder(
+    listed.map((b) => b.id),
+    onMove,
+  );
 
   // Arrow keys nudge the active wrap's spine: left/right move it, up/down widen or narrow it.
   useEffect(() => {
@@ -317,6 +330,23 @@ export function BookList({
         <h2>
           Books <span className="muted">{included} on the sheet</span>
         </h2>
+        {listed.length > 1 && (
+          <p className="muted order-note">
+            {ordered ? (
+              <>
+                In your order.{' '}
+                <button className="link" onClick={onResetOrder}>
+                  Sort again
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="hint-mouse">Drag</span>
+                <span className="hint-touch">Press and hold, then drag</span> books to change their order on the sheet.
+              </>
+            )}
+          </p>
+        )}
         <div className="add-missed">
           <input
             type="search"
@@ -343,13 +373,30 @@ export function BookList({
 
       {listed.length === 0 && <p className="muted">No books match these filters.</p>}
       <ul className="rows" ref={list}>
-        {listed.map((b) => {
+        {listed.map((b, i) => {
           const cover = coverOf(b);
           const custom = customCovers[b.id];
           const active = activeId === b.id;
           const on = overrides[b.id] !== false;
           return (
-            <li key={b.id} className={`book${active ? ' active' : ''}${on ? '' : ' off'}`}>
+            <li
+              key={b.id}
+              data-drag-id={b.id}
+              className={[
+                'book',
+                active && 'active',
+                !on && 'off',
+                !active && listed.length > 1 && 'movable',
+                dragId === b.id && 'dragging',
+                // The drop marker sits in the gap before this card, or after the last one.
+                slot === i && 'drop-before',
+                slot === listed.length && i === listed.length - 1 && 'drop-after',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              // The open card has sliders, which dragging the card would fight.
+              onPointerDown={active || listed.length < 2 ? undefined : (e) => onPointerDown(e, b.id)}
+            >
               <div
                 className="book-head"
                 role="button"

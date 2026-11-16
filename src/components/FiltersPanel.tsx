@@ -3,10 +3,13 @@ import type { Book, Filters, SortKey } from '../lib/types';
 interface Props {
   books: Book[];
   filters: Filters;
+  /** The books have a hand-set order, which the sort no longer decides. */
+  ordered: boolean;
   onChange: (f: Filters) => void;
+  onResetOrder: () => void;
 }
 
-export function FiltersPanel({ books, filters, onChange }: Props) {
+export function FiltersPanel({ books, filters, ordered, onChange, onResetOrder }: Props) {
   const set = (patch: Partial<Filters>) => onChange({ ...filters, ...patch });
   const statuses = [...new Set(books.map((b) => b.status))].sort();
   const years = [...new Set(books.flatMap((b) => (b.lastRead ? [b.lastRead.slice(0, 4)] : [])))].sort().reverse();
@@ -75,7 +78,19 @@ export function FiltersPanel({ books, filters, onChange }: Props) {
       <div className="row">
         <label>
           Sort by
-          <select value={filters.sort} onChange={(e) => set({ sort: e.target.value as SortKey })}>
+          <select
+            value={ordered ? 'manual' : filters.sort}
+            onChange={(e) => {
+              // Picking a sort means sorting, so the hand-set order goes.
+              onResetOrder();
+              set({ sort: e.target.value as SortKey });
+            }}
+          >
+            {ordered && (
+              <option value="manual" disabled>
+                Your order
+              </option>
+            )}
             <option value="rating">Highest rated</option>
             <option value="date-read">Most recently read</option>
             <option value="title">Title</option>
