@@ -115,6 +115,13 @@ function loadManifold(): Promise<Wasm> {
   return wasm;
 }
 
+/** Fetches the geometry library and its WebAssembly without starting it, so first use needs no download. */
+export const preloadManifold = () =>
+  Promise.all([
+    import('manifold-3d'),
+    import('manifold-3d/manifold.wasm?url').then(({ default: url }) => fetch(url).then((r) => r.arrayBuffer())),
+  ]);
+
 export interface BookMesh {
   /** x, y, z per vertex, in mm. */
   positions: Float32Array;

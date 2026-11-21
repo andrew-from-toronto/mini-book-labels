@@ -41,9 +41,11 @@ pnpm build
 pnpm screens
 ```
 
+Each build writes `version.json` with its id. Open pages check it when their tab comes back into view and every 15 minutes, and offer a Reload when a newer build is out (`src/lib/updates.ts`); they never reload on their own. Files in `/assets` are named by content hash and cached for good (`public/_headers`); pages are checked on every load.
+
 `mini-book-ornaments/index.html` is a static how-to guide, built as a second page so search engines can read it without running the app. `pnpm og` regenerates `public/og-image.png`, the picture shown when the site is shared, from the app's own 3D view.
 
-`pnpm screens` runs the app in Chromium through [Playwright](https://playwright.dev) at desktop, tablet and phone sizes and saves screenshots of its main states to `screens/`, for checking layout changes. The first time, install the browsers with `pnpm exec playwright install chromium webkit`. `SITE=https://minibookornaments.com/ pnpm screens` runs the same checks against the live site. `pnpm test:interactions` checks dragging cards into order and adding a blank book in Chromium (Chrome and Edge), Firefox and WebKit (Safari), by mouse and by finger; it needs `pnpm exec playwright install chromium firefox webkit`.
+`pnpm screens` runs the app in Chromium through [Playwright](https://playwright.dev) at desktop, tablet and phone sizes and saves screenshots of its main states to `screens/`, for checking layout changes. The first time, install the browsers with `pnpm exec playwright install chromium webkit`. `SITE=https://minibookornaments.com/ pnpm screens` runs the same checks against the live site. `pnpm test:interactions` checks dragging cards into order, adding a blank book and the new-version banner in Chromium (Chrome and Edge), Firefox and WebKit (Safari), by mouse and by finger; it needs `pnpm exec playwright install chromium firefox webkit`.
 
 Pushing to `main` deploys to Cloudflare: one Worker (`wrangler.jsonc`, `worker/`) serves the built site and `/api`, which passes Open Library requests through with edge caching and proxies pasted artwork. `pnpm dev` runs the Worker locally too. GitHub Pages only serves a redirect from the old `github.io` address.
 

@@ -12,7 +12,7 @@
     "typecheck": "tsc && tsc -p tsconfig.worker.json",
     "test": "vitest run",
     "screens": "playwright test e2e/screens.spec.ts",
-    "test:interactions": "playwright test e2e/reorder.spec.ts e2e/add-book.spec.ts --project=desktop --project=firefox --project=safari --project=phone --project=iphone",
+    "test:interactions": "playwright test e2e/reorder.spec.ts e2e/add-book.spec.ts e2e/updates.spec.ts --project=desktop --project=firefox --project=safari --project=phone --project=iphone",
     "og": "playwright test e2e/og-image.spec.ts --project=desktop",
     "deploy": "pnpm build && wrangler deploy"
   },

@@ -4,6 +4,8 @@
  * (worker/telemetry.ts) writes each one to Workers Logs. Off in tests and local development, unless forced.
  */
 
+import { BUILD_ID } from './updates';
+
 export type TelemetryData = Record<string, string | number | boolean | null>;
 
 const ENDPOINT = '/api/t';
@@ -11,14 +13,8 @@ const ENDPOINT = '/api/t';
 const MAX_PER_PAGE = 40;
 let sent = 0;
 
-/** The hashed name of the script this came from, which says which deploy the page is running. */
-const build = (() => {
-  try {
-    return new URL(import.meta.url).pathname.split('/').pop() ?? '';
-  } catch {
-    return '';
-  }
-})();
+/** Which deploy the page is running. */
+const build = BUILD_ID;
 
 /** localStorage telemetry = 'force' turns it on anyway, to see the reports locally or check them in a test. */
 const forced = () => {

@@ -3,8 +3,13 @@ import { DEFAULT_SETTINGS } from '../lib/defaults';
 import { filamentById, isDark } from '../lib/filaments';
 import { decodeOrder } from '../lib/orderCode';
 import { formatCad } from '../lib/pricing';
+import { preloadManifold } from '../lib/bookModel';
+import { preloadAll } from '../lib/preload';
 
-const Book3D = lazy(() => import('./Book3D'));
+const loadBook3D = () => import('./Book3D');
+const Book3D = lazy(loadBook3D);
+// Loaded as soon as the page has, so a deploy cannot leave this tab without it.
+preloadAll([loadBook3D, preloadManifold]);
 
 interface Address {
   line1: string;

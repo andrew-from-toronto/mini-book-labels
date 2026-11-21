@@ -1,0 +1,5 @@
+# Cloudflare static asset headers (https://developers.cloudflare.com/workers/static-assets/headers/).
+# Files in /assets are named after a hash of their contents, so a name never changes what it serves:
+# browsers can keep them for good. Pages and version.json keep the default, checked on every load.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

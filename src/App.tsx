@@ -18,11 +18,16 @@ import { isSample, sampleLibrary } from './lib/sample';
 import { loadState, saveState, type Panes } from './lib/storage';
 import type { Book, CustomCover, Filters, Settings } from './lib/types';
 import { useCovers } from './lib/useCovers';
+import { preloadAll } from './lib/preload';
+import { preloadManifold } from './lib/bookModel';
 
-// three.js is large, so the 3D view loads only when it is first opened.
-const Book3D = lazy(() => import('./components/Book3D'));
-// Stripe loads only when someone opens the coffee dialog, not on every visit.
-const CoffeeDialog = lazy(() => import('./components/CoffeeDialog').then((m) => ({ default: m.CoffeeDialog })));
+// three.js is large, so the 3D view is split off and loads after the page has (preloadAll); likewise
+// the coffee dialog. Stripe's own script still loads only when someone opens that dialog.
+const loadBook3D = () => import('./components/Book3D');
+const loadCoffee = () => import('./components/CoffeeDialog');
+const Book3D = lazy(loadBook3D);
+const CoffeeDialog = lazy(() => loadCoffee().then((m) => ({ default: m.CoffeeDialog })));
+preloadAll([loadBook3D, loadCoffee, preloadManifold]);
 
 const DEFAULT_FILTERS: Filters = { statuses: ['read'], minRating: 0, from: '', to: '', sort: 'rating', count: 20 };
 /** Status given to books added by search, which survive loading a new library. */
