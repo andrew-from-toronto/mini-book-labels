@@ -2,6 +2,7 @@
  * The site's Worker. Cloudflare serves the built site (dist) directly; only /api/* reaches this code.
  */
 import Stripe from 'stripe';
+import { handleTelemetry } from './telemetry';
 import type { AccessEnv } from './access';
 import { handleAdmin } from './admin';
 import { json } from './cache';
@@ -51,6 +52,7 @@ export default {
     }
 
     if (path.startsWith('/api/admin/')) return handleAdmin(request, env, stripeFor(env));
+    if (path === '/api/t') return handleTelemetry(request);
     if (request.method !== 'GET' && request.method !== 'HEAD') return json(405, { error: 'Method not allowed.' });
     const context = { cache: caches.default, waitUntil: (p: Promise<unknown>) => ctx.waitUntil(p) };
     if (path.startsWith('/api/ol/') || path.startsWith('/api/cover/')) return handleOpenLibrary(request, context);

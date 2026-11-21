@@ -126,3 +126,34 @@ test('a release the page never hears does not block the next drag', async ({ pag
   await dragAtOnce(page, 1, 3);
   await expect.poll(() => titles(page)).toEqual([before[0], before[2], before[3], before[1], ...before.slice(4)]);
 });
+
+test('each drag sends one anonymous report of how it went', async ({ page, hasTouch }) => {
+  test.skip(hasTouch, 'mouse only');
+  const reports: { event: string; data: Record<string, unknown> }[] = [];
+  await page.route('**/api/t', (route) => route.fulfill({ status: 204 }));
+  // Read in the page, since Playwright's WebKit does not show a beacon's body to page.route.
+  await page.exposeFunction('reportSent', (body: string) => reports.push(JSON.parse(body)));
+  await page.evaluate(() => {
+    localStorage.setItem('telemetry', 'force');
+    const send = navigator.sendBeacon.bind(navigator);
+    navigator.sendBeacon = (url, data) => {
+      void (data as Blob).text().then((t) => (window as unknown as { reportSent: (b: string) => void }).reportSent(t));
+      return send(url, data);
+    };
+  });
+  const before = await titles(page);
+  await dragAtOnce(page, 0, 2);
+  await expect.poll(() => titles(page)).not.toEqual(before);
+  await expect.poll(() => reports.length).toBe(1);
+  expect(reports[0]).toMatchObject({ event: 'drag', data: { outcome: 'moved', pointer: 'mouse', from: 0, slot: 3 } });
+  expect(JSON.stringify(reports[0])).not.toContain(before[0]);
+
+  // Trying to drag the open card is reported too, since it cannot move.
+  await page.locator('.book .book-head').first().click();
+  const open = (await page.locator('.book.active canvas').boundingBox())!;
+  await page.mouse.move(open.x + open.width / 2, open.y + open.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(open.x + 200, open.y + open.height / 2, { steps: 5 });
+  await page.mouse.up();
+  await expect.poll(() => reports.map((r) => r.data.outcome)).toContain('blocked-open');
+});

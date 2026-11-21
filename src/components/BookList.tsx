@@ -398,8 +398,8 @@ export function BookList({
               ]
                 .filter(Boolean)
                 .join(' ')}
-              // The open card has sliders, which dragging the card would fight.
-              onPointerDown={active || listed.length < 2 ? undefined : (e) => onPointerDown(e, b.id)}
+              // The open card has sliders, which dragging the card would fight; a try is still reported.
+              onPointerDown={(e) => onPointerDown(e, b.id, active ? 'open' : listed.length < 2 ? 'single' : undefined)}
             >
               <div
                 className="book-head"

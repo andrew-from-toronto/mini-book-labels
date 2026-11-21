@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { track } from '../lib/telemetry';
 
 /** How long a finger rests on a card before it lifts for dragging; moving sooner scrolls instead. */
 const LONG_PRESS_MS = 350;
@@ -8,6 +9,11 @@ const MOUSE_SLOP = 5;
 /** Within this many px of the scroll area's top or bottom, the list scrolls while dragging. */
 const EDGE = 70;
 const MAX_SCROLL_SPEED = 14;
+
+/** How a press on a card ended: released, a swipe that scrolls, the browser's cancel, the window losing focus, or a newer press. */
+type End = 'up' | 'swipe' | 'cancel' | 'blur' | 'superseded' | 'unmount';
+/** Why a card cannot be dragged right now: it is the open one, or it is the only one. */
+export type Blocked = 'open' | 'single';
 
 interface Drag {
   id: string;
@@ -25,6 +31,14 @@ interface Drag {
   frame: number;
   scroller: HTMLElement | null;
   startScroll: number;
+  /** For the telemetry report when the press ends. */
+  pointerType: string;
+  downAt: number;
+  moves: number;
+  maxDist: number;
+  /** Times the pointer was found over a card while dragging. */
+  hits: number;
+  captured: boolean;
 }
 
 /** The nearest ancestor that scrolls vertically, or null for the page itself. */
@@ -53,8 +67,8 @@ export function useDragOrder(ids: string[], onMove: (id: string, to: number) => 
   latest.current = { ids, onMove };
 
   /** Called after a pointer listener is set up; tears the drag down whichever way it ends. */
-  const stop = useRef<() => void>(() => {});
-  useEffect(() => () => stop.current(), []);
+  const stop = useRef<(why: End) => void>(() => {});
+  useEffect(() => () => stop.current('unmount'), []);
 
   // Once a card is lifted, a moving finger drags it instead of scrolling the page. This listener is
   // there from the start rather than added on touch: Safari on iPhone only lets a touchmove listener
@@ -74,6 +88,7 @@ export function useDragOrder(ids: string[], onMove: (id: string, to: number) => 
     const under = document.elementFromPoint(d.x, d.y)?.closest<HTMLElement>('[data-drag-id]');
     const index = under ? latest.current.ids.indexOf(under.dataset.dragId!) : -1;
     if (index < 0) return; // in a gap between cards: keep the last slot
+    d.hits++;
     const rect = under!.getBoundingClientRect();
     const next = d.x > rect.left + rect.width / 2 ? index + 1 : index;
     const from = latest.current.ids.indexOf(d.id);
@@ -108,6 +123,7 @@ export function useDragOrder(ids: string[], onMove: (id: string, to: number) => 
     // Keeps the pointer's events coming to this page wherever it goes, even out of the window.
     try {
       d.el.setPointerCapture(d.pointerId);
+      d.captured = true;
     } catch {
       /* the pointer is already gone; its pointerup or pointercancel ends the drag */
     }
@@ -117,12 +133,16 @@ export function useDragOrder(ids: string[], onMove: (id: string, to: number) => 
     d.frame = requestAnimationFrame(() => autoScroll(d));
   }
 
-  function onPointerDown(e: ReactPointerEvent<HTMLElement>, id: string) {
+  function onPointerDown(e: ReactPointerEvent<HTMLElement>, id: string, blocked?: Blocked) {
     if (!e.isPrimary || e.button !== 0) return;
     // A drag that never heard its release (a lost pointerup) must not block every drag after it.
-    stop.current();
+    stop.current('superseded');
     // Controls inside the card keep their own clicks.
     if (e.target instanceof Element && e.target.closest('input, button, select, textarea, a, label')) return;
+    if (blocked) {
+      reportBlocked(e, blocked);
+      return;
+    }
     const d: Drag = {
       id,
       pointerId: e.pointerId,
@@ -138,6 +158,12 @@ export function useDragOrder(ids: string[], onMove: (id: string, to: number) => 
       frame: 0,
       scroller: null,
       startScroll: 0,
+      pointerType: e.pointerType,
+      downAt: performance.now(),
+      moves: 0,
+      maxDist: 0,
+      hits: 0,
+      captured: false,
     };
     drag.current = d;
     if (d.touch) d.timer = window.setTimeout(() => lift(d), LONG_PRESS_MS);
@@ -147,12 +173,14 @@ export function useDragOrder(ids: string[], onMove: (id: string, to: number) => 
       if (!mine(ev)) return;
       d.x = ev.clientX;
       d.y = ev.clientY;
+      d.moves++;
+      d.maxDist = Math.max(d.maxDist, Math.hypot(d.x - d.startX, d.y - d.startY));
       if (d.started) {
         follow(d);
         return;
       }
       const moved = Math.hypot(d.x - d.startX, d.y - d.startY);
-      if (d.touch && moved > TOUCH_SLOP) end(false); // a swipe: let it scroll
+      if (d.touch && moved > TOUCH_SLOP) end('swipe'); // a swipe: let it scroll
       else if (!d.touch && moved > MOUSE_SLOP) lift(d);
     };
     const up = (ev: PointerEvent) => {
@@ -161,17 +189,18 @@ export function useDragOrder(ids: string[], onMove: (id: string, to: number) => 
       d.x = ev.clientX;
       d.y = ev.clientY;
       if (d.started) follow(d);
-      end(true);
+      end('up');
     };
-    const cancel = (ev: PointerEvent) => mine(ev) && end(false);
+    const cancel = (ev: PointerEvent) => mine(ev) && end('cancel');
     // The window losing focus (alt-tab, a release outside it that never arrives) ends the drag.
-    const blur = () => end(false);
+    const blur = () => end('blur');
     // A long press would otherwise open the image menu on some phones; a mouse drag, the browser's own
     // drag of whatever is under it, which ends pointer events.
     const prevent = (ev: Event) => ev.preventDefault();
     const preventOnce = (ev: Event) => d.started && ev.preventDefault();
 
-    function end(drop: boolean) {
+    function end(how: End) {
+      const drop = how === 'up';
       clearTimeout(d.timer);
       cancelAnimationFrame(d.frame);
       window.removeEventListener('pointermove', move);
@@ -186,6 +215,7 @@ export function useDragOrder(ids: string[], onMove: (id: string, to: number) => 
       if (d.el.hasPointerCapture?.(d.pointerId)) d.el.releasePointerCapture(d.pointerId);
       if (drag.current === d) drag.current = null;
       stop.current = () => {};
+      report(d, how);
       if (!d.started) return;
       const { ids, onMove } = latest.current;
       if (drop && d.slot !== null) {
@@ -212,7 +242,47 @@ export function useDragOrder(ids: string[], onMove: (id: string, to: number) => 
     window.addEventListener('contextmenu', prevent);
     window.addEventListener('dragstart', prevent);
     window.addEventListener('selectstart', preventOnce);
-    stop.current = () => end(false);
+    stop.current = end;
+  }
+
+  /** One anonymous summary per press that was, or might have been, an attempt to drag. */
+  function report(d: Drag, how: End) {
+    const ms = Math.round(performance.now() - d.downAt);
+    // A plain click or tap, or a finger scrolling the list: nothing to learn from those.
+    if (how === 'swipe' || (!d.started && how === 'up' && d.maxDist < MOUSE_SLOP && ms < 400)) return;
+    const { ids } = latest.current;
+    const outcome = !d.started ? `not-lifted-${how}` : how === 'up' ? (d.slot === null ? 'dropped-in-place' : 'moved') : how;
+    track('drag', {
+      outcome,
+      pointer: d.pointerType,
+      ms,
+      moves: d.moves,
+      dist: Math.round(d.maxDist),
+      hits: d.hits,
+      slot: d.slot,
+      from: ids.indexOf(d.id),
+      books: ids.length,
+      captured: d.captured,
+      scroller: d.scroller ? d.scroller.className.split(' ')[0] || d.scroller.tagName.toLowerCase() : 'page',
+    });
+  }
+
+  /** A press that moves on a card that cannot be dragged: someone trying to drag the open card, say. */
+  function reportBlocked(e: ReactPointerEvent<HTMLElement>, blocked: Blocked) {
+    const { pointerId, clientX: x0, clientY: y0, pointerType } = e;
+    const done = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', done);
+      window.removeEventListener('pointercancel', done);
+    };
+    const move = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId || Math.hypot(ev.clientX - x0, ev.clientY - y0) < 20) return;
+      done();
+      track('drag', { outcome: `blocked-${blocked}`, pointer: pointerType, books: latest.current.ids.length });
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', done);
+    window.addEventListener('pointercancel', done);
   }
 
   return { dragId, slot, onPointerDown };
