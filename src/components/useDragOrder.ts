@@ -11,6 +11,7 @@ const MAX_SCROLL_SPEED = 14;
 
 interface Drag {
   id: string;
+  pointerId: number;
   el: HTMLElement;
   touch: boolean;
   startX: number;
@@ -18,6 +19,8 @@ interface Drag {
   x: number;
   y: number;
   started: boolean;
+  /** Where the card would land. Kept here as well as in state: a quick release can come before React re-renders. */
+  slot: number | null;
   timer: number;
   frame: number;
   scroller: HTMLElement | null;
@@ -46,12 +49,23 @@ export function useDragOrder(ids: string[], onMove: (id: string, to: number) => 
   const [dragId, setDragId] = useState<string | null>(null);
   const [slot, setSlot] = useState<number | null>(null);
   const drag = useRef<Drag | null>(null);
-  const latest = useRef({ ids, onMove, slot });
-  latest.current = { ids, onMove, slot };
+  const latest = useRef({ ids, onMove });
+  latest.current = { ids, onMove };
 
   /** Called after a pointer listener is set up; tears the drag down whichever way it ends. */
   const stop = useRef<() => void>(() => {});
   useEffect(() => () => stop.current(), []);
+
+  // Once a card is lifted, a moving finger drags it instead of scrolling the page. This listener is
+  // there from the start rather than added on touch: Safari on iPhone only lets a touchmove listener
+  // stop scrolling if it was in place when the finger came down.
+  useEffect(() => {
+    const touchMove = (ev: TouchEvent) => {
+      if (drag.current?.started && ev.cancelable) ev.preventDefault();
+    };
+    document.addEventListener('touchmove', touchMove, { passive: false });
+    return () => document.removeEventListener('touchmove', touchMove);
+  }, []);
 
   function follow(d: Drag) {
     const dy = d.y - d.startY + scrollTop(d.scroller) - d.startScroll;
@@ -64,7 +78,8 @@ export function useDragOrder(ids: string[], onMove: (id: string, to: number) => 
     const next = d.x > rect.left + rect.width / 2 ? index + 1 : index;
     const from = latest.current.ids.indexOf(d.id);
     // Either side of the card itself is where it already is.
-    setSlot(next === from || next === from + 1 ? null : next);
+    d.slot = next === from || next === from + 1 ? null : next;
+    setSlot(d.slot);
   }
 
   function autoScroll(d: Drag) {
@@ -88,17 +103,29 @@ export function useDragOrder(ids: string[], onMove: (id: string, to: number) => 
     d.started = true;
     d.scroller = scrollParent(d.el);
     d.startScroll = scrollTop(d.scroller);
+    // Straight away, not on the re-render that adds .dragging, so the first move already sees past it.
+    d.el.style.pointerEvents = 'none';
+    // Keeps the pointer's events coming to this page wherever it goes, even out of the window.
+    try {
+      d.el.setPointerCapture(d.pointerId);
+    } catch {
+      /* the pointer is already gone; its pointerup or pointercancel ends the drag */
+    }
+    window.getSelection()?.removeAllRanges();
     setDragId(d.id);
     navigator.vibrate?.(10);
     d.frame = requestAnimationFrame(() => autoScroll(d));
   }
 
   function onPointerDown(e: ReactPointerEvent<HTMLElement>, id: string) {
-    if (e.button !== 0 || drag.current) return;
+    if (!e.isPrimary || e.button !== 0) return;
+    // A drag that never heard its release (a lost pointerup) must not block every drag after it.
+    stop.current();
     // Controls inside the card keep their own clicks.
     if (e.target instanceof Element && e.target.closest('input, button, select, textarea, a, label')) return;
     const d: Drag = {
       id,
+      pointerId: e.pointerId,
       el: e.currentTarget,
       touch: e.pointerType !== 'mouse',
       startX: e.clientX,
@@ -106,6 +133,7 @@ export function useDragOrder(ids: string[], onMove: (id: string, to: number) => 
       x: e.clientX,
       y: e.clientY,
       started: false,
+      slot: null,
       timer: 0,
       frame: 0,
       scroller: null,
@@ -114,7 +142,9 @@ export function useDragOrder(ids: string[], onMove: (id: string, to: number) => 
     drag.current = d;
     if (d.touch) d.timer = window.setTimeout(() => lift(d), LONG_PRESS_MS);
 
+    const mine = (ev: PointerEvent) => ev.pointerId === d.pointerId;
     const move = (ev: PointerEvent) => {
+      if (!mine(ev)) return;
       d.x = ev.clientX;
       d.y = ev.clientY;
       if (d.started) {
@@ -125,14 +155,21 @@ export function useDragOrder(ids: string[], onMove: (id: string, to: number) => 
       if (d.touch && moved > TOUCH_SLOP) end(false); // a swipe: let it scroll
       else if (!d.touch && moved > MOUSE_SLOP) lift(d);
     };
-    // Once lifted, a moving finger drags the card instead of scrolling the page.
-    const touchMove = (ev: TouchEvent) => {
-      if (d.started) ev.preventDefault();
+    const up = (ev: PointerEvent) => {
+      if (!mine(ev)) return;
+      // Where the release happened counts, even if no move was reported there.
+      d.x = ev.clientX;
+      d.y = ev.clientY;
+      if (d.started) follow(d);
+      end(true);
     };
-    // A long press would otherwise open the image menu on some phones.
-    const menu = (ev: Event) => ev.preventDefault();
-    const up = () => end(true);
-    const cancel = () => end(false);
+    const cancel = (ev: PointerEvent) => mine(ev) && end(false);
+    // The window losing focus (alt-tab, a release outside it that never arrives) ends the drag.
+    const blur = () => end(false);
+    // A long press would otherwise open the image menu on some phones; a mouse drag, the browser's own
+    // drag of whatever is under it, which ends pointer events.
+    const prevent = (ev: Event) => ev.preventDefault();
+    const preventOnce = (ev: Event) => d.started && ev.preventDefault();
 
     function end(drop: boolean) {
       clearTimeout(d.timer);
@@ -140,33 +177,41 @@ export function useDragOrder(ids: string[], onMove: (id: string, to: number) => 
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', cancel);
-      window.removeEventListener('touchmove', touchMove);
-      window.removeEventListener('contextmenu', menu);
+      window.removeEventListener('blur', blur);
+      window.removeEventListener('contextmenu', prevent);
+      window.removeEventListener('dragstart', prevent);
+      window.removeEventListener('selectstart', preventOnce);
       d.el.style.transform = '';
-      drag.current = null;
+      d.el.style.pointerEvents = '';
+      if (d.el.hasPointerCapture?.(d.pointerId)) d.el.releasePointerCapture(d.pointerId);
+      if (drag.current === d) drag.current = null;
       stop.current = () => {};
       if (!d.started) return;
-      const { ids, onMove, slot } = latest.current;
-      if (drop && slot !== null) {
+      const { ids, onMove } = latest.current;
+      if (drop && d.slot !== null) {
         const from = ids.indexOf(d.id);
-        onMove(d.id, slot > from ? slot - 1 : slot);
+        if (from >= 0) onMove(d.id, d.slot > from ? d.slot - 1 : d.slot);
       }
       setDragId(null);
       setSlot(null);
-      // The release would also click the card, opening it; swallow that one click.
+      if (!drop) return;
+      // The release would also click the card, opening it; swallow that one click. Some browsers send
+      // no click after a drag, so the swallow stands down after a moment rather than eating a later one.
       const swallow = (ev: Event) => {
         ev.stopPropagation();
         ev.preventDefault();
       };
       window.addEventListener('click', swallow, { capture: true, once: true });
-      setTimeout(() => window.removeEventListener('click', swallow, { capture: true }), 0);
+      setTimeout(() => window.removeEventListener('click', swallow, { capture: true }), 50);
     }
 
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
     window.addEventListener('pointercancel', cancel);
-    window.addEventListener('touchmove', touchMove, { passive: false });
-    window.addEventListener('contextmenu', menu);
+    window.addEventListener('blur', blur);
+    window.addEventListener('contextmenu', prevent);
+    window.addEventListener('dragstart', prevent);
+    window.addEventListener('selectstart', preventOnce);
     stop.current = () => end(false);
   }
 

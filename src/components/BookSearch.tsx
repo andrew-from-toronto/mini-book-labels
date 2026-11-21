@@ -10,6 +10,8 @@ export interface FoundBook {
   isbn: string | null;
   /** Open Library work key, used as the id when there is no ISBN. */
   key: string | null;
+  /** Typed in rather than found: never looked up on Open Library. */
+  blank?: boolean;
 }
 
 interface Props {
@@ -20,7 +22,7 @@ interface Props {
 /** Pause after typing before searching, so each keystroke is not a request. */
 const DEBOUNCE_MS = 250;
 
-type Option = { kind: 'isbn'; isbn: string } | { kind: 'result'; result: SearchResult };
+type Option = { kind: 'isbn'; isbn: string } | { kind: 'result'; result: SearchResult } | { kind: 'blank'; title: string };
 
 /** Search-as-you-type for adding any book by title, author or ISBN, with Open Library suggestions. */
 export function BookSearch({ onAdd, onError }: Props) {
@@ -78,14 +80,18 @@ export function BookSearch({ onAdd, onError }: Props) {
     return () => document.removeEventListener('pointerdown', onDown);
   }, []);
 
-  const options: Option[] = isbn ? [{ kind: 'isbn', isbn }] : results.map((result) => ({ kind: 'result', result }));
+  const found: Option[] = isbn ? [{ kind: 'isbn', isbn }] : results.map((result) => ({ kind: 'result', result }));
+  // Last, for a book Open Library does not have (or has wrong): add it as typed, with no lookup.
+  const options: Option[] = !isbn && !searching ? [...found, { kind: 'blank', title: q }] : found;
   // Nothing shows until there is enough to search on, or an ISBN.
   const showList = open && (Boolean(isbn) || q.length >= MIN_QUERY);
 
   async function choose(option: Option) {
     setAdding(true);
     try {
-      if (option.kind === 'isbn') {
+      if (option.kind === 'blank') {
+        onAdd({ title: option.title, authors: '', isbn: null, key: null, blank: true });
+      } else if (option.kind === 'isbn') {
         const found = await lookupIsbn(option.isbn);
         if (!found) {
           onError(`Open Library has no book with ISBN ${option.isbn}.`);
@@ -152,7 +158,8 @@ export function BookSearch({ onAdd, onError }: Props) {
         <ul className="search-results" id={listId} role="listbox">
           {options.map((option, i) => (
             <li
-              key={option.kind === 'isbn' ? option.isbn : option.result.key}
+              key={option.kind === 'isbn' ? option.isbn : option.kind === 'blank' ? 'blank' : option.result.key}
+              className={option.kind === 'blank' ? 'blank-option' : undefined}
               id={`${listId}-${i}`}
               role="option"
               aria-selected={i === highlight}
@@ -168,6 +175,14 @@ export function BookSearch({ onAdd, onError }: Props) {
                   <strong>Add ISBN {option.isbn}</strong>
                   <span className="muted">Looked up on Open Library</span>
                 </span>
+              ) : option.kind === 'blank' ? (
+                <>
+                  <span className="no-cover" aria-hidden="true" />
+                  <span className="result-text">
+                    <strong>Add &ldquo;{option.title}&rdquo; as a blank book</strong>
+                    <span className="muted">Not looked up. Add your own cover, or keep a plain one.</span>
+                  </span>
+                </>
               ) : (
                 <>
                   {option.result.coverId ? (
@@ -189,7 +204,7 @@ export function BookSearch({ onAdd, onError }: Props) {
               )}
             </li>
           ))}
-          {options.length === 0 && (
+          {found.length === 0 && (
             <li className="search-status muted" role="presentation">
               {failed ? 'Could not reach Open Library.' : searching ? 'Searching...' : 'No books found.'}
             </li>

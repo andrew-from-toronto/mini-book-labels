@@ -15,7 +15,7 @@ export interface CoverResult {
   pages?: number;
   /** Set when a pasted link was swapped for a bigger version of the same image. */
   upgraded?: 'original' | 'larger';
-  /** For user-supplied images: stray borders found at the edges, or null if there are none. */
+  /** Stray borders or white padding bars found at the edges, or null if there are none. */
   detectedCrop?: Crop | null;
 }
 
@@ -38,6 +38,13 @@ export function pinterestVariants(url: string): string[] {
  * Pinterest send no CORS headers.
  */
 export const proxiedUrl = (url: string) => `/api/image?url=${encodeURIComponent(url)}`;
+
+/**
+ * Books added by hand when the search had nothing: they are never looked up, since a title match could
+ * only find somebody else's book. They get the generated cover unless an image is added.
+ */
+export const BLANK_PREFIX = 'blank-';
+export const isBlankBook = (book: Pick<Book, 'id'>) => book.id.startsWith(BLANK_PREFIX);
 
 /** Open Library, through our Worker (worker/openLibrary.ts), which caches it at the edge. */
 const OL = '/api/ol';
@@ -225,7 +232,7 @@ async function resolve(book: Book, custom: CustomCover | undefined): Promise<Cov
       if (!custom.wrap) return { ...found, source: 'custom' };
       const inArtwork = detectImageSpine(image);
       if (inArtwork) return { ...found, source: 'wrap', detectedSpine: inArtwork, spineFrom: 'artwork' };
-      const pages = await lookupPages(book).catch(() => null);
+      const pages = isBlankBook(book) ? null : await lookupPages(book).catch(() => null);
       return pages
         ? { ...found, source: 'wrap', detectedSpine: spineFromPages(pages), spineFrom: 'pages', pages }
         : { ...found, source: 'wrap', detectedSpine: null };
@@ -233,16 +240,21 @@ async function resolve(book: Book, custom: CustomCover | undefined): Promise<Cov
       /* fall through to the automatic lookup */
     }
   }
+  if (isBlankBook(book)) return { image: null, source: 'generated' };
   if (book.isbn) {
     try {
-      return { image: await loadImage(isbnCoverUrl(book.isbn)), source: 'isbn' };
+      const image = await loadImage(isbnCoverUrl(book.isbn));
+      return { image, source: 'isbn', detectedCrop: detectImageTrim(image) };
     } catch {
       /* try search */
     }
   }
   try {
     const id = await searchCoverId(book);
-    if (id) return { image: await loadImage(idCoverUrl(id)), source: 'search' };
+    if (id) {
+      const image = await loadImage(idCoverUrl(id));
+      return { image, source: 'search', detectedCrop: detectImageTrim(image) };
+    }
   } catch {
     /* generated */
   }

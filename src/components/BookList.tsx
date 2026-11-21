@@ -4,6 +4,7 @@ import {
   fileToDataUrl,
   idCoverUrl,
   idThumbUrl,
+  isBlankBook,
   lookupCoverVariants,
   wrapSearchUrls,
   type CoverResult,
@@ -32,6 +33,8 @@ interface Props {
   /** Moves a book to a position in `listed`, which is also its position on the sheet. */
   onMove: (id: string, to: number) => void;
   onResetOrder: () => void;
+  /** Changes a blank book's title or author; looked-up books keep Open Library's. */
+  onEditBook: (id: string, patch: Pick<Book, 'title' | 'authors'>) => void;
   onCustomCover: (id: string, cover: CustomCover | null) => void;
 }
 
@@ -269,6 +272,7 @@ export function BookList({
   ordered,
   onMove,
   onResetOrder,
+  onEditBook,
   onCustomCover,
 }: Props) {
   const [url, setUrl] = useState('');
@@ -439,15 +443,37 @@ export function BookList({
 
               {active && (
                 <div className="cover-edit">
-                  <CoverVariants
-                    book={b}
-                    selected={custom && !custom.wrap ? coverIdFromUrl(custom.url) : null}
-                    onPick={(id) => {
-                      setWrap(false);
-                      setUrl('');
-                      onCustomCover(b.id, { url: idCoverUrl(id), wrap: false });
-                    }}
-                  />
+                  {isBlankBook(b) ? (
+                    <div className="blank-fields">
+                      <label>
+                        Title
+                        <input
+                          type="text"
+                          value={b.title}
+                          onChange={(e) => onEditBook(b.id, { title: e.target.value, authors: b.authors })}
+                        />
+                      </label>
+                      <label>
+                        Author
+                        <input
+                          type="text"
+                          value={b.authors}
+                          placeholder="Optional"
+                          onChange={(e) => onEditBook(b.id, { title: b.title, authors: e.target.value })}
+                        />
+                      </label>
+                    </div>
+                  ) : (
+                    <CoverVariants
+                      book={b}
+                      selected={custom && !custom.wrap ? coverIdFromUrl(custom.url) : null}
+                      onPick={(id) => {
+                        setWrap(false);
+                        setUrl('');
+                        onCustomCover(b.id, { url: idCoverUrl(id), wrap: false });
+                      }}
+                    />
+                  )}
                   <label className="check">
                     <input
                       type="checkbox"

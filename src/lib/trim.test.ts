@@ -44,4 +44,39 @@ describe('detectTrim', () => {
   it('treats a thick band as part of the design', () => {
     expect(detectTrim(image([8, 8, 10], [{ rows: [H - 8, H], colour: [255, 255, 255] }]), W, H)).toBeNull();
   });
+
+  it('trims thick white bars above and below a coloured cover', () => {
+    const white: Colour = [255, 255, 255];
+    const crop = detectTrim(image([30, 60, 140], [{ rows: [0, 10], colour: white }, { rows: [H - 10, H], colour: white }]), W, H)!;
+    expect(crop).toEqual({ top: 11 / H, bottom: 11 / H, left: 0, right: 0 });
+  });
+
+  it('trims thick white bars either side of a coloured cover', () => {
+    const white: Colour = [248, 248, 246];
+    const crop = detectTrim(image([30, 60, 140], [{ cols: [0, 12], colour: white }, { cols: [W - 15, W], colour: white }]), W, H)!;
+    expect(crop).toEqual({ top: 0, bottom: 0, left: 13 / W, right: 16 / W });
+  });
+
+  it('keeps a thick white band on one edge only', () => {
+    expect(detectTrim(image([30, 60, 140], [{ rows: [0, 10], colour: [255, 255, 255] }]), W, H)).toBeNull();
+  });
+
+  it('keeps thick bars that are not white', () => {
+    const grey: Colour = [128, 128, 128];
+    expect(detectTrim(image([30, 60, 140], [{ rows: [0, 10], colour: grey }, { rows: [H - 10, H], colour: grey }]), W, H)).toBeNull();
+  });
+
+  it('keeps white bars around a mostly white cover', () => {
+    const white: Colour = [255, 255, 255];
+    // Dark rules set the bars apart, so only the cover's own whiteness keeps them.
+    const black: Colour = [0, 0, 0];
+    const strips = [
+      { rows: [0, 10] as [number, number], colour: white },
+      { rows: [H - 10, H] as [number, number], colour: white },
+      { rows: [10, 11] as [number, number], colour: black },
+      { rows: [H - 11, H - 10] as [number, number], colour: black },
+    ];
+    expect(detectTrim(image(white, strips), W, H)).toBeNull();
+    expect(detectTrim(image([30, 60, 140], strips), W, H)).toEqual({ top: 11 / H, bottom: 11 / H, left: 0, right: 0 });
+  });
 });

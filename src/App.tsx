@@ -8,6 +8,7 @@ import { Preview, type PreviewView } from './components/Preview';
 import { SettingsPanel } from './components/SettingsPanel';
 import { DEFAULT_SETTINGS } from './lib/defaults';
 import { backupFileName, makeBackup, parseBackup } from './lib/backup';
+import { BLANK_PREFIX } from './lib/covers';
 import { decodeOrder } from './lib/orderCode';
 import { parseLibraryCsv } from './lib/csv';
 import { saveFile } from './lib/download';
@@ -231,7 +232,11 @@ export function App() {
 
   /** Adds a book found in the search. Added books survive loading a new library. */
   function addBook(found: FoundBook) {
-    const id = found.isbn ? `isbn-${found.isbn}` : `ol-${found.key}`;
+    const id = found.blank
+      ? `${BLANK_PREFIX}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
+      : found.isbn
+        ? `isbn-${found.isbn}`
+        : `ol-${found.key}`;
     const book: Book = {
       id,
       title: found.title,
@@ -458,6 +463,7 @@ export function App() {
             ordered={order.length > 0}
             onMove={(id, to) => setOrder(moveBook(listed, id, to))}
             onResetOrder={() => setOrder([])}
+            onEditBook={(id, patch) => setBooks((bs) => bs.map((b) => (b.id === id ? { ...b, ...patch } : b)))}
             onCustomCover={(id, cover) =>
               setCustomCovers(({ [id]: _old, ...rest }) => (cover ? { ...rest, [id]: cover } : rest))
             }
