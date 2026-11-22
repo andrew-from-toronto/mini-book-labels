@@ -56,6 +56,11 @@ figure img {
   border-radius: 10px;
   border: 1px solid var(--line);
 }
+/* A tall picture, kept to a comfortable size and centred rather than filling the column. */
+figure.portrait {
+  max-width: 340px;
+  margin-inline: auto;
+}
 figcaption {
   font-size: 0.85rem;
   color: var(--muted);
