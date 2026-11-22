@@ -43,3 +43,14 @@ export function resizeProportionally(dims: Dims, key: keyof Dims, value: number)
     [key]: value,
   };
 }
+
+/**
+ * The scale that suits a tree of this height, in metres, as the guides recommend: 1:7 for a tabletop
+ * tree, 1:5 for a small one, and 1:4 from about 5 ft up, where smaller books get lost among the branches.
+ */
+export function scaleForTree(height: number): number {
+  const feet = height / 0.3048;
+  if (feet <= 3) return 7;
+  if (feet <= 5) return 5;
+  return 4;
+}

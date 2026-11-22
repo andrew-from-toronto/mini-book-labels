@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { dimsAtScale, matchingScale, resizeProportionally } from './scales';
+import { dimsAtScale, matchingScale, resizeProportionally, scaleForTree } from './scales';
+import { TREE_SIZES } from './tree';
 
 describe('scales', () => {
   it('gives the original default size at 1:7', () => {
@@ -21,5 +22,14 @@ describe('scales', () => {
       width: 30,
       spine: 7.5,
     });
+  });
+});
+
+describe('scaleForTree', () => {
+  it('picks 1:7 for a tabletop tree, 1:5 for a small one, and 1:4 for full-size trees', () => {
+    expect(scaleForTree(TREE_SIZES.tabletop.height)).toBe(7);
+    expect(scaleForTree(TREE_SIZES.small.height)).toBe(5);
+    expect(scaleForTree(TREE_SIZES.medium.height)).toBe(4);
+    expect(scaleForTree(TREE_SIZES.tall.height)).toBe(4);
   });
 });

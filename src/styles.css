@@ -1,3 +1,5 @@
+@import './viewer.css';
+
 :root {
   color-scheme: light dark;
   --bg: light-dark(#f4f1ec, #1b1a18);
@@ -168,100 +170,6 @@ body {
   background: var(--accent);
   border-color: var(--accent);
   color: light-dark(#fff, #1b1a18);
-}
-
-.book3d {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.book3d-canvas {
-  position: relative;
-  /* Read by the viewer for its measurement lines. */
-  color: var(--measure);
-  flex: 1;
-  min-height: 0;
-  /* The orbit controls handle every touch gesture on the canvas. */
-  touch-action: none;
-}
-
-/* Measurement labels, laid over the 3D view by three.js; the view keeps every pointer event. */
-.book3d-labels {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.book3d-measure {
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: var(--panel);
-  color: var(--measure);
-  box-shadow: 0 0 0 1px var(--measure);
-  font-size: 0.78rem;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.book3d-canvas canvas {
-  position: absolute;
-  inset: 0;
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-/* The tree view (Tree3D): its options sit in the bar under it and wrap on narrow screens. */
-.tree-bar {
-  flex-wrap: wrap;
-}
-
-.tree-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
-
-.tree-options select {
-  width: auto;
-}
-
-/* A custom tree height: a short number box with its unit beside it. */
-.tree-height {
-  display: inline-flex;
-  gap: 4px;
-  align-items: center;
-}
-
-.tree-height input {
-  width: 5.5em;
-}
-
-.book3d-bar {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 16px;
-  border-top: 1px solid var(--line);
-  background: var(--panel);
-  font-size: 0.85rem;
-}
-
-.book3d-bar button {
-  flex: none;
-  white-space: nowrap;
-}
-
-.book3d-bar .muted {
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
 
 .row > button.grow {

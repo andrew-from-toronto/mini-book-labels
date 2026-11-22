@@ -56,10 +56,49 @@ figure img {
   border-radius: 10px;
   border: 1px solid var(--line);
 }
-/* A tall picture, kept to a comfortable size and centred rather than filling the column. */
-figure.portrait {
-  max-width: 340px;
-  margin-inline: auto;
+/* The app's tree on the guides (src/treeDemo.ts): its picture until the live tree loads in its place. */
+.tree-demo {
+  height: min(80vh, 680px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  /* The tree's own night-time room, so the swap from picture to tree does not flash. */
+  background: #15110d;
+}
+.tree-demo img {
+  flex: 1;
+  min-height: 0;
+  object-fit: contain;
+  border: none;
+  border-radius: 0;
+}
+.tree-demo-loading {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  color: #a39b8f;
+}
+.tree-demo select,
+.tree-demo button {
+  font: inherit;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--ink);
+}
+.tree-demo .muted {
+  color: var(--muted);
+}
+/* Which size the books are at, quietly under the controls. */
+.tree-demo-note {
+  margin: 0;
+  padding: 0 16px 8px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 0.78rem;
 }
 figcaption {
   font-size: 0.85rem;

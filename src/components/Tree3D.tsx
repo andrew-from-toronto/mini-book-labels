@@ -74,6 +74,12 @@ interface Props {
   settings: Settings;
   /** The book open in the list: the camera flies to its ornament, and back out when it closes. */
   focusId?: string | null;
+  /**
+   * Shown on a page of its own rather than in the app (the guides): starts from these choices instead of
+   * the viewer's saved ones and saves none, offers only the listed sizes, lets the page scroll past it
+   * (zoom is Ctrl + scroll), and reports the tree's height so the page can size the books to suit it.
+   */
+  embedded?: { size: TreeSize; lights: LightStyle; baubles: BaubleStyle; onTreeHeight: (metres: number) => void };
 }
 
 /** A tree can only hold so many before it is all books, and each is drawn; more than this are left off. */
@@ -1222,18 +1228,18 @@ class TreeScene {
 /** Fewer pixels per label than the 3D book: there are many, each small on screen until zoomed to. */
 const TREE_PX_PER_MM = 7;
 
-export default function Tree3D({ books, coverOf, customCovers, settings, focusId = null }: Props) {
+export default function Tree3D({ books, coverOf, customCovers, settings, focusId = null, embedded }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const scene = useRef<TreeScene | null>(null);
   const [state, setState] = useState<'building' | 'ready' | 'failed'>('building');
-  const [size, setSize] = useState<SizeChoice>(storedSize);
+  const [size, setSize] = useState<SizeChoice>(() => embedded?.size ?? storedSize());
   const [customHeight, setCustomHeight] = useState(storedCustomHeight);
   const [unit, setUnit] = useState<HeightUnit>(storedUnit);
   // What is in the height box as typed; the tree follows once it is a number and typing has paused.
   const [draft, setDraft] = useState(() => formatHeight(storedCustomHeight(), storedUnit()));
   const treeHeight = size === 'custom' ? customHeight : TREE_SIZES[size].height;
-  const [lights, setLights] = useState<LightStyle>(storedLights);
-  const [baubles, setBaubles] = useState<BaubleStyle>(storedBaubles);
+  const [lights, setLights] = useState<LightStyle>(() => embedded?.lights ?? storedLights());
+  const [baubles, setBaubles] = useState<BaubleStyle>(() => embedded?.baubles ?? storedBaubles());
   const [seed, setSeed] = useState(1);
   const { height, width, spine, style, model } = settings;
 
@@ -1244,7 +1250,15 @@ export default function Tree3D({ books, coverOf, customCovers, settings, focusId
     } catch {
       setState('failed');
     }
+    // On a page, the wheel scrolls the page; only Ctrl + wheel (and a trackpad pinch, which arrives as
+    // one) reaches the camera.
+    const el = host.current;
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey) e.stopPropagation();
+    };
+    if (embedded) el.addEventListener('wheel', onWheel, { capture: true });
     return () => {
+      el.removeEventListener('wheel', onWheel, { capture: true });
       scene.current?.dispose();
       scene.current = null;
     };
@@ -1252,10 +1266,16 @@ export default function Tree3D({ books, coverOf, customCovers, settings, focusId
 
   useEffect(() => {
     scene.current?.setTree(treeHeight, lights);
+    if (embedded) return;
     store('treeSize', size);
     store('treeHeight', String(customHeight));
     store('treeLights', lights);
   }, [treeHeight, size, customHeight, lights]);
+
+  const onTreeHeight = embedded?.onTreeHeight;
+  useEffect(() => {
+    onTreeHeight?.(treeHeight);
+  }, [treeHeight, onTreeHeight]);
 
   // Rebuilding the tree takes a moment, so a typed height is applied once typing pauses.
   useEffect(() => {
@@ -1267,7 +1287,7 @@ export default function Tree3D({ books, coverOf, customCovers, settings, focusId
 
   useEffect(() => {
     scene.current?.setBaubles(baubles);
-    store('treeBaubles', baubles);
+    if (!embedded) store('treeBaubles', baubles);
   }, [baubles]);
 
   // The printed book's shape: the same model as the 3D book, so the hook and spine look as they will.
@@ -1332,7 +1352,7 @@ export default function Tree3D({ books, coverOf, customCovers, settings, focusId
 
   const shown = Math.min(books.length, MAX_BOOKS);
   return (
-    <div className="book3d tree3d">
+    <div className={embedded ? 'book3d tree3d embedded' : 'book3d tree3d'}>
       <div className="book3d-canvas" ref={host} />
       <div className="book3d-bar tree-bar">
         <span className="tree-options">
@@ -1342,7 +1362,7 @@ export default function Tree3D({ books, coverOf, customCovers, settings, focusId
                 {label}
               </option>
             ))}
-            <option value="custom">Custom height</option>
+            {!embedded && <option value="custom">Custom height</option>}
           </select>
           {size === 'custom' && (
             <span className="tree-height">
@@ -1404,7 +1424,7 @@ export default function Tree3D({ books, coverOf, customCovers, settings, focusId
               ? 'Building the tree...'
               : shown === 0
                 ? 'Add books to hang them on the tree.'
-                : `${shown} ${shown === 1 ? 'book' : 'books'}${books.length > MAX_BOOKS ? ` (of ${books.length})` : ''}. Drag to turn, pinch or scroll to zoom, double-click a book to look closer.`}
+                : `${shown} ${shown === 1 ? 'book' : 'books'}${books.length > MAX_BOOKS ? ` (of ${books.length})` : ''}. Drag to turn, ${embedded ? 'Ctrl + scroll' : 'pinch or scroll'} to zoom, double-click a book to look closer.`}
         </span>
       </div>
     </div>
