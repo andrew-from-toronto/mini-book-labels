@@ -1,7 +1,11 @@
 import { useEffect, useRef } from 'react';
 import type { CoverResult } from '../lib/covers';
 import { defaultWrapSpine, labelWidth } from '../lib/layout';
+import { cancel, schedule, scheduleFinal } from '../lib/drawQueue';
 import { drawLabel } from '../lib/render';
+
+/** Sheet labels redraw at this while being edited, then at full print resolution once edits pause. */
+const PREVIEW_PX_PER_MM = 8;
 import type { Book, CustomCover, Settings } from '../lib/types';
 
 interface Props {
@@ -18,7 +22,8 @@ interface Props {
 
 export function Label({ book, cover, custom, settings, guides = false, thumbHeight, onClick }: Props) {
   const ref = useRef<HTMLCanvasElement>(null);
-  const { height, width, spine, style } = settings;
+  const { height, width, spine, style, back, backOptions } = settings;
+  const backKey = JSON.stringify(backOptions ?? {});
 
   const wrap =
     cover?.source === 'wrap' ? (custom?.spine ?? cover.detectedSpine ?? defaultWrapSpine(settings)) : undefined;
@@ -32,13 +37,25 @@ export function Label({ book, cover, custom, settings, guides = false, thumbHeig
   const cropKey = crop ? JSON.stringify(crop) : '';
 
   useEffect(() => {
-    if (!ref.current || !cover) return;
-    drawLabel(ref.current, book, cover.image, { height, width, spine }, style, {
-      wrapSpine: wrapLeft !== undefined && wrapRight !== undefined ? { left: wrapLeft, right: wrapRight } : undefined,
-      crop: cropKey ? JSON.parse(cropKey) : undefined,
-      pxPerMm,
-    });
-  }, [book, cover, height, width, spine, style, wrapLeft, wrapRight, cropKey, pxPerMm]);
+    const canvas = ref.current;
+    if (!canvas || !cover) return;
+    const draw = (resolution: number | undefined) => () =>
+      drawLabel(canvas, book, cover.image, { height, width, spine }, style, {
+        back,
+        backOptions: JSON.parse(backKey),
+        wrapSpine: wrapLeft !== undefined && wrapRight !== undefined ? { left: wrapLeft, right: wrapRight } : undefined,
+        crop: cropKey ? JSON.parse(cropKey) : undefined,
+        pxPerMm: resolution,
+      });
+    // Drawn in turn with the other labels (lib/drawQueue.ts), so editing stays smooth with many on show.
+    if (thumbHeight) schedule(canvas, draw(pxPerMm));
+    else {
+      // A quick preview now; print resolution once edits pause, or at once if printed first.
+      schedule(canvas, draw(PREVIEW_PX_PER_MM));
+      scheduleFinal(canvas, draw(undefined));
+    }
+    return () => cancel(canvas);
+  }, [book, cover, height, width, spine, style, back, backKey, wrapLeft, wrapRight, cropKey, pxPerMm, thumbHeight]);
 
   if (thumbHeight) {
     const size = { width: `${(thumbHeight * labelWidth(settings)) / height}px`, height: `${thumbHeight}px` };

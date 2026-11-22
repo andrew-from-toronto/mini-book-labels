@@ -6,6 +6,7 @@ import { buildBookParts, hookGeometry, type PartName } from '../lib/bookModel';
 import { partGeometry } from '../lib/bookUv';
 import type { CoverResult } from '../lib/covers';
 import { defaultWrapSpine } from '../lib/layout';
+import { cancel, schedule } from '../lib/drawQueue';
 import { drawLabel } from '../lib/render';
 import type { Book, CustomCover, ModelOptions, Settings } from '../lib/types';
 
@@ -326,9 +327,12 @@ export default function Book3D({ book, cover, custom, settings, filament, measur
   const crop = custom?.crop ?? cover?.detectedCrop;
   const wrapKey = wrap ? `${wrap.left},${wrap.right}` : '';
   const cropKey = crop ? JSON.stringify(crop) : '';
+  const backKey = settings.backOptions ? JSON.stringify(settings.backOptions) : '';
 
   useEffect(() => {
     if (!viewer.current) return;
+    // A label still waiting to be drawn must not land after this change.
+    cancel('book3d');
     if (filament) {
       viewer.current.setFilament(filament);
       viewer.current.updateMeasureColour();
@@ -339,16 +343,22 @@ export default function Book3D({ book, cover, custom, settings, filament, measur
       viewer.current.setLabel(null);
       return;
     }
-    const canvas = document.createElement('canvas');
-    const pxPerMm = Math.min(24, MAX_TEXTURE / (2 * width + spine));
-    const [left, right] = wrapKey ? wrapKey.split(',').map(Number) : [];
-    drawLabel(canvas, book, cover.image, { height, width, spine }, style, {
-      wrapSpine: wrapKey ? { left, right } : undefined,
-      crop: cropKey ? JSON.parse(cropKey) : undefined,
-      pxPerMm,
+    // In turn with the other labels, so editing stays smooth.
+    schedule('book3d', () => {
+      if (!viewer.current) return;
+      const canvas = document.createElement('canvas');
+      const pxPerMm = Math.min(24, MAX_TEXTURE / (2 * width + spine));
+      const [left, right] = wrapKey ? wrapKey.split(',').map(Number) : [];
+      drawLabel(canvas, book, cover.image, { height, width, spine }, style, {
+        back: settings.back,
+        backOptions: backKey ? JSON.parse(backKey) : undefined,
+        wrapSpine: wrapKey ? { left, right } : undefined,
+        crop: cropKey ? JSON.parse(cropKey) : undefined,
+        pxPerMm,
+      });
+      viewer.current.setLabel(canvas);
     });
-    viewer.current.setLabel(canvas);
-  }, [book, cover, height, width, spine, style, wrapKey, cropKey, filament]);
+  }, [book, cover, height, width, spine, style, settings.back, backKey, wrapKey, cropKey, filament]);
 
   return (
     <div className="book3d">

@@ -1,3 +1,5 @@
+import type { BackOptions } from './back';
+
 export type ReadStatus = string;
 
 export interface Book {
@@ -47,6 +49,12 @@ export interface Filters {
 
 export type LabelStyle = 'edge' | 'blur';
 
+/**
+ * What goes on the back cover: placeholder blurb and barcode, the front cover mirrored and softened
+ * so it reads as artwork continuing round the book, your own rating and date read, or nothing.
+ */
+export type BackStyle = 'blurb' | 'mirror' | 'notes' | 'plain';
+
 export type HookPosition = 'center' | 'spine' | 'fore-edge';
 /** Which cover the hook sits flush with. The book prints lying on that cover. */
 export type HookSide = 'front' | 'back';
@@ -68,6 +76,10 @@ export interface Settings {
   width: number;
   spine: number;
   style: LabelStyle;
+  /** Missing in settings saved before it, which means 'blurb'. */
+  back?: BackStyle;
+  /** Fine control of the back and spine (lib/back.ts); anything missing takes its default. */
+  backOptions?: Partial<BackOptions>;
   paper: PaperKey;
   margin: number;
   gap: number;

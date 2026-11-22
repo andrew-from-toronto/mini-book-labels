@@ -7,6 +7,7 @@ export const DEFAULT_SETTINGS: Settings = {
   width: 20,
   spine: 5,
   style: 'edge',
+  back: 'blurb',
   paper: 'letter',
   margin: 10,
   gap: 2,

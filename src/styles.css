@@ -538,6 +538,17 @@ fieldset {
   gap: 4px 14px;
 }
 
+/* The back cover's details: one control per row, sliders full width. */
+fieldset.back-options {
+  display: grid;
+  gap: 8px;
+  justify-items: stretch;
+}
+
+fieldset.back-options button.link {
+  justify-self: start;
+}
+
 legend {
   padding: 0 4px;
   font-size: 0.85rem;

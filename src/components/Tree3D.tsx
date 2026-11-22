@@ -28,6 +28,7 @@ import {
 import { partGeometry, type PartGeometry } from '../lib/bookUv';
 import type { CoverResult } from '../lib/covers';
 import { defaultWrapSpine } from '../lib/layout';
+import { schedule } from '../lib/drawQueue';
 import { drawLabel } from '../lib/render';
 import {
   anchorsOf,
@@ -790,6 +791,12 @@ class TreeScene {
     this.hang();
   }
 
+  /** Whether a book's label would look different from what it shows now. */
+  labelChanged(id: string, key: string) {
+    const entry = this.books.get(id);
+    return !entry || entry.key !== key;
+  }
+
   /** A book's label, drawn by the caller; `key` says whether it changed since the last one. */
   setLabel(id: string, key: string, draw: () => HTMLCanvasElement) {
     const entry = this.books.get(id);
@@ -1188,12 +1195,17 @@ export default function Tree3D({ books, coverOf, customCovers, settings }: Props
       const custom = customCovers[book.id];
       const wrap = cover?.source === 'wrap' ? (custom?.spine ?? cover.detectedSpine ?? defaultWrapSpine(settings)) : undefined;
       const crop = custom?.crop ?? cover?.detectedCrop ?? undefined;
-      const key = JSON.stringify([book.title, book.authors, cover?.source ?? 'loading', cover?.image?.src ?? '', wrap, crop, style, dims]);
-      scene.current.setLabel(book.id, key, () => {
-        const canvas = document.createElement('canvas');
-        drawLabel(canvas, book, cover?.image ?? null, dims, style, { wrapSpine: wrap, crop, pxPerMm });
-        return canvas;
-      });
+      const key = JSON.stringify([book.title, book.authors, book.rating, book.lastRead, cover?.source ?? 'loading', cover?.image?.src ?? '', wrap, crop, style, settings.back, settings.backOptions, dims]);
+      // In turn with the other labels, so a slider dragged with the tree showing stays smooth.
+      const target = scene.current;
+      if (!target.labelChanged(book.id, key)) continue;
+      schedule(`tree:${book.id}`, () =>
+        target.setLabel(book.id, key, () => {
+          const canvas = document.createElement('canvas');
+          drawLabel(canvas, book, cover?.image ?? null, dims, style, { wrapSpine: wrap, crop, pxPerMm, back: settings.back, backOptions: settings.backOptions });
+          return canvas;
+        }),
+      );
     }
   });
 
