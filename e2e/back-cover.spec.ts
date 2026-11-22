@@ -12,6 +12,12 @@ test('back cover options apply, and printing right after an edit is at full reso
   const tabs = page.getByRole('navigation', { name: 'Sections' });
   if (await tabs.isVisible()) await tabs.getByRole('button', { name: /^Setup/ }).click();
   await page.getByRole('button', { name: /Try a sample/ }).first().click();
+  // Every label drawn first (its cover found, or a generated one), so what follows tests an edit.
+  await expect
+    .poll(() => page.evaluate(() => Math.min(...[...document.querySelectorAll<HTMLCanvasElement>('.sheet canvas.label')].map((c) => c.width))), {
+      timeout: 60_000,
+    })
+    .toBe(1080);
   if (await tabs.isVisible()) await tabs.getByRole('button', { name: /^Setup/ }).click();
   await page.getByRole('combobox', { name: 'Back cover', exact: true }).selectOption('mirror');
   const panel = page.locator('.back-options');
