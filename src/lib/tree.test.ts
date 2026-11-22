@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { anchorsOf, buildLights, buildTree, CUSTOM_HEIGHT, formatHeight, parseHeight, presentsFor, radiusAt, TREE_SIZES, treeShape } from './tree';
+import { anchorsOf, BULB_SPACING, buildLights, buildTree, FOOT, CUSTOM_HEIGHT, formatHeight, parseHeight, presentsFor, radiusAt, TREE_SIZES, treeShape, type Vec3 } from './tree';
 
 describe('the tree', () => {
   const shape = treeShape(1.2);
@@ -65,18 +65,74 @@ describe('a custom height', () => {
 });
 
 describe('the lights', () => {
-  it('are clipped along the branches all through the tree, about 110 per foot, as pre-lit trees are', () => {
-    const small = treeShape(0.6);
-    const big = treeShape(TREE_SIZES.large.height);
-    const a = buildLights(small, 'warm', buildTree(small).sprays);
-    const b = buildLights(big, 'colour', buildTree(big).sprays);
-    expect(a.length).toBeGreaterThan(200);
-    expect(b.length).toBeGreaterThan(800);
-    for (const bulb of a) {
-      const r = Math.hypot(bulb.at[0], bulb.at[1]);
-      expect(r).toBeLessThanOrEqual(radiusAt(small, bulb.at[2]) * 1.3 + 0.01);
+  const along = (a: Vec3, b: Vec3) => Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+
+  it('are one string, about 110 bulbs per foot, a bulb every 6.6 cm of cord as mini lights are', () => {
+    for (const size of Object.values(TREE_SIZES)) {
+      const shape = treeShape(size.height);
+      const { points, bulbs, lead } = buildLights(shape, 'warm');
+      expect(Math.abs(bulbs.length - (size.height / FOOT) * 110)).toBeLessThan(size.height * 20);
+      // A continuous cord: no gaps between its points.
+      for (let i = 1; i < points.length; i++) expect(along(points[i - 1], points[i])).toBeLessThan(0.03);
+      // Bulbs in order along it, evenly spaced, all before the lead.
+      for (let i = 1; i < bulbs.length; i++) {
+        let cord = 0;
+        for (let j = bulbs[i - 1].point + 1; j <= bulbs[i].point; j++) cord += along(points[j - 1], points[j]);
+        expect(cord).toBeGreaterThan(BULB_SPACING - 0.02);
+        expect(cord).toBeLessThan(BULB_SPACING + 0.02);
+      }
+      expect(bulbs[bulbs.length - 1].point).toBeLessThan(lead);
     }
-    expect(new Set(b.map((x) => x.colour.join())).size).toBeGreaterThan(3);
+  });
+
+  it('is wound round the tree from the top down, just inside the needle tips, then runs to the stand', () => {
+    const shape = treeShape(TREE_SIZES.medium.height);
+    const { points, lead } = buildLights(shape, 'warm');
+    let turned = 0;
+    for (let i = 1; i < lead; i++) {
+      const p = points[i];
+      const r = Math.hypot(p[0], p[1]);
+      expect(r).toBeGreaterThan(radiusAt(shape, p[2]) * 0.75 - 0.002);
+      expect(r).toBeLessThan(radiusAt(shape, p[2]) * 0.97 + 0.002);
+      let d = Math.atan2(p[1], p[0]) - Math.atan2(points[i - 1][1], points[i - 1][0]);
+      if (d < -Math.PI) d += Math.PI * 2;
+      if (d > Math.PI) d -= Math.PI * 2;
+      turned += d;
+    }
+    expect(points[0][2]).toBeGreaterThan(shape.top - shape.height * 0.06);
+    expect(points[lead - 1][2]).toBeLessThan(shape.bottom + shape.height * 0.04);
+    // Wraps a few centimetres apart: many turns, always the same way round.
+    expect(turned / (Math.PI * 2)).toBeGreaterThan(15);
+    const end = points[points.length - 1];
+    expect(Math.hypot(end[0], end[1])).toBeLessThan(shape.height * 0.03);
+    expect(end[2]).toBeLessThan(shape.bottom);
+  });
+
+  it('lights the whole tree, top to bottom, in proportion to how wide it is', () => {
+    for (const size of Object.values(TREE_SIZES)) {
+      const shape = treeShape(size.height);
+      const { bulbs } = buildLights(shape, 'warm');
+      const bands = 8;
+      const counts = new Array<number>(bands).fill(0);
+      for (const b of bulbs) {
+        const t = (b.at[2] - shape.bottom) / (shape.top - shape.bottom);
+        counts[Math.max(0, Math.min(bands - 1, Math.floor(t * bands)))]++;
+      }
+      const widths = counts.map((_, i) => radiusAt(shape, shape.bottom + ((i + 0.5) / bands) * (shape.top - shape.bottom)));
+      const sum = widths.reduce((a, w) => a + w, 0);
+      counts.forEach((n, i) => {
+        const expected = (bulbs.length * widths[i]) / sum;
+        expect(n).toBeGreaterThan(expected * 0.5 - 3);
+        expect(n).toBeLessThan(expected * 1.6 + 5);
+      });
+    }
+  });
+
+  it('repeat their colours in order along a coloured string', () => {
+    const { bulbs } = buildLights(treeShape(1.2), 'colour');
+    const first = bulbs.slice(0, 5).map((b) => b.colour.join());
+    expect(new Set(first).size).toBe(5);
+    bulbs.forEach((b, i) => expect(b.colour.join()).toBe(first[i % 5]));
   });
 });
 

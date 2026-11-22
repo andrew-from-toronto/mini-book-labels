@@ -3,7 +3,7 @@ import { mulberry32 } from './color';
 /**
  * A Christmas tree to hang the books on (components/Tree3D.tsx), worked out here as plain numbers so it
  * can be tested: its outline, the branches and needle sprays that fill it out, a string of lights
- * spiralling round it, and where each book hangs. Everything is in metres, z up, the trunk on the z axis.
+ * wound round it, and where each book hangs. Everything is in metres, z up, the trunk on the z axis.
  * Seeded, so the same books hang in the same places until shuffled.
  */
 
@@ -197,38 +197,127 @@ const COLOURS: Vec3[] = [
 ];
 
 export interface Bulb {
+  /** Where it sits on the tree, before any ornament pushes the cord aside. */
   at: Vec3;
+  /** The point on the strand's cord (Strand.points) it is wired to. */
+  point: number;
   colour: Vec3;
   /** Its own flicker, so the string twinkles rather than pulsing as one. */
   phase: number;
   speed: number;
 }
 
+/** A string of lights: its cord, as a path of points about a centimetre apart, and the bulbs along it. */
+export interface Strand {
+  points: Vec3[];
+  bulbs: Bulb[];
+  /** Where the bulbs end and the lead to the plug, in to the trunk and down to the stand, begins. */
+  lead: number;
+}
+
+/** Mini lights as they are sold: 100 to a string of about 6.6 m, so a bulb every 6.6 cm of cord. */
+export const BULB_SPACING = 0.066;
+const STEP = 0.01;
+
+/** Where a bulb sits on its cord: just out from the wire, facing out of the tree, as mini bulbs do. */
+export function bulbOn(points: Vec3[], index: number): Vec3 {
+  const p = points[index];
+  const r = Math.hypot(p[0], p[1]) || 1;
+  return [p[0] + (p[0] / r) * 0.004, p[1] + (p[1] / r) * 0.004, p[2] + 0.002];
+}
+
 /**
- * Pre-lit, as trees are sold: bulbs clipped along the branches all through the tree, not one string
- * wound round it, about 110 per foot of height (a 7.5 ft tree has some 800). Most sit out towards the
- * tips, where they show; some deeper in, glowing through the needles.
+ * The cord's path: wound round the tree from just under the star down to the lowest boughs, `pitch`
+ * apart a turn, as people wrap lights. It runs just inside the needle tips, weaving in among the branches
+ * and back out, and sags a little between the boughs it rests on.
  */
-export function buildLights(shape: TreeShape, style: LightStyle, sprays: Spray[], seed = 11): Bulb[] {
+function windCord(shape: TreeShape, pitch: number, seed: number): Vec3[] {
   const rng = mulberry32(seed);
-  const count = Math.round((shape.height / 0.3048) * 110);
-  // Sprays far enough out to carry a bulb, and below the very tip.
-  const carriers = sprays.filter((s) => {
-    const r = Math.hypot(s.at[0], s.at[1]);
-    return r > radiusAt(shape, s.at[2]) * 0.55 && s.at[2] < shape.top - shape.height * 0.02;
-  });
+  const weave = 0.22 + rng() * 0.06;
+  const support = 0.16 + rng() * 0.04;
+  const p1 = rng() * Math.PI * 2;
+  const p2 = rng() * Math.PI * 2;
+  const top = shape.top - shape.height * 0.04;
+  const bottom = shape.bottom + shape.height * 0.02;
+  // Draped between the boughs it rests on, and wandering up and down as a hand-wound string does.
+  const sag = pitch * 0.3;
+  const wander = pitch * 0.35;
+  const p3 = rng() * Math.PI * 2;
+  const points: Vec3[] = [];
+  let angle = rng() * Math.PI * 2;
+  let z = top;
+  let s = 0;
+  while (z > bottom) {
+    const dip = sag * Math.sin((s / support) * Math.PI) ** 2;
+    const drift = wander * (Math.sin(s / 0.7 + p3) * 0.6 + Math.sin(s / 0.23 + p2) * 0.4);
+    const height = Math.min(top, z - dip + drift);
+    const outline = radiusAt(shape, height);
+    // In and out of the branches, never far from the tips, so the bulbs show.
+    const depth = 0.87 + 0.08 * Math.sin((s / weave) * Math.PI * 2 + p1 + 0.8 * Math.sin(s / 1.3 + p2));
+    const r = Math.max(0.01, outline * depth);
+    points.push([Math.cos(angle) * r, Math.sin(angle) * r, height]);
+    // A centimetre further along: round the tree, and down by the pitch for each turn.
+    const around = Math.max(0.02, outline * 0.91);
+    const dAngle = STEP / Math.hypot(around, pitch / (Math.PI * 2));
+    angle += dAngle;
+    z -= (pitch * dAngle) / (Math.PI * 2);
+    s += STEP;
+  }
+  return points;
+}
+
+const lengthOf = (points: Vec3[]) =>
+  points.reduce((sum, p, i) => (i ? sum + Math.hypot(p[0] - points[i - 1][0], p[1] - points[i - 1][1], p[2] - points[i - 1][2]) : 0), 0);
+
+/**
+ * The tree's lights: one string wound round it from the top down, with a bulb every BULB_SPACING of
+ * cord, about 110 bulbs per foot of height (a 7.5 ft tree has some 800), as the lights are on a well-lit
+ * tree. The wraps are as close as that many bulbs need. A coloured string repeats its colours in order
+ * along the cord, as real ones do. The cord's end runs in to the trunk and down to the stand, to the plug.
+ */
+export function buildLights(shape: TreeShape, style: LightStyle, seed = 11): Strand {
+  const rng = mulberry32(seed);
+  const count = Math.round((shape.height / FOOT) * 110);
+  const target = count * BULB_SPACING;
+  // Closer wraps make a longer cord: settle on the pitch that gives the cord those bulbs need.
+  let pitch = shape.height * 0.05;
+  let points = windCord(shape, pitch, seed);
+  for (let i = 0; i < 4; i++) {
+    pitch *= lengthOf(points) / target;
+    points = windCord(shape, pitch, seed);
+  }
   const bulbs: Bulb[] = [];
-  for (let i = 0; i < count && carriers.length; i++) {
-    const s = carriers[Math.floor(rng() * carriers.length)];
-    const along = s.length * (0.55 + rng() * 0.4);
+  let travelled = 0;
+  let next = BULB_SPACING / 2;
+  for (let i = 1; i < points.length && bulbs.length < count; i++) {
+    const a = points[i - 1];
+    const b = points[i];
+    travelled += Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+    if (travelled < next) continue;
+    next += BULB_SPACING;
     bulbs.push({
-      at: [s.at[0] + s.dir[0] * along, s.at[1] + s.dir[1] * along, s.at[2] + s.dir[2] * along],
-      colour: style === 'warm' ? WARM : COLOURS[i % COLOURS.length],
+      at: bulbOn(points, i),
+      point: i,
+      colour: style === 'warm' ? WARM : COLOURS[bulbs.length % COLOURS.length],
       phase: rng() * Math.PI * 2,
       speed: 0.6 + rng() * 1.6,
     });
   }
-  return bulbs;
+  // The lead: in along a bough to the trunk, then down it to the stand.
+  const lead = points.length;
+  const end = points[points.length - 1];
+  const trunk = shape.height * 0.02;
+  const r = Math.hypot(end[0], end[1]);
+  const inward = Math.max(1, Math.round((r - trunk) / STEP));
+  for (let i = 1; i <= inward; i++) {
+    const k = (r - ((r - trunk) * i) / inward) / r;
+    points.push([end[0] * k, end[1] * k, end[2] - 0.01 * Math.sin((i / inward) * Math.PI)]);
+  }
+  const foot = shape.bottom * 0.75;
+  const last = points[points.length - 1];
+  const down = Math.max(1, Math.round((last[2] - foot) / STEP));
+  for (let i = 1; i <= down; i++) points.push([last[0], last[1], last[2] - ((last[2] - foot) * i) / down]);
+  return { points, bulbs, lead };
 }
 
 /** A place an ornament can hang: a point near the tip of an outer needle spray, which holds it. */

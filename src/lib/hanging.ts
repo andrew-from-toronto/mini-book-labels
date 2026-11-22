@@ -420,6 +420,84 @@ function clipLine(from: Vec3, dir: Vec3, length: number, boxes: Prepared[], marg
   return reach;
 }
 
+/**
+ * A string of lights' cord, moved in towards the trunk wherever it would pass through or in front of an
+ * ornament or a present: ornaments are hung over the lights, so the cord always runs behind them, pushed
+ * back into the branches. The cord bends in gradually either side rather than kinking round the ornament. Returns new points; the given ones are
+ * left as they are.
+ */
+export function clearStrand(shape: TreeShape, points: Vec3[], obstacles: Obstacle[], margin = 0.004): Vec3[] {
+  const boxes = prepare(obstacles);
+  // Whether the cord here passes through an ornament or in front of it: on the line in from it to the
+  // trunk. Ornaments are hung over the lights, so the cord must be behind every one.
+  const inward = new Vector3();
+  const inside = (p: Vector3) => {
+    const r = Math.hypot(p.x, p.y);
+    if (r === 0) return false;
+    inward.set(-p.x / r, -p.y / r, 0);
+    return boxes.some((b) => {
+      if (Math.abs(p.z - b.centre.z) > b.reach + margin) return false;
+      // Nearest the box centre gets to the line from here in to the trunk, seen from above.
+      const t = Math.max(0, Math.min(r, (b.centre.x - p.x) * inward.x + (b.centre.y - p.y) * inward.y));
+      if (Math.hypot(p.x + inward.x * t - b.centre.x, p.y + inward.y * t - b.centre.y) > b.reach + margin) return false;
+      const o = p.clone().sub(b.centre).applyMatrix4(b.inverse);
+      const d = inward.clone().applyMatrix4(b.inverse);
+      let near = 0;
+      let far = r;
+      for (let i = 0; i < 3; i++) {
+        const half = b.half[i] + margin;
+        const oi = o.getComponent(i);
+        const di = d.getComponent(i);
+        if (Math.abs(di) < 1e-9) {
+          if (Math.abs(oi) > half) return false;
+          continue;
+        }
+        let t0 = (-half - oi) / di;
+        let t1 = (half - oi) / di;
+        if (t0 > t1) [t0, t1] = [t1, t0];
+        near = Math.max(near, t0);
+        far = Math.min(far, t1);
+        if (near > far) return false;
+      }
+      return true;
+    });
+  };
+  const step = 0.004;
+  const push = points.map(() => 0);
+  const p = new Vector3();
+  const moved = (pt: Vec3, d: number) => {
+    const r = Math.hypot(pt[0], pt[1]);
+    return r === 0 || !d ? p.set(...pt) : p.set((pt[0] * (r - d)) / r, (pt[1] * (r - d)) / r, pt[2]);
+  };
+  // Eased in and out along the cord: no point moves less than its neighbour less half the distance between.
+  const ease = (i: number, j: number) => {
+    const gap = Math.hypot(points[i][0] - points[j][0], points[i][1] - points[j][1], points[i][2] - points[j][2]);
+    push[i] = Math.max(push[i], push[j] - gap * 0.5);
+  };
+  // How far in each point must go to be clear, along the line to the trunk at its height; then eased.
+  // Easing can carry a point beside an ornament into a leaning one, so again until all are clear.
+  for (let pass = 0; pass < 4; pass++) {
+    let any = false;
+    points.forEach((pt, i) => {
+      const r = Math.hypot(pt[0], pt[1]);
+      const least = radiusAt(shape, pt[2]) * 0.35;
+      while (r - push[i] > least && inside(moved(pt, push[i]))) {
+        push[i] += step;
+        any = true;
+      }
+    });
+    if (!any) break;
+    for (let i = 1; i < points.length; i++) ease(i, i - 1);
+    for (let i = points.length - 2; i >= 0; i--) ease(i, i + 1);
+  }
+  return points.map((pt, i) => {
+    const r = Math.hypot(pt[0], pt[1]);
+    if (!push[i] || r === 0) return pt;
+    const k = Math.max(0, r - push[i]) / r;
+    return [pt[0] * k, pt[1] * k, pt[2]];
+  });
+}
+
 /** A branch's length, cut short where it would pass into an obstacle (a present under the tree). */
 export function clipBranch(from: Vec3, dir: Vec3, length: number, radius: number, obstacles: Obstacle[]): number {
   return Math.max(length * 0.15, clipLine(from, dir, length, prepare(obstacles), radius));

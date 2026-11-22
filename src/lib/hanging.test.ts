@@ -9,6 +9,7 @@ import {
   bookGrams,
   boxesOverlap,
   clearSprays,
+  clearStrand,
   clipBranch,
   hangAll,
   massProperties,
@@ -20,7 +21,7 @@ import {
   type Body,
   type Motion,
 } from './hanging';
-import { ANCHOR_ALONG, anchorsOf, buildTree, presentsFor, radiusAt, treeShape, type Vec3 } from './tree';
+import { ANCHOR_ALONG, anchorsOf, buildLights, buildTree, presentsFor, radiusAt, treeShape, type Vec3 } from './tree';
 
 /** A closed box from (0,0,0) to (w,d,h), in mm, as the book model's meshes are. */
 function boxMesh(w: number, d: number, h: number, at: Vec3 = [0, 0, 0]): BookMesh {
@@ -163,6 +164,33 @@ describe('the whole tree', () => {
     expect(cut).toBeLessThan(sprays.length / 4);
     // But never the spray an ornament hangs from, past where it hangs.
     for (const h of hung) expect(lengths[h.spray]).toBeGreaterThan(sprays[h.spray].length * ANCHOR_ALONG);
+  });
+
+  it('runs the lights behind every ornament, never through or in front of one, bending the cord in gently', () => {
+    const hung = hangAll(shape, sprays, anchors, books(40), 3);
+    const strand = buildLights(shape, 'warm');
+    const cleared = clearStrand(shape, strand.points, hung);
+    const local = (p: Vector3, box: (typeof hung)[number]['pose']['box']) =>
+      p.clone().sub(new Vector3(...box.centre)).applyQuaternion(new Quaternion(...box.rotation).invert());
+    const within = (p: Vector3) =>
+      hung.some(({ pose: { box } }) => {
+        const l = local(p, box);
+        return Math.abs(l.x) < box.half[0] && Math.abs(l.y) < box.half[1] && Math.abs(l.z) < box.half[2];
+      });
+    // Through or in front: some point on the line from it in to the trunk is inside an ornament.
+    const covering = (p: Vec3) => {
+      for (let k = 0; k <= 1; k += 0.02) if (within(new Vector3(p[0] * (1 - k), p[1] * (1 - k), p[2]))) return true;
+      return false;
+    };
+    expect(strand.points.some(covering)).toBe(true);
+    expect(cleared.some(covering)).toBe(false);
+    for (let i = 1; i < cleared.length; i++) {
+      const step = Math.hypot(...([0, 1, 2].map((k) => cleared[i][k] - cleared[i - 1][k]) as Vec3));
+      expect(step).toBeLessThan(0.03);
+    }
+    // Only near the ornaments: most of the cord stays where it was wound.
+    const moved = cleared.filter((p, i) => p !== strand.points[i]).length;
+    expect(moved).toBeLessThan(cleared.length / 3);
   });
 
   it('keeps needles and branches out of the presents', () => {

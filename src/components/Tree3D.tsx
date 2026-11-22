@@ -14,6 +14,7 @@ import {
   bentDirection,
   bookBody,
   clearSprays,
+  clearStrand,
   clipBranch,
   hangAll,
   poseOf,
@@ -40,10 +41,12 @@ import {
   type Present,
   buildLights,
   buildTree,
+  bulbOn,
   TREE_SIZES,
   treeShape,
   type Bulb,
   type Spray,
+  type Strand,
   type LightStyle,
   type TreeShape,
   type TreeSize,
@@ -209,6 +212,57 @@ function sprayGeometry(): THREE.BufferGeometry {
   merged.setIndex(index);
   for (const g of cards) g.dispose();
   return merged;
+}
+
+/** The lights' cord: a thin wire, five-sided, along `points`. Rewrites `into` in place when given. */
+const CORD_RADIUS = 0.0006;
+const CORD_SIDES = 5;
+function cordGeometry(points: Vec3[], into?: THREE.BufferGeometry): THREE.BufferGeometry {
+  const n = points.length;
+  const geometry = into ?? new THREE.BufferGeometry();
+  let position = geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
+  let normal = geometry.getAttribute('normal') as THREE.BufferAttribute | undefined;
+  if (!position || position.count !== n * CORD_SIDES) {
+    position = new THREE.BufferAttribute(new Float32Array(n * CORD_SIDES * 3), 3);
+    normal = new THREE.BufferAttribute(new Float32Array(n * CORD_SIDES * 3), 3);
+    geometry.setAttribute('position', position);
+    geometry.setAttribute('normal', normal);
+    const index: number[] = [];
+    for (let i = 0; i < n - 1; i++) {
+      for (let k = 0; k < CORD_SIDES; k++) {
+        const a = i * CORD_SIDES + k;
+        const b = i * CORD_SIDES + ((k + 1) % CORD_SIDES);
+        index.push(a, a + CORD_SIDES, b, b, a + CORD_SIDES, b + CORD_SIDES);
+      }
+    }
+    geometry.setIndex(index);
+  }
+  const t = new THREE.Vector3();
+  const side = new THREE.Vector3();
+  const lift = new THREE.Vector3();
+  const up = new THREE.Vector3(0, 0, 1);
+  const out = new THREE.Vector3();
+  for (let i = 0; i < n; i++) {
+    const a = points[Math.max(0, i - 1)];
+    const b = points[Math.min(n - 1, i + 1)];
+    t.set(b[0] - a[0], b[1] - a[1], b[2] - a[2]).normalize();
+    side.crossVectors(t, up);
+    // Running straight up or down (the lead down the trunk): any sideways will do.
+    if (side.lengthSq() < 1e-6) side.set(1, 0, 0);
+    side.normalize();
+    lift.crossVectors(side, t).normalize();
+    for (let k = 0; k < CORD_SIDES; k++) {
+      const angle = (k / CORD_SIDES) * Math.PI * 2;
+      out.copy(side).multiplyScalar(Math.cos(angle)).addScaledVector(lift, Math.sin(angle));
+      const j = i * CORD_SIDES + k;
+      normal!.setXYZ(j, out.x, out.y, out.z);
+      position.setXYZ(j, points[i][0] + out.x * CORD_RADIUS, points[i][1] + out.y * CORD_RADIUS, points[i][2] + out.z * CORD_RADIUS);
+    }
+  }
+  position.needsUpdate = true;
+  normal!.needsUpdate = true;
+  geometry.computeBoundingSphere();
+  return geometry;
 }
 
 /** A five-pointed star, standing up and facing -y, `r` to its points. */
@@ -521,6 +575,11 @@ class TreeScene {
   setTree(height: number, lights: LightStyle) {
     this.disposeGroup(this.tree);
     this.glows = [];
+    // The old string of lights went with the old tree; none until this tree's is built.
+    this.bulbMesh = null;
+    this.cordMesh = null;
+    this.strand = null;
+    this.bulbs = [];
     this.shape = treeShape(height);
     const s = this.shape;
     const H = s.height;
@@ -606,20 +665,24 @@ class TreeScene {
     needles.castShadow = needles.receiveShadow = true;
     this.tree.add(needles);
 
-    // The string of lights: wire, bulbs and, for every few bulbs, a light that reaches what is near them.
-    // Pre-lit: bulbs clipped along the branches, their green wire hidden in the needles.
-    this.bulbs = buildLights(s, lights, sprays);
+    // The string of lights: one cord wound round the tree, its bulbs along it, and for every few bulbs a
+    // light that reaches what is near them.
+    this.strand = buildLights(s, lights);
+    this.cordPoints = this.strand.points;
+    this.bulbs = [...this.strand.bulbs];
+    this.cordMesh = new THREE.Mesh(
+      cordGeometry(this.cordPoints),
+      new THREE.MeshStandardMaterial({ color: '#1d3320', roughness: 0.5 }),
+    );
+    this.cordMesh.receiveShadow = true;
+    this.tree.add(this.cordMesh);
     const bulbRadius = 0.0024 + 0.001 * H;
     this.bulbMesh = new THREE.InstancedMesh(
       new THREE.SphereGeometry(bulbRadius, 18, 12).scale(1, 1, 1.5),
       new THREE.MeshBasicMaterial({ color: 0xffffff }),
       this.bulbs.length,
     );
-    this.bulbs.forEach((b, i) => {
-      m.makeTranslation(b.at[0], b.at[1], b.at[2]);
-      this.bulbMesh!.setMatrixAt(i, m);
-      this.bulbMesh!.setColorAt(i, tint.set(0xffffff));
-    });
+    this.bulbs.forEach((_, i) => this.bulbMesh!.setColorAt(i, tint.set(0xffffff)));
     this.tree.add(this.bulbMesh);
 
     // A light for each region of the tree (round it, and up it), standing for the bulbs there, so books
@@ -665,10 +728,7 @@ class TreeScene {
       from = to;
     }
     this.bulbMesh.count = this.bulbs.length;
-    this.bulbs.forEach((b, i) => {
-      m.makeTranslation(b.at[0], b.at[1], b.at[2]);
-      this.bulbMesh!.setMatrixAt(i, m);
-    });
+    this.placeBulbs();
 
     // The star, glowing, with a light of its own.
     const starSize = H * 0.055;
@@ -764,6 +824,25 @@ class TreeScene {
     });
     needles.instanceMatrix.needsUpdate = true;
     needles.computeBoundingSphere();
+  }
+
+  /** The string of lights, and its cord's path as it lies now, pushed in round the ornaments. */
+  private strand: Strand | null = null;
+  private cordPoints: Vec3[] = [];
+  private cordMesh: THREE.Mesh | null = null;
+
+  /** The cord along its path as it lies now, and each bulb on it where it is wired. */
+  private placeBulbs() {
+    const mesh = this.bulbMesh;
+    if (!mesh) return;
+    const m = new THREE.Matrix4();
+    this.bulbs.forEach((b, i) => {
+      m.makeTranslation(...bulbOn(this.cordPoints, b.point));
+      mesh.setMatrixAt(i, m);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.computeBoundingSphere();
+    if (this.cordMesh) cordGeometry(this.cordPoints, this.cordMesh.geometry);
   }
 
   /**
@@ -1002,6 +1081,10 @@ class TreeScene {
     ];
     const bent = new Map(this.shown().map((o) => [o.hung.spray, bentDirection(this.sprays[o.hung.spray], o.hung.dip)]));
     this.placeSprays(clearSprays(this.sprays, obstacles), bent);
+    if (this.strand) {
+      this.cordPoints = clearStrand(this.shape, this.strand.points, obstacles);
+      this.placeBulbs();
+    }
   }
 
   /**
