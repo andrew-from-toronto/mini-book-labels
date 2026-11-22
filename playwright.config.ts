@@ -39,9 +39,9 @@ export default defineConfig({
     { name: 'iphone', use: { ...devices['iPhone 15'] } },
     { name: 'iphone-landscape', use: { ...devices['iPhone 15 landscape'] } },
     { name: 'ipad', use: { ...devices['iPad Mini'] } },
-    // Other desktop engines, for the interaction tests only (reorder, add-book, updates): Firefox, and WebKit as Safari.
-    { name: 'firefox', testMatch: /(reorder|add-book|updates)\.spec/, use: { ...devices['Desktop Firefox'], viewport: { width: 1440, height: 900 } } },
-    { name: 'safari', testMatch: /(reorder|add-book|updates)\.spec/, use: { ...devices['Desktop Safari'], viewport: { width: 1440, height: 900 } } },
+    // Other desktop engines, for the interaction tests only (reorder, add-book, updates, tree): Firefox, and WebKit as Safari.
+    { name: 'firefox', testMatch: /(reorder|add-book|updates|tree)\.spec/, use: { ...devices['Desktop Firefox'], viewport: { width: 1440, height: 900 } } },
+    { name: 'safari', testMatch: /(reorder|add-book|updates|tree)\.spec/, use: { ...devices['Desktop Safari'], viewport: { width: 1440, height: 900 } } },
   ],
   webServer: {
     command: 'pnpm dev --port 5199 --strictPort',

@@ -25,9 +25,11 @@ import { preloadManifold } from './lib/bookModel';
 // the coffee dialog. Stripe's own script still loads only when someone opens that dialog.
 const loadBook3D = () => import('./components/Book3D');
 const loadCoffee = () => import('./components/CoffeeDialog');
+const loadTree3D = () => import('./components/Tree3D');
 const Book3D = lazy(loadBook3D);
+const Tree3D = lazy(loadTree3D);
 const CoffeeDialog = lazy(() => loadCoffee().then((m) => ({ default: m.CoffeeDialog })));
-preloadAll([loadBook3D, loadCoffee, preloadManifold]);
+preloadAll([loadBook3D, loadTree3D, loadCoffee, preloadManifold]);
 
 const DEFAULT_FILTERS: Filters = { statuses: ['read'], minRating: 0, from: '', to: '', sort: 'rating', count: 20 };
 /** Status given to books added by search, which survive loading a new library. */
@@ -404,8 +406,15 @@ export function App() {
               sheetCount={selected.length}
               onChange={(model) => setSettings((s) => ({ ...s, model }))}
               onShow3d={(openTab) => {
-                setView('3d');
-                if (openTab) setTab('preview');
+                if (openTab) {
+                  // The View in 3D button: the book itself.
+                  setView('3d');
+                  setTab('preview');
+                } else {
+                  // Changing an option shows its effect: on the 3D book from the print sheet, but the tree
+                  // shows it too (its books rehang from the new hook), so stay there.
+                  setView((v) => (v === 'sheet' ? '3d' : v));
+                }
               }}
             />
           </section>
@@ -502,7 +511,7 @@ export function App() {
         view={view}
         onView={setView}
         book3d={
-          view === '3d' && (
+          view === '3d' ? (
             <Suspense fallback={<p className="empty muted">Loading the 3D view...</p>}>
               <Book3D
                 book={book3d}
@@ -511,6 +520,12 @@ export function App() {
                 settings={settings}
               />
             </Suspense>
+          ) : (
+            view === 'tree' && (
+              <Suspense fallback={<p className="empty muted">Loading the tree...</p>}>
+                <Tree3D books={selected} coverOf={coverOf} customCovers={customCovers} settings={settings} />
+              </Suspense>
+            )
           )
         }
       />

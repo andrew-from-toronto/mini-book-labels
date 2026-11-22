@@ -23,11 +23,11 @@ interface Props {
   layoutKey: string;
   view: PreviewView;
   onView: (view: PreviewView) => void;
-  /** The 3D book, shown instead of the sheet in the 3D view. */
+  /** The 3D book or the tree, shown instead of the sheet in those views. */
   book3d: ReactNode;
 }
 
-export type PreviewView = 'sheet' | '3d';
+export type PreviewView = 'sheet' | '3d' | 'tree';
 
 export function Preview(props: Props) {
   const { pages, settings, activeId, expanded, onExpanded, layoutKey, view, onView } = props;
@@ -92,8 +92,11 @@ export function Preview(props: Props) {
           <button aria-pressed={sheetView} onClick={() => onView('sheet')}>
             Print sheet
           </button>
-          <button aria-pressed={!sheetView} onClick={() => onView('3d')}>
+          <button aria-pressed={view === '3d'} onClick={() => onView('3d')}>
             3D book
+          </button>
+          <button aria-pressed={view === 'tree'} onClick={() => onView('tree')}>
+            Tree
           </button>
         </div>
         {sheetView && activeId && (

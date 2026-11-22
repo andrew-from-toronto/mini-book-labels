@@ -214,6 +214,33 @@ body {
   height: 100%;
 }
 
+/* The tree view (Tree3D): its options sit in the bar under it and wrap on narrow screens. */
+.tree-bar {
+  flex-wrap: wrap;
+}
+
+.tree-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.tree-options select {
+  width: auto;
+}
+
+/* A custom tree height: a short number box with its unit beside it. */
+.tree-height {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.tree-height input {
+  width: 5.5em;
+}
+
 .book3d-bar {
   display: flex;
   gap: 8px;
