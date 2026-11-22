@@ -523,7 +523,7 @@ export function App() {
           ) : (
             view === 'tree' && (
               <Suspense fallback={<p className="empty muted">Loading the tree...</p>}>
-                <Tree3D books={selected} coverOf={coverOf} customCovers={customCovers} settings={settings} />
+                <Tree3D books={selected} coverOf={coverOf} customCovers={customCovers} settings={settings} focusId={activeId} />
               </Suspense>
             )
           )

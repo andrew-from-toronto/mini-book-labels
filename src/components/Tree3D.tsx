@@ -69,6 +69,8 @@ interface Props {
   coverOf: (book: Book) => CoverResult | undefined;
   customCovers: Record<string, CustomCover>;
   settings: Settings;
+  /** The book open in the list: the camera flies to its ornament, and back out when it closes. */
+  focusId?: string | null;
 }
 
 /** A tree can only hold so many before it is all books, and each is drawn; more than this are left off. */
@@ -473,17 +475,23 @@ class TreeScene {
     this.frame = requestAnimationFrame(this.loop);
     if (!this.onScreen || document.hidden) return;
     const time = this.clock.getElapsedTime();
-    const dt = Math.min(0.1, time - this.lastTime);
+    // The physics steps at most 0.1 s a frame, for stability; a flight keeps to the clock, so it takes
+    // the same 0.8 s on a slow device, in fewer steps.
+    const elapsed = time - this.lastTime;
+    const dt = Math.min(0.1, elapsed);
     this.lastTime = time;
     this.twinkle(this.still ? 0 : time);
     this.simulate(dt);
     if (this.flight) {
       const f = this.flight;
-      f.t = Math.min(1, f.t + dt / 0.8);
+      f.t = Math.min(1, f.t + elapsed / 0.8);
       const e = f.t * f.t * (3 - 2 * f.t);
       this.camera.position.lerpVectors(f.from, f.to, e);
       this.controls.target.lerpVectors(f.fromTarget, f.toTarget, e);
-      if (f.t >= 1) this.flight = null;
+      if (f.t >= 1) {
+        this.flight = null;
+        this.host.dataset.focused = this.focusId ?? '';
+      }
     }
     this.controls.update();
     this.composer.render();
@@ -917,6 +925,10 @@ class TreeScene {
 
     this.syncOrnaments();
     this.clearNeedles();
+    if (this.focusId) {
+      const mesh = this.books.get(this.focusId)?.mesh;
+      if (mesh?.parent) this.flyToOrnament(mesh);
+    }
   }
 
   /**
@@ -1042,20 +1054,41 @@ class TreeScene {
     ray.setFromCamera(pointer, this.camera);
     const meshes = [...this.books.values()].map((e) => e.mesh).filter((mesh) => mesh.parent);
     const hit = ray.intersectObjects(meshes, false)[0];
-    this.controls.autoRotate = false;
-    this.moved = true;
-    if (!hit) {
-      this.flyTo(this.home.position, this.home.target);
+    if (hit) this.flyToOrnament(hit.object);
+    else this.flyHome();
+  }
+
+  /** The book open in the list, if any: flown to now, or once it is hung. */
+  private focusId: string | null = null;
+
+  /** Flies to a book's ornament, or (given null, after one was shown) back out to the whole tree. */
+  focusBook(id: string | null) {
+    const before = this.focusId;
+    this.focusId = id;
+    if (id === null) {
+      if (before !== null) this.flyHome();
       return;
     }
-    const box = new THREE.Box3().setFromObject(hit.object);
-    const centre = box.getCenter(new THREE.Vector3());
+    const mesh = this.books.get(id)?.mesh;
+    // Not hung yet (the tree or the book is still being built): hang() flies there when it is.
+    if (mesh?.parent) this.flyToOrnament(mesh);
+  }
+
+  /** Close in front of an ornament, a little above it, facing it from outside the tree. */
+  private flyToOrnament(object: THREE.Object3D) {
+    const centre = new THREE.Box3().setFromObject(object).getCenter(new THREE.Vector3());
     const out = new THREE.Vector3(centre.x, centre.y, 0).normalize();
     const distance = this.bookHeight * 4.5;
     this.flyTo(centre.clone().add(out.multiplyScalar(distance)).add(new THREE.Vector3(0, 0, this.bookHeight * 0.6)), centre);
   }
 
+  private flyHome() {
+    this.flyTo(this.home.position, this.home.target);
+  }
+
   private flyTo(position: THREE.Vector3, target: THREE.Vector3) {
+    this.controls.autoRotate = false;
+    this.moved = true;
     this.flight = {
       from: this.camera.position.clone(),
       to: position.clone(),
@@ -1106,7 +1139,7 @@ class TreeScene {
 /** Fewer pixels per label than the 3D book: there are many, each small on screen until zoomed to. */
 const TREE_PX_PER_MM = 7;
 
-export default function Tree3D({ books, coverOf, customCovers, settings }: Props) {
+export default function Tree3D({ books, coverOf, customCovers, settings, focusId = null }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const scene = useRef<TreeScene | null>(null);
   const [state, setState] = useState<'building' | 'ready' | 'failed'>('building');
@@ -1179,6 +1212,11 @@ export default function Tree3D({ books, coverOf, customCovers, settings }: Props
       current = false;
     };
   }, [height, width, spine, model]);
+
+  // The book open in the list: fly to its ornament, and back out when it closes.
+  useEffect(() => {
+    scene.current?.focusBook(focusId);
+  }, [focusId]);
 
   const ids = books.map((b) => b.id).join('\n');
   useEffect(() => {

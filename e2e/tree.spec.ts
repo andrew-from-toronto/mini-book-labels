@@ -85,3 +85,22 @@ test('a custom height, in feet or centimetres, is remembered', async ({ page }) 
   await expect(page.getByRole('combobox', { name: 'Height unit' })).toHaveValue('cm');
   expect(errors).toEqual([]);
 });
+
+test('clicking a book in the list flies to its ornament on the tree, and back out when closed', async ({ page }) => {
+  test.skip((page.viewportSize()?.width ?? 0) < 900, 'needs the list and the tree side by side');
+  test.setTimeout(120_000);
+  await page.route(/openlibrary\.org|\/api\/(ol|cover)\//, (route) => route.fulfill({ status: 404, body: '' }));
+  await page.route('**/static.cloudflareinsights.com/**', (route) => route.fulfill({ contentType: 'text/javascript', body: '' }));
+  await page.goto('./');
+  await page.getByRole('button', { name: /Try a sample/ }).first().click();
+  await page.getByRole('button', { name: 'Tree', exact: true }).click();
+  await expect(page.locator('.tree-bar .muted')).toContainText(/\d+ books\./, { timeout: 60_000 });
+  const card = page.locator('.book').nth(3);
+  const id = await card.getAttribute('data-drag-id');
+  await card.locator('.book-head').click();
+  // Still on the tree, and the camera has landed in front of that book.
+  await expect(page.getByRole('button', { name: 'Tree', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.tree3d .book3d-canvas')).toHaveAttribute('data-focused', id!, { timeout: 30_000 });
+  await card.locator('.book-head').click();
+  await expect(page.locator('.tree3d .book3d-canvas')).toHaveAttribute('data-focused', '', { timeout: 30_000 });
+});
