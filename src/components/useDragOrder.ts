@@ -6,6 +6,10 @@ const LONG_PRESS_MS = 350;
 /** How far a finger may wander during the long press, and a mouse before a drag starts, in px. */
 const TOUCH_SLOP = 10;
 const MOUSE_SLOP = 5;
+/** After a drop, any click this soon is the release's own. */
+const CLICK_NOW_MS = 50;
+/** And a click on the dropped card this soon still is (Safari's can come late). */
+const CLICK_LATE_MS = 600;
 /** Within this many px of the scroll area's top or bottom, the list scrolls while dragging. */
 const EDGE = 70;
 const MAX_SCROLL_SPEED = 14;
@@ -225,14 +229,20 @@ export function useDragOrder(ids: string[], onMove: (id: string, to: number) => 
       setDragId(null);
       setSlot(null);
       if (!drop) return;
-      // The release would also click the card, opening it; swallow that one click. Some browsers send
-      // no click after a drag, so the swallow stands down after a moment rather than eating a later one.
+      // The release would also click the card, opening it; swallow that one click. Any click straight
+      // away, or one on the dropped card for a while longer: Safari can send it well after the release.
+      // Some browsers send no click at all, so the swallow stands down rather than eat a later one.
+      const droppedAt = performance.now();
       const swallow = (ev: Event) => {
+        const late = performance.now() - droppedAt;
+        if (late > CLICK_NOW_MS && !(ev.target instanceof Node && d.el.contains(ev.target))) return;
         ev.stopPropagation();
         ev.preventDefault();
+        window.removeEventListener('click', swallow, { capture: true });
+        if (late > CLICK_NOW_MS) track('drag', { outcome: 'late-click', pointer: d.pointerType, ms: Math.round(late) });
       };
-      window.addEventListener('click', swallow, { capture: true, once: true });
-      setTimeout(() => window.removeEventListener('click', swallow, { capture: true }), 50);
+      window.addEventListener('click', swallow, { capture: true });
+      setTimeout(() => window.removeEventListener('click', swallow, { capture: true }), CLICK_LATE_MS);
     }
 
     window.addEventListener('pointermove', move);

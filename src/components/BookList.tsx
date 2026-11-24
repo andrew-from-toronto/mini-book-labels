@@ -390,7 +390,7 @@ export function BookList({
                 'book',
                 active && 'active',
                 !on && 'off',
-                !active && listed.length > 1 && 'movable',
+                listed.length > 1 && 'movable',
                 dragId === b.id && 'dragging',
                 // The drop marker sits in the gap before this card, or after the last one.
                 slot === i && 'drop-before',
@@ -398,8 +398,14 @@ export function BookList({
               ]
                 .filter(Boolean)
                 .join(' ')}
-              // The open card has sliders, which dragging the card would fight; a try is still reported.
-              onPointerDown={(e) => onPointerDown(e, b.id, active ? 'open' : listed.length < 2 ? 'single' : undefined)}
+              // The open card drags by its header only: below it are sliders, which a drag would fight.
+              onPointerDown={(e) =>
+                onPointerDown(
+                  e,
+                  b.id,
+                  listed.length < 2 ? 'single' : active && !(e.target instanceof Element && e.target.closest('.book-head')) ? 'open' : undefined,
+                )
+              }
             >
               <div
                 className="book-head"
