@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
+import { track } from '../lib/telemetry';
 import { idSmallUrl, lookupIsbn } from '../lib/covers';
 import { parseIsbn } from '../lib/csv';
 import { isbnOfEdition, MIN_QUERY, searchBooks, type SearchResult } from '../lib/search';
@@ -53,6 +54,7 @@ export function BookSearch({ onAdd, onError }: Props) {
         .then((r) => {
           setResults(r);
           setHighlight(0);
+          track('search', { found: r.length > 0, results: r.length });
         })
         .catch(() => {
           // An abort just means a newer search took over.

@@ -5,6 +5,10 @@ import { decodeOrder } from '../lib/orderCode';
 import { formatCad } from '../lib/pricing';
 import { preloadManifold } from '../lib/bookModel';
 import { preloadAll } from '../lib/preload';
+import { api } from '../lib/adminApi';
+import { AdminNav } from './AdminNav';
+import { AdminFeedback } from './AdminFeedback';
+import { AdminUsage } from './AdminUsage';
 
 const loadBook3D = () => import('./Book3D');
 const Book3D = lazy(loadBook3D);
@@ -131,19 +135,15 @@ const stripePayment = (o: Order) =>
 
 const stateClass = (o: Order) => `admin-state state-${orderState(o).toLowerCase().replace(/\s+/g, '-')}`;
 
-async function api<T>(path: string, body?: unknown): Promise<T> {
-  const res = await fetch(`/api/admin/${path}`, {
-    method: body === undefined ? 'GET' : 'POST',
-    headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  const data = (await res.json().catch(() => ({}))) as T & { error?: string };
-  if (!res.ok) throw new Error(data.error ?? `Request failed (${res.status})`);
-  return data;
-}
-
 /** Orders, and everything to fulfil one: the model, a Chit Chats label, shipping and tracking. */
 export function AdminPage() {
+  const view = new URLSearchParams(location.search).get('view');
+  if (view === 'usage') return <AdminUsage />;
+  if (view === 'feedback') return <AdminFeedback />;
+  return <AdminOrders />;
+}
+
+function AdminOrders() {
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [filter, setFilter] = useState<Filter>('to-do');
   // ?order=<id> opens that order: the new-order email links here.
@@ -198,6 +198,7 @@ export function AdminPage() {
             Mini Book Labels
           </a>
         </header>
+        <AdminNav current="orders" />
         {orders && (
           <div className="vendor-modes">
             {providers.length ? (

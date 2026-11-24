@@ -39,6 +39,8 @@ export interface CheckoutRequest {
   quantity: number;
   /** The campaign link that brought the buyer (src/lib/attribution.ts), if any. */
   source?: unknown;
+  /** The buyer's anonymous usage id (src/lib/telemetry.ts), for counting the order as paid. */
+  visitor?: unknown;
 }
 
 /** The parameters for a session, or an error for the buyer. Separate from the API call so it can be tested. */
@@ -78,7 +80,12 @@ export function sessionParams(
       // Shipping options are added once the address is known (handleShipping).
       shipping_address_collection: { allowed_countries: [...SHIPPING_COUNTRIES] },
       client_reference_id: code,
-      metadata: { order_code: code, quantity: String(price.quantity), ...cleanSource(body.source) },
+      metadata: {
+        order_code: code,
+        quantity: String(price.quantity),
+        ...cleanSource(body.source),
+        ...(typeof body.visitor === 'string' && /^[a-z0-9-]{8,40}$/.test(body.visitor) && { visitor: body.visitor }),
+      },
       payment_intent_data: { metadata: { order_code: code } },
       // Where Stripe returns after payment, and after a bank's own confirmation page if one is needed.
       return_url: `${origin}/thanks/?session_id={CHECKOUT_SESSION_ID}`,

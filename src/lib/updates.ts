@@ -35,7 +35,7 @@ export async function checkForUpdate(now = false) {
   if (shown || document.visibilityState !== 'visible' || (!now && Date.now() - lastCheck < MIN_GAP_MS)) return;
   lastCheck = Date.now();
   const latest = await latestBuild();
-  if (latest && latest !== BUILD_ID && (BUILD_ID !== 'dev' || forced())) showBanner('A new version of the site is out.');
+  if (latest && latest !== BUILD_ID && (BUILD_ID !== 'dev' || forced())) showBanner('Mini Book Labels has been updated. Reload to get the latest version.');
 }
 
 /** A small bar at the bottom of the page, styled inline so it works on every page whatever its CSS. */

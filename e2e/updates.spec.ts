@@ -13,7 +13,7 @@ test('a newer build is offered as a reload when the tab comes back', async ({ pa
     route.fulfill({ contentType: 'application/json', body: JSON.stringify({ build: latest }) }),
   );
   await page.goto('./');
-  const banner = page.getByRole('status').filter({ hasText: 'new version' });
+  const banner = page.getByRole('status').filter({ hasText: 'has been updated' });
 
   // The same build: nothing to offer.
   await page.evaluate(() => dispatchEvent(new Event('focus')));

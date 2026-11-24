@@ -10,6 +10,9 @@
  *   POST orders/{id}/cancel     refunds the payment in full, voids any label not yet with the carrier,
  *                               marks the order cancelled and emails the buyer
  *   POST tracking               checks every labeled and shipped order's tracking
+ *   GET  usage?days=30          usage numbers from Analytics Engine (worker/usage.ts): 7, 30 or 90 days
+ *   GET  feedback               feedback messages, newest first
+ *   POST feedback/{id}/status   marks a message new or done: {status}
  *
  * Every call needs Cloudflare Access (worker/access.ts); changes must also come from this site.
  */
@@ -32,6 +35,8 @@ import {
   type ShippingEnv,
 } from './shipping';
 import { refreshTracking } from './tracking';
+import { allFeedback, setFeedbackStatus } from './feedback';
+import { PERIODS, usageReport, type UsageQueryEnv } from './usage';
 
 /**
  * An order moves new (paid) -> printing -> packing by hand, to labeled when its label is bought, then on
@@ -40,7 +45,7 @@ import { refreshTracking } from './tracking';
 export const MANUAL_STAGES = ['paid', 'printing', 'packing'] as const;
 export const ORDER_STATUSES = [...MANUAL_STAGES, 'labeled', 'shipped', 'delivered', 'cancelled'] as const;
 
-export type AdminEnv = AccessEnv & ShippingEnv & ShipFromEnv & MailEnv & { ORDERS: D1Database };
+export type AdminEnv = AccessEnv & ShippingEnv & ShipFromEnv & MailEnv & UsageQueryEnv & { ORDERS: D1Database };
 
 /** An orders row. */
 export interface OrderRow {
@@ -163,6 +168,23 @@ export async function handleAdmin(
 
   if (path === 'orders' && request.method === 'GET') {
     return json(200, { orders: await allOrders(db), providers: configuredProviders(env) });
+  }
+
+  if (path === 'usage' && request.method === 'GET') {
+    if (!env.ANALYTICS_API_TOKEN || !env.CF_ACCOUNT_ID) return json(200, { missing: ['ANALYTICS_API_TOKEN', 'CF_ACCOUNT_ID'].filter((k) => !env[k as keyof UsageQueryEnv]) });
+    const days = Number(new URL(request.url).searchParams.get('days'));
+    return json(200, await usageReport(env, (PERIODS as readonly number[]).includes(days) ? days : 30, fetcher));
+  }
+
+  if (path === 'feedback' && request.method === 'GET') return json(200, { feedback: await allFeedback(db) });
+
+  const feedbackMatch = path.match(/^feedback\/(\d+)\/status$/);
+  if (feedbackMatch && request.method === 'POST') {
+    if (!fromOwnSite(request)) return json(403, { error: 'Admin changes start from this site.' });
+    const body = (await request.json().catch(() => ({}))) as { status?: string };
+    if (body.status !== 'new' && body.status !== 'done') return json(400, { error: 'Not a status.' });
+    await setFeedbackStatus(db, Number(feedbackMatch[1]), body.status);
+    return json(200, { feedback: await allFeedback(db) });
   }
 
   if (path === 'tracking' && request.method === 'POST') {

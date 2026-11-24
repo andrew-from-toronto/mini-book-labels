@@ -272,6 +272,21 @@ footer {
   line-height: 1;
 }
 
+/* Feedback uses the coffee dialog's frame. Its website field is a trap for bots, kept off screen. */
+.feedback-dialog textarea {
+  font: inherit;
+  color: var(--ink);
+  resize: vertical;
+}
+
+.feedback-website {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
 .coffee-choose,
 .coffee-thanks {
   display: grid;
@@ -803,6 +818,189 @@ a.button {
 .admin-main {
   overflow-y: auto;
   background: var(--bg);
+}
+
+/* Admin's sections: Orders, Usage, Feedback. */
+.admin-nav {
+  display: flex;
+  gap: 4px;
+}
+
+.admin-nav a {
+  padding: 4px 10px;
+  border-radius: 6px;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.admin-nav a[aria-current='page'] {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* Usage and Feedback: one column of cards. */
+.admin-usage {
+  display: grid;
+  gap: 16px;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.admin-usage-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.usage-card {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+
+.usage-card h2 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.usage-card p {
+  margin: 0 0 8px;
+}
+
+.usage-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.usage-tile {
+  display: grid;
+  gap: 2px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  font-size: 0.85rem;
+}
+
+.usage-tile strong {
+  font-size: 1.9rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+.usage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.usage-daily {
+  margin: 0;
+}
+
+.usage-daily svg {
+  display: block;
+  width: 100%;
+  height: 140px;
+}
+
+.usage-col {
+  fill: var(--accent);
+}
+
+.usage-hit {
+  fill: transparent;
+}
+
+.usage-hit:hover {
+  fill: color-mix(in srgb, var(--ink) 6%, transparent);
+}
+
+.usage-axis {
+  stroke: var(--line);
+  stroke-width: 0.3;
+  vector-effect: non-scaling-stroke;
+}
+
+.usage-daily figcaption {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 0.8rem;
+}
+
+.usage-table,
+.usage-funnel {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-table th,
+.usage-table td,
+.usage-funnel th,
+.usage-funnel td {
+  padding: 4px 6px;
+  text-align: left;
+  font-weight: normal;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+}
+
+.usage-table thead th {
+  color: var(--muted);
+}
+
+.usage-value {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.usage-bar-cell {
+  width: 45%;
+}
+
+.usage-bar {
+  display: block;
+  min-width: 2px;
+  height: 10px;
+  border-radius: 0 4px 4px 0;
+  background: var(--accent);
+}
+
+.usage-table .num,
+.usage-funnel .num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.feedback-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.feedback-message {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.feedback-meta {
+  font-size: 0.85rem;
+}
+
+.feedback-done {
+  opacity: 0.6;
 }
 
 .admin-empty {

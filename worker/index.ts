@@ -2,9 +2,11 @@
  * The site's Worker. Cloudflare serves the built site (dist) directly; only /api/* reaches this code.
  */
 import Stripe from 'stripe';
-import { handleTelemetry } from './telemetry';
+import { handleTelemetry, writeUsage, type UsageEnv } from './telemetry';
 import type { AccessEnv } from './access';
 import { handleAdmin } from './admin';
+import { handleFeedback } from './feedback';
+import type { UsageQueryEnv } from './usage';
 import { json } from './cache';
 import { handleCheckout, handleShipping } from './checkout';
 import type { ShippingEnv } from './shipping';
@@ -18,7 +20,7 @@ import { refreshTracking } from './tracking';
 import { handleWebhook } from './webhook';
 
 /** Secrets and bindings: .dev.vars locally, Worker secrets and wrangler.jsonc in production. */
-export interface Env extends ShippingEnv, ShipFromEnv, MailEnv, AccessEnv {
+export interface Env extends ShippingEnv, ShipFromEnv, MailEnv, AccessEnv, UsageEnv, UsageQueryEnv {
   STRIPE_API_KEY: string;
   STRIPE_PUBLISHABLE_KEY: string;
   STRIPE_WEBHOOK_SECRET: string;
@@ -44,6 +46,13 @@ export default {
         const stripe = stripeFor(env);
         return handleWebhook(request, env, stripe, async (order, session) => {
           const details = await orderDetails(session, stripe, url.origin);
+          writeUsage(env, 'order', {
+            step: 'paid',
+            visitor: session.metadata?.visitor ?? null,
+            quantity: Number(session.metadata?.quantity ?? 1),
+            amount: session.amount_total ?? 0,
+            source: session.metadata?.utm_source ?? null,
+          });
           if (!details) return;
           await recordDelivery(env.ORDERS, order.session_id, details);
           await emailOrder(env.ORDERS, env, order.session_id, details);
@@ -52,7 +61,8 @@ export default {
     }
 
     if (path.startsWith('/api/admin/')) return handleAdmin(request, env, stripeFor(env));
-    if (path === '/api/t') return handleTelemetry(request);
+    if (path === '/api/t') return handleTelemetry(request, env);
+    if (path === '/api/feedback') return handleFeedback(request, env, (p) => ctx.waitUntil(p));
     if (request.method !== 'GET' && request.method !== 'HEAD') return json(405, { error: 'Method not allowed.' });
     const context = { cache: caches.default, waitUntil: (p: Promise<unknown>) => ctx.waitUntil(p) };
     if (path.startsWith('/api/ol/') || path.startsWith('/api/cover/')) return handleOpenLibrary(request, context);

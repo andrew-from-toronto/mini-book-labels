@@ -19,7 +19,8 @@ import {
   type OutputMode,
   type ShopSettings,
 } from '../lib/output';
-import { cricutWidths, makeFiles, shopWarnings, type Download } from '../lib/printFiles';
+import { coverCounts, cricutWidths, makeFiles, scaleText, shopWarnings, type Download } from '../lib/printFiles';
+import { scrub, track } from '../lib/telemetry';
 import type { Book, CustomCover, PaperKey, Settings } from '../lib/types';
 
 interface Props {
@@ -87,15 +88,35 @@ export function OutputPanel({ settings, onChange, pages, labelCount, coverOf, cu
   async function make() {
     setError('');
     setBusy({ done: 0, total: labelCount });
+    const started = performance.now();
+    // Labels sent out: the north star (lib/usage.ts).
+    const report = (ok: boolean, error = '') =>
+      track('output', {
+        mode,
+        ok,
+        // Messages name the book in quotes; titles never leave the browser.
+        error: scrub(error).slice(0, 120),
+        labels: labelCount,
+        sheets: pages.length,
+        ms: Math.round(performance.now() - started),
+        scale: scaleText(settings),
+        back: settings.back ?? 'blurb',
+        style: settings.style,
+        ...(mode === 'shop' && { preset: shop.preset, colour: shop.colour, cut: shop.cut }),
+        ...coverCounts(pages.flat(), latestCover.current),
+      });
     try {
       const files = await makeFiles({ pages, coverOf: (b) => latestCover.current(b), customCovers, settings }, (done, total) => setBusy({ done, total }));
+      report(true);
       setMade((old) => {
         old.forEach((f) => URL.revokeObjectURL(f.url));
         return files.map((f) => ({ ...f, url: URL.createObjectURL(new Blob([f.data as BlobPart], { type: f.type })) }));
       });
       madeKey.current = key;
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const message = e instanceof Error ? e.message : String(e);
+      setError(message);
+      report(false, message);
     } finally {
       setBusy(null);
     }

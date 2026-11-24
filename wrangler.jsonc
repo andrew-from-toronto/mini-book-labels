@@ -25,6 +25,10 @@
       "migrations_dir": "migrations"
     }
   ],
+  // Anonymous usage events (worker/telemetry.ts, src/lib/usage.ts), read back by admin's usage page.
+  "analytics_engine_datasets": [{ "binding": "USAGE", "dataset": "mini_book_labels_usage" }],
+  // The account admin's usage page queries (worker/usage.ts), with the ANALYTICS_API_TOKEN secret.
+  "vars": { "CF_ACCOUNT_ID": "01b44fd7c0832ac1c1dc49b2a4ba859e" },
   // Checks shipped orders' tracking with Chit Chats every 4 hours (worker/tracking.ts).
   "triggers": { "crons": ["0 */4 * * *"] },
   "observability": { "enabled": true }

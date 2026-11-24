@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { HookPosition, HookSide, ModelOptions } from '../lib/bookModel';
 import { downloadModel, type ModelFormat } from '../lib/modelDownload';
+import { matchingScale } from '../lib/scales';
+import { track } from '../lib/telemetry';
 import { costOfBook, formatCad } from '../lib/pricing';
 import { orderUrl, PRINTABLE_HEIGHT, printable, shopVisible } from '../lib/shop';
 import type { Dims } from '../lib/scales';
@@ -38,6 +40,8 @@ export function ModelPanel({ dims, options, settings, sheetCount, onChange, onSh
     setFailed(false);
     try {
       await downloadModel(dims, options, format);
+      const ratio = matchingScale(dims);
+      track('model-download', { format, scale: ratio ? `1:${ratio}` : 'custom size', hook: options.hook ? options.hookPosition : 'none' });
     } catch {
       setFailed(true);
     } finally {

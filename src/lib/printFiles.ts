@@ -25,6 +25,18 @@ export function labelOptions(cover: CoverResult | undefined, custom: CustomCover
   };
 }
 
+/** How the books' covers were found: looked up, generated (none found), or replaced by hand. */
+export function coverCounts(books: Book[], coverOf: (b: Book) => CoverResult | undefined) {
+  const counts = { found: 0, generated: 0, replaced: 0 };
+  for (const b of books) {
+    const source = coverOf(b)?.source;
+    if (source === 'generated') counts.generated++;
+    else if (source === 'custom' || source === 'wrap') counts.replaced++;
+    else if (source) counts.found++;
+  }
+  return counts;
+}
+
 /** "1:7", or "custom size". */
 export function scaleText(s: Settings): string {
   const ratio = matchingScale(s);

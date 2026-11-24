@@ -46,6 +46,14 @@ Section 5 of the app offers a free 3MF (or STL) of a hardcover mini book sized t
 
 The page edges have grooves so they read as pages. The model prints lying on its front cover with no supports: the page lines then follow the print layers, the back cover's overhang has a 45 degree bevel under it, and the hook sits flush with the front cover.
 
+## Usage numbers and feedback
+
+The pages send anonymous usage events (`src/lib/telemetry.ts`; the events and their fields are in `src/lib/usage.ts`): a visit, books coming in, cover changes, previews opened, labels printed or made into files (the number to grow), the 3D model downloaded, the shop's steps, backups, drags and errors. They carry no book titles, names, emails or addresses. Each carries a random visitor id, kept in the browser beside the labels and in backups, and a random id per tab. The Worker (`worker/telemetry.ts`) adds the device type, browser and country, and writes each event to Workers Analytics Engine (dataset `mini_book_labels_usage`); drag and error reports also go to Workers Logs. Paid orders are counted by the Worker, against the visitor id sent with checkout.
+
+`/admin/?view=usage` shows them for 7, 30 or 90 days: labels delivered, visitors, orders, how covers were found, labels and visitors per day, the funnel from the label maker to a paid order, and the most common values of each event (`worker/usage.ts`). It needs a Cloudflare API token with Account Analytics: Read, set with `npx wrangler secret put ANALYTICS_API_TOKEN`.
+
+The app's footer has a Feedback form. Messages are saved to the `feedback` table (`worker/feedback.ts`, `migrations/0009_feedback.sql`), emailed to `ORDER_NOTIFY_TO` with the sender as reply-to when they gave an email, and listed at `/admin/?view=feedback`.
+
 ## Development
 
 ```

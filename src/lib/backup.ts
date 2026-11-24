@@ -3,6 +3,7 @@
  * site data wipes; a backup file keeps it safe and moves it to another browser or computer.
  */
 import type { SavedState } from './storage';
+import { isVisitor } from './telemetry';
 
 const FORMAT = 'mini-book-labels-backup';
 /** Bump when the saved shape changes in a way older copies of the app cannot read. */
@@ -49,6 +50,7 @@ export function parseBackup(text: string): Partial<SavedState> {
     ...(isObject(data.overrides) && { overrides: data.overrides as SavedState['overrides'] }),
     ...(isObject(data.customCovers) && { customCovers: data.customCovers as SavedState['customCovers'] }),
     ...(isObject(data.panes) && { panes: data.panes as SavedState['panes'] }),
+    ...(isVisitor(data.visitor) && { visitor: data.visitor }),
     ...(Array.isArray(data.order) &&
       data.order.every((id) => typeof id === 'string') && { order: data.order as string[] }),
   };

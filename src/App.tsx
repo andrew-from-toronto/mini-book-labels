@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { AfterPrintDialog } from './components/AfterPrintDialog';
 import { BookList } from './components/BookList';
 import { BookSearch, type FoundBook } from './components/BookSearch';
@@ -21,6 +21,9 @@ import type { Book, CustomCover, Filters, Settings } from './lib/types';
 import { useCovers } from './lib/useCovers';
 import { preloadAll } from './lib/preload';
 import { preloadManifold } from './lib/bookModel';
+import { adoptVisitor, currentVisitor, track } from './lib/telemetry';
+import { coverCounts, scaleText } from './lib/printFiles';
+import { coverChange } from './lib/usageEvents';
 
 // three.js is large, so the 3D view is split off and loads after the page has (preloadAll); likewise
 // the coffee dialog. Stripe's own script still loads only when someone opens that dialog.
@@ -30,6 +33,7 @@ const loadTree3D = () => import('./components/Tree3D');
 const Book3D = lazy(loadBook3D);
 const Tree3D = lazy(loadTree3D);
 const CoffeeDialog = lazy(() => loadCoffee().then((m) => ({ default: m.CoffeeDialog })));
+const FeedbackDialog = lazy(() => import('./components/FeedbackDialog').then((m) => ({ default: m.FeedbackDialog })));
 preloadAll([loadBook3D, loadTree3D, loadCoffee, preloadManifold]);
 
 const DEFAULT_FILTERS: Filters = { statuses: ['read'], minRating: 0, from: '', to: '', sort: 'rating', count: 20 };
@@ -79,15 +83,21 @@ export function App() {
   const [saved] = useState(loadState);
   // Back from a bank's own check on a coffee: open straight to the thank-you, and tidy the address.
   const [coffeeThanks] = useState(() => new URLSearchParams(location.search).get('coffee') === 'thanks');
-  const [coffee, setCoffee] = useState(coffeeThanks);
+  const [coffee, setCoffeeOpen] = useState(coffeeThanks);
+  const setCoffee = (open: boolean) => {
+    if (open) track('coffee', { step: 'opened' });
+    setCoffeeOpen(open);
+  };
   useEffect(() => {
     if (!coffeeThanks) return;
+    track('coffee', { step: 'paid' });
     const params = new URLSearchParams(location.search);
     params.delete('coffee');
     const query = params.toString();
     history.replaceState(null, '', `${location.pathname}${query ? `?${query}` : ''}${location.hash}`);
   }, [coffeeThanks]);
   const [afterPrint, setAfterPrint] = useState(false);
+  const [feedback, setFeedback] = useState(false);
 
   // After the sheet is printed (the button or Ctrl+P), offer the books once a visit.
   useEffect(() => {
@@ -177,7 +187,9 @@ export function App() {
   async function loadFile(file: File | undefined) {
     if (!file) return;
     try {
-      replaceLibrary(parseLibraryCsv(await file.text()).books);
+      const library = parseLibraryCsv(await file.text());
+      replaceLibrary(library.books);
+      track('library', { how: library.source, books: library.books.length });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -189,15 +201,38 @@ export function App() {
    */
   function loadSample() {
     const perPage = grid.perPage || gridFor(DEFAULT_SETTINGS).perPage;
-    replaceLibrary(sampleLibrary(perPage));
+    const sample = sampleLibrary(perPage);
+    replaceLibrary(sample);
+    track('library', { how: 'sample', books: sample.length });
     setFilters({ ...DEFAULT_FILTERS, count: Math.max(DEFAULT_FILTERS.count, perPage) });
   }
+
+  // Labels printed at home: the north star's home share (lib/usage.ts). The print dialog opening counts,
+  // whether from the button or Ctrl+P.
+  const printReport = useRef<() => void>(() => {});
+  printReport.current = () =>
+    track('output', {
+      mode: 'home',
+      ok: true,
+      labels: selected.length,
+      sheets: pages.length,
+      scale: scaleText(settings),
+      back: settings.back ?? 'blurb',
+      style: settings.style,
+      ...coverCounts(selected, coverOf),
+    });
+  useEffect(() => {
+    const before = () => printReport.current();
+    window.addEventListener('beforeprint', before);
+    return () => window.removeEventListener('beforeprint', before);
+  }, []);
 
   const libraryBooks = books.filter((b) => b.status !== ADDED);
   const sampleLoaded = isSample(libraryBooks);
 
   function backUp() {
-    saveFile(makeBackup({ books, filters, settings, overrides, customCovers, panes, order }), backupFileName(), 'application/json');
+    saveFile(makeBackup({ books, filters, settings, overrides, customCovers, panes, order, visitor: currentVisitor() }), backupFileName(), 'application/json');
+    track('data', { action: 'backup', books: books.length });
   }
 
   async function restore(file: File | undefined) {
@@ -211,6 +246,8 @@ export function App() {
       ) {
         return;
       }
+      adoptVisitor(backup.visitor);
+      track('data', { action: 'restore', books: count });
       setBooks(backup.books ?? []);
       setFilters({ ...DEFAULT_FILTERS, ...backup.filters });
       setSettings(withDefaults(backup.settings));
@@ -228,6 +265,7 @@ export function App() {
 
   function startOver() {
     if (!window.confirm('Remove all books, covers and settings from this browser?')) return;
+    track('data', { action: 'start-over', books: books.length });
     setBooks([]);
     setFilters(DEFAULT_FILTERS);
     setSettings(DEFAULT_SETTINGS);
@@ -255,6 +293,7 @@ export function App() {
       lastRead: null,
     };
     setBooks((bs) => (bs.some((b) => b.id === id) ? bs : [...bs, book]));
+    track('book-added', { how: found.blank ? 'blank' : 'search' });
     setOverrides((o) => ({ ...o, [id]: true }));
     setError('');
     // Open the new book's card, so its cover can be checked or swapped straight away.
@@ -437,6 +476,11 @@ export function App() {
               <a href="https://github.com/andrew-from-toronto/mini-book-labels">Source</a>
             </li>
             <li>
+              <button type="button" className="link" onClick={() => setFeedback(true)}>
+                Feedback
+              </button>
+            </li>
+            <li>
               <button type="button" className="link" onClick={() => setCoffee(true)}>
                 Buy me a coffee
               </button>
@@ -446,6 +490,11 @@ export function App() {
             Covers from <a href="https://openlibrary.org">Open Library</a>
           </p>
           {afterPrint && <AfterPrintDialog settings={settings} sheetCount={selected.length} onCoffee={() => setCoffee(true)} onClose={() => setAfterPrint(false)} />}
+          {feedback && (
+            <Suspense fallback={null}>
+              <FeedbackDialog onClose={() => setFeedback(false)} />
+            </Suspense>
+          )}
           {coffee && (
             <Suspense fallback={null}>
               <CoffeeDialog thanks={coffeeThanks} onClose={() => setCoffee(false)} />
@@ -477,9 +526,11 @@ export function App() {
             onMove={(id, to) => setOrder(moveBook(listed, id, to))}
             onResetOrder={() => setOrder([])}
             onEditBook={(id, patch) => setBooks((bs) => bs.map((b) => (b.id === id ? { ...b, ...patch } : b)))}
-            onCustomCover={(id, cover) =>
-              setCustomCovers(({ [id]: _old, ...rest }) => (cover ? { ...rest, [id]: cover } : rest))
-            }
+            onCustomCover={(id, cover) => {
+              const how = coverChange(id, customCovers[id], cover);
+              if (how) track('cover', { how });
+              setCustomCovers(({ [id]: _old, ...rest }) => (cover ? { ...rest, [id]: cover } : rest));
+            }}
           />
         ) : (
           <div className="empty muted">
@@ -505,10 +556,16 @@ export function App() {
         customCovers={customCovers}
         activeId={activeId}
         expanded={expanded}
-        onExpanded={setExpanded}
+        onExpanded={(on) => {
+          if (on) track('view', { view: 'expanded' });
+          setExpanded(on);
+        }}
         layoutKey={layoutKey}
         view={view}
-        onView={setView}
+        onView={(v) => {
+          if (v !== view) track('view', { view: v });
+          setView(v);
+        }}
         book3d={
           view === '3d' ? (
             <Suspense fallback={<p className="empty muted">Loading the 3D view...</p>}>

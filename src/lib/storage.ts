@@ -1,3 +1,4 @@
+import type { Visitor } from './telemetry';
 import type { Book, CustomCover, Filters, Settings } from './types';
 
 const KEY = 'mini-book-labels:v1';
@@ -11,6 +12,8 @@ export interface SavedState {
   panes: Panes;
   /** Book ids in a hand-set order for the sheet; empty follows the sort. */
   order: string[];
+  /** The anonymous usage id (lib/telemetry.ts): in backups only; the browser keeps its own beside this. */
+  visitor?: Visitor;
 }
 
 /** Column widths in px set by dragging the handles. Unset means the responsive default. */
