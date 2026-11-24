@@ -4,16 +4,28 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  lcms-wasm>tape: '-'
+
 importers:
 
   .:
     dependencies:
+      '@fontsource/inter':
+        specifier: ^5.3.0
+        version: 5.3.0
       '@stripe/stripe-js':
         specifier: 10.2.0
         version: 10.2.0
+      lcms-wasm:
+        specifier: 1.0.5
+        version: 1.0.5
       manifold-3d:
         specifier: 3.5.4
         version: 3.5.4(@gltf-transform/core@4.5.1)(@gltf-transform/extensions@4.5.1)(@gltf-transform/functions@4.5.1(@types/node@26.6.6))(esbuild-wasm@0.27.7)
+      opentype.js:
+        specifier: 2.0.0
+        version: 2.0.0
       papaparse:
         specifier: ^5.7.0
         version: 5.7.0
@@ -286,6 +298,9 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
+
+  '@fontsource/inter@5.3.0':
+    resolution: {integrity: sha512-RofMylZmjlJEfELXeNHFWBRcSs75rGU/6bV2S2jfnvv/3rPXPGe0LgUJTklcHZ9lM4OZmAVFhcJPnACfb91A3g==}
 
   '@gltf-transform/core@4.5.1':
     resolution: {integrity: sha512-OWgBYssKHKoXMIrMb2N20jXqWRnMP9HdtcTFQBEAJtz4P+OOxx5fozl5eAeK7nktIs5uDE/lu4NbkE5VCZaR9g==}
@@ -890,6 +905,9 @@ packages:
   ktx-parse@1.1.0:
     resolution: {integrity: sha512-mKp3y+FaYgR7mXWAbyyzpa/r1zDWeaunH+INJO4fou3hb45XuNSwar+7llrRyvpMWafxSIi99RNFJ05MHedaJQ==}
 
+  lcms-wasm@1.0.5:
+    resolution: {integrity: sha512-bQpBF4BvoHY//Gq7k67VD9l+BEk6dmaROAB+ci83ZajOurOUPAcwfi3z5VzzAf27qccIE867kYc+jk6/wPelcA==}
+
   lightningcss-android-arm64@1.33.0:
     resolution: {integrity: sha512-gEpRTalKdosp4Bb8qWtc2iOgE5SeIHlpS1up9bFq2wAyYhl1UdTObYiHe98zEM9SQvSoqQZ1IQD0JNpg3Ml5pg==}
     engines: {node: '>= 12.0.0'}
@@ -1010,6 +1028,10 @@ packages:
   obug@3.0.0:
     resolution: {integrity: sha512-5vvB5+W7ePv+p3uqxi+RcW1XAzLW0/hxt3/4X4Lc4qHudzOhmBiBwOY6DRob4WnanAEGvNcLjF+KNOufrUoEQw==}
     engines: {node: '>=12.20.0'}
+
+  opentype.js@2.0.0:
+    resolution: {integrity: sha512-kCyjv6xdDY1W/jLWZ/L3QhhTlKUqDZMQ5+Jdlw12b3dXkKNpYBqqlMMj0YDQPShWFTMwgZI1hG14kN3XUDSg/A==}
+    hasBin: true
 
   papaparse@5.7.0:
     resolution: {integrity: sha512-qBGxg/7Q3Kl9Wfhrz2Z74UnvnHTXLNG6jmKJFeBvP2+y4lV7So+7SR62+Zd47JvdrCkX+nDcnr0ObPzek/+6RA==}
@@ -1405,6 +1427,8 @@ snapshots:
 
   '@esbuild/win32-x64@0.28.2':
     optional: true
+
+  '@fontsource/inter@5.3.0': {}
 
   '@gltf-transform/core@4.5.1':
     dependencies:
@@ -1835,6 +1859,8 @@ snapshots:
 
   ktx-parse@1.1.0: {}
 
+  lcms-wasm@1.0.5: {}
+
   lightningcss-android-arm64@1.33.0:
     optional: true
 
@@ -1961,6 +1987,8 @@ snapshots:
       is-buffer: 1.1.6
 
   obug@3.0.0: {}
+
+  opentype.js@2.0.0: {}
 
   papaparse@5.7.0: {}
 
