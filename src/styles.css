@@ -382,6 +382,11 @@ label.check {
   color: var(--ink);
 }
 
+/* A long label wraps; its checkbox keeps its size. */
+label.check input {
+  flex: none;
+}
+
 input,
 select,
 button {
@@ -455,6 +460,76 @@ fieldset.back-options {
 
 fieldset.back-options button.link {
   justify-self: start;
+}
+
+/* Print output: one control per row in its fieldsets, like the back cover's details. */
+.output-panel fieldset {
+  display: grid;
+  gap: 8px;
+  justify-items: stretch;
+}
+
+.output-panel p {
+  margin: 0;
+}
+
+.output-details {
+  display: grid;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.output-details summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.output-details[open] summary {
+  margin-bottom: 4px;
+}
+
+.cut-line-fields {
+  display: grid;
+  gap: 6px;
+}
+
+.field-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.output-panel .note {
+  padding: 6px 10px;
+  border-left: 3px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  font-size: 0.85rem;
+}
+
+.print-warnings {
+  margin: 0;
+  padding: 8px 10px 8px 28px;
+  border-radius: 6px;
+  background: light-dark(#fff4e5, #3a2a14);
+  color: light-dark(#7a3d00, #ffcf8f);
+  font-size: 0.85rem;
+}
+
+.made-files {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.file-field input[type='file'] {
+  display: block;
+  margin-top: 4px;
 }
 
 legend {
@@ -1869,6 +1944,73 @@ fieldset.crop {
   outline: 0.2mm dashed #888;
 }
 
+/* Print shop and cutter sheets: each label in a box the size of its trim plus bleed, its art behind the
+   cut line and safe zone. */
+.slot {
+  position: absolute;
+  overflow: hidden;
+}
+
+.slot-art {
+  position: absolute;
+}
+
+.slot .label {
+  outline: none;
+}
+
+.cut-line,
+.safe-line {
+  position: absolute;
+  pointer-events: none;
+}
+
+.cut-line {
+  box-shadow: 0 0 0 0.15mm #e6007e;
+}
+
+.safe-line {
+  outline: 0.12mm dashed rgb(26 158 82 / 0.9);
+}
+
+.sheet-marks,
+.reg-marks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.sheet-marks line {
+  stroke: #000;
+  stroke-width: 0.1;
+}
+
+.sheet-marks text {
+  font: 1.95px Inter, system-ui, sans-serif;
+  fill: #000;
+}
+
+.reg-marks rect {
+  fill: #000;
+}
+
+.reg-marks path {
+  fill: none;
+  stroke: #000;
+  stroke-width: 0.6;
+}
+
+.reg-marks {
+  opacity: 0.35;
+}
+
+.print-area {
+  position: absolute;
+  outline: 0.3mm dashed #9aa0a6;
+  outline-offset: 1.5mm;
+}
+
 .ruler {
   position: absolute;
   display: flex;
@@ -2142,7 +2284,11 @@ fieldset.crop {
   .preview-bar,
   .tabs,
   .book3d,
-  .guides {
+  .guides,
+  .cut-line,
+  .safe-line,
+  .reg-marks,
+  .print-area {
     display: none;
   }
 

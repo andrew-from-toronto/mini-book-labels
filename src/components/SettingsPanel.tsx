@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { PAPER } from '../lib/layout';
+import { outputMode } from '../lib/output';
 import { dimsAtScale, matchingScale, resizeProportionally, SCALES, type Dims } from '../lib/scales';
 import { resolveBack, type BackOptions, type Focus } from '../lib/back';
 import type { BackStyle, LabelStyle, PaperKey, Settings } from '../lib/types';
@@ -134,20 +135,22 @@ export function SettingsPanel({ settings, onChange }: Props) {
           Reset back to defaults
         </button>
       </fieldset>
-      <div className="row">
-        <label>
-          Paper
-          <select value={settings.paper} onChange={(e) => onChange({ ...settings, paper: e.target.value as PaperKey })}>
-            {Object.entries(PAPER).map(([key, p]) => (
-              <option key={key} value={key}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        {num('margin', 'Margin (mm)', 0)}
-        {num('gap', 'Gap (mm)', 0)}
-      </div>
+      {outputMode(settings) === 'home' && (
+        <div className="row">
+          <label>
+            Paper
+            <select value={settings.paper} onChange={(e) => onChange({ ...settings, paper: e.target.value as PaperKey })}>
+              {Object.entries(PAPER).map(([key, p]) => (
+                <option key={key} value={key}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          {num('margin', 'Margin (mm)', 0)}
+          {num('gap', 'Gap (mm)', 0)}
+        </div>
+      )}
       <label>
         Alignment guide opacity: {Math.round(settings.guideOpacity * 100)}%
         <input

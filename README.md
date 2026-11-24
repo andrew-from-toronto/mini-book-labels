@@ -10,7 +10,7 @@ Live app: https://minibookornaments.com/
 2. Drop the CSV into the app (or press "Try a sample" to load a random handful of popular books and see how it works); it works out which site it came from. It is parsed in your browser and never uploaded anywhere. You can also search for any book by title, author or ISBN and add it, with or without a CSV. A book the search does not find can be added as a blank book: it is never looked up, you set its title and author, and it gets your own cover image or a plain generated one.
 3. Filter by read status, star rating and date read, pick how many books you want, tick or untick individual books, and drag them into the order you want them on the sheet.
 4. Pick a scale (1:4 to 1:24, based on a 210 x 140 x 35 mm paperback) or set your own label size in millimetres, and pick a spine/back style. Click any book to edit its cover; the print preview zooms to that label, and Expand opens the full preview.
-5. Print at 100% scale. Each page has a 50 mm ruler so you can check the scale before cutting.
+5. Print at 100% scale. Each page has a 50 mm ruler so you can check the scale before cutting. Or make a file for a print shop or a cutting machine instead (below).
 
 Your library, selections, covers and settings are saved in your browser's local storage, so a refresh or restart picks up where you left off. "Back up" saves all of it, uploaded images included, to a file that "Restore" loads again, in this browser or another. "Start over" clears it.
 
@@ -25,6 +25,19 @@ If you have complete artwork for a book (one image with back, spine and front, a
 Pasted image links that the browser is not allowed to read (Pinterest, for example) are reloaded through the [wsrv.nl](https://wsrv.nl) image proxy so the spine and colours can be detected. Only the image address is sent there. Pinterest links are also upgraded to the original upload where it can be found, or else the 1200 px wide copy, before loading.
 
 Neither StoryGraph nor Goodreads has a public API for this, which is why the app uses the CSV exports.
+
+## Print shops and cutting machines
+
+Under Print, "Print with" picks where the sheet goes; the preview shows that sheet, with each label's bleed, cut line and safe zone.
+
+- **A print shop (PDF)** makes two files in the browser: a print file and a proof. The print file has one page per sheet, the sheet's own size (Letter by default; A4, Legal, 11 × 17, 12 × 18, 13 × 19, SRA3 or custom). Each label carries bleed past its cut line, filled from its own edges: more of the cover artwork where the image has it, otherwise the edge mirrored (or stretched). Each label's cut line is a closed hairline path set to overprint, on its own layer, in a spot colour (`CutContour` by default) or 100% magenta or cyan. Kiss cut or die cut picks which of the two cut lines the labels use; a thru-cut round the sheet's edge is optional. Labels sit at least twice the bleed apart, or touching with one cut line between. Crop marks (registration colour) and a slug line (the sheet's details, set as outlines in black) are optional; nothing in the file needs a font. Images are RGB tagged sRGB (JPEG or lossless, about 600 dpi), or CMYK through LittleCMS with GRACoL 2013, FOGRA39 or the shop's own `.icc`, lossless at 400 dpi, with the profile as the output intent. The proof starts with a page of the settings and anything worth checking (text inside the safe zone, labels too small, margins too narrow for marks), then shows each sheet with its cut line, bleed edge and safe zone drawn on.
+- **Shop setups** fill the bleed, safe zone, cut line colours, layer names and least spacing for a shop's conventions: generic `CutContour` (1/8 in bleed, the usual RIP convention), UPrinting (magenta kiss cut, cyan thru-cut), Jukebox (Kiss Cut, Thru-Cut and Artwork layers, 1.5 mm between cuts) and Sticker Mule (magenta cut line, 1/16 in bleed). Changing any of those makes the setup Custom.
+- **Cricut Print Then Cut** makes a PNG per batch at 300 dpi: labels at trim size with clear gaps, each batch within Cricut's 6.75 × 9.25 in print area, and the width to set in Design Space (also in the file name and a README). Design Space adds the bleed and its marks.
+- **Silhouette Print & Cut** makes, per page, a PNG with bleed, its cut lines as DXF, and both together as SVG, with labels kept clear of the registration marks Studio adds.
+
+The Cricut and Silhouette files are untested on real machines.
+
+The PDF writer (`src/lib/pdf/`) is written for this, with no PDF library. Layout is `sheetLayout` in `src/lib/layout.ts`, bleed is `src/lib/bleed.ts`, settings and shop setups are `src/lib/output.ts`, and the downloads are made in `src/lib/printFiles.ts`. LittleCMS ([lcms-wasm](https://github.com/mattdesl/lcms-wasm)), [opentype.js](https://opentype.js.org) and the Inter font load only when a file is made. The colour profiles in `public/icc/` are redistributed unaltered under their own terms, in `public/icc/LICENSES.md`.
 
 ## 3D model
 

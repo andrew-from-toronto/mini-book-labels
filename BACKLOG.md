@@ -15,6 +15,9 @@ Ideas to do later, not started.
 - Hold payments until shipped (Stripe manual capture): a card hold lasts about 4.5 days on Visa, so
   only if print-and-ship is reliably faster.
 - Test-print the 3 mm hook hole.
+- Print shop files: ask the shop for its cut line spot colour name, the least space between kiss cuts,
+  and whether a supplied cut line drops its dieline fee; set the Generic setup to match.
+- Cricut and Silhouette downloads: try them on real machines, then drop the "untested" notes.
 
 ## Go-live
 

@@ -4,6 +4,7 @@ import { BookList } from './components/BookList';
 import { BookSearch, type FoundBook } from './components/BookSearch';
 import { FiltersPanel } from './components/FiltersPanel';
 import { ModelPanel } from './components/ModelPanel';
+import { OutputPanel } from './components/OutputPanel';
 import { Preview, type PreviewView } from './components/Preview';
 import { SettingsPanel } from './components/SettingsPanel';
 import { DEFAULT_SETTINGS } from './lib/defaults';
@@ -268,6 +269,7 @@ export function App() {
     settings.paper,
     settings.margin,
     settings.gap,
+    settings.output,
   ]);
 
   return (
@@ -374,17 +376,14 @@ export function App() {
 
             <section>
               <h2>4. Print</h2>
-              {grid.perPage === 0 ? (
-                <p className="error">A label does not fit on the page with these sizes and margins.</p>
-              ) : (
-                <p className="muted">
-                  {selected.length} labels on {pages.length} {pages.length === 1 ? 'page' : 'pages'} ({grid.cols} x{' '}
-                  {grid.rows} per page). Print at 100% scale ("Actual size"), then check the 50 mm ruler.
-                </p>
-              )}
-              <button className="primary" disabled={pages.length === 0} onClick={() => window.print()}>
-                Print sheet
-              </button>
+              <OutputPanel
+                settings={settings}
+                onChange={setSettings}
+                pages={pages}
+                labelCount={selected.length}
+                coverOf={coverOf}
+                customCovers={customCovers}
+              />
             </section>
 
           </>

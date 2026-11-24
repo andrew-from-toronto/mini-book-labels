@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { CoverResult } from '../lib/covers';
-import { labelWidth, PAPER } from '../lib/layout';
+import { labelWidth, sheetLayout } from '../lib/layout';
 import type { Book, CustomCover, Settings } from '../lib/types';
 import { useZoom } from '../lib/useZoom';
 import { Sheet } from './Sheet';
@@ -52,7 +52,7 @@ export function Preview(props: Props) {
       const fitHeight = (h * 0.7) / (settings.height * CSS_PX_PER_MM);
       frame(Math.min(fitWidth, fitHeight), sheet, label);
     } else {
-      const paper = PAPER[settings.paper];
+      const paper = sheetLayout(settings).page;
       frame(expanded ? 1 : Math.min(w / (paper.w * CSS_PX_PER_MM), h / (paper.h * CSS_PX_PER_MM)), sheet);
     }
   }
