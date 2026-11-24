@@ -17,7 +17,7 @@ Ideas to do later, not started.
 - Test-print the 3 mm hook hole.
 - Print shop files: ask the shop for its cut line spot colour name, the least space between kiss cuts,
   and whether a supplied cut line drops its dieline fee; set the Generic setup to match.
-- Cricut and Silhouette downloads: try them on real machines, then drop the "untested" notes.
+- Cricut and Silhouette downloads: try them on real machines.
 
 ## Go-live
 

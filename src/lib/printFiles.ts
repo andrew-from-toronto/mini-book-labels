@@ -7,7 +7,7 @@ import { conditionOf, loadProfile, loadSrgb, rgbaToCmyk } from './cmyk';
 import type { CoverResult } from './covers';
 import { cutDxf, cutSvg, pngWithDpi, zip, type CutRect } from './files';
 import { defaultWrapSpine, sheetLayout, usedBlock, type SheetLayout } from './layout';
-import { cutterSettings, formatMm, outputMode, shopSettings, type BleedFill, type ShopSettings } from './output';
+import { cutterSettings, outputMode, shopSettings, type BleedFill, type ShopSettings } from './output';
 import { buildProductionPdf, buildProofPdf, cropMarks, type LabelImage } from './pdf/shopPdf';
 import { loadOutliner } from './pdf/text';
 import { PRINT_PX_PER_MM, type LabelOptions } from './render';
@@ -43,18 +43,18 @@ export function shopWarnings(s: Settings, shop: ShopSettings = shopSettings(s), 
   const mm = (v: number) => `${Number((v + 1e-9).toFixed(1))} mm`;
   if (!shop.pullIn && shop.safe > 0) {
     if (back.spineText !== false && spineEdge(h) < shop.safe) {
-      out.push(`Spine titles start ${mm(spineEdge(h))} from the top and bottom edges, inside the ${formatMm(shop.safe)} safe zone.`);
+      out.push(`Spine titles are ${mm(spineEdge(h))} from the edge, inside the safe zone.`);
     }
     if (back.barcode !== false && barcodeEdge(h) < shop.safe) {
-      out.push(`The barcode sits ${mm(barcodeEdge(h))} from the bottom edge, inside the ${formatMm(shop.safe)} safe zone.`);
+      out.push(`The barcode is ${mm(barcodeEdge(h))} from the edge, inside the safe zone.`);
     }
   }
-  if (shop.safe * 2 > h * 0.25) out.push(`The safe zone takes ${Math.round(((shop.safe * 2) / h) * 100)}% of the label's height.`);
-  if (h < 15) out.push(`Labels are ${mm(h)} tall. Ask the shop for the smallest label it can kiss-cut.`);
-  if (shop.bleed === 0) out.push('No bleed: a cut that lands off the line shows white paper.');
-  if (shop.cropMarks && cropMarks(layout, layout.perPage).length === 0) out.push('Crop marks need a sheet margin of at least 8 mm.');
-  if (shop.slug && layout.margin < 4) out.push('The slug line needs a sheet margin of at least 4 mm.');
-  if (layout.perPage === 0) out.push('A label does not fit on the sheet with this margin.');
+  if (shop.safe * 2 > h * 0.25) out.push(`The safe zone is ${Math.round(((shop.safe * 2) / h) * 100)}% of the label's height.`);
+  if (h < 15) out.push(`Labels are ${mm(h)} tall, which may be below the shop's smallest cut.`);
+  if (shop.bleed === 0) out.push('No bleed.');
+  if (shop.cropMarks && cropMarks(layout, layout.perPage).length === 0) out.push('Crop marks need a margin of 8 mm or more.');
+  if (shop.slug && layout.margin < 4) out.push('The slug line needs a margin of 4 mm or more.');
+  if (layout.perPage === 0) out.push('A label does not fit on the sheet.');
   return out;
 }
 
@@ -275,8 +275,6 @@ function cricutReadme(count: number, widths: number[]): string {
   return [
     'Mini Book Labels for Cricut Print Then Cut',
     '',
-    'These files are untested on a real machine.',
-    '',
     `${count} image${count === 1 ? '' : 's'}. In Design Space, for each one:`,
     '1. Upload the PNG and choose "Print Then Cut image".',
     '2. Set its width exactly as below (lock the proportions).',
@@ -320,8 +318,6 @@ export async function makeSilhouetteFiles(input: DrawInput, progress: Progress):
 function silhouetteReadme(paper: string, margin: number): string {
   return [
     'Mini Book Labels for Silhouette Print & Cut',
-    '',
-    'These files are untested on a real machine.',
     '',
     `Each page is ${paper === 'a4' ? 'A4' : 'Letter'}, with labels at least ${margin} mm from every edge, clear of the registration marks.`,
     '',

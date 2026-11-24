@@ -245,8 +245,8 @@ export function specRows(job: PrintJob): [string, string][] {
     ['Sheet', sheet],
     ['Bleed', formatMm(shop.bleed)],
     ['Safe zone', formatMm(shop.safe)],
-    ['Spacing', layout.gap === 0 ? 'Shared cut lines between labels' : `${formatMm(layout.gap)} between cut lines`],
-    ['Cut', `${shop.cut === 'kiss' ? 'Kiss cut through the label, backing whole' : 'Die cut through label and backing'}`],
+    ['Spacing', layout.gap === 0 ? 'Touching' : `${formatMm(layout.gap)} apart`],
+    ['Cut', shop.cut === 'kiss' ? 'Kiss cut' : 'Die cut'],
     ['Cut line', `${inkText(cut)}, ${num(cut.weight)} pt, overprint, layer "${cut.layer}"`],
     ...(shop.sheetCut ? ([['Sheet edge', `${inkText(shop.thru)}, layer "${shop.thru.layer}"`]] as [string, string][]) : []),
     ['Colour', job.colour.mode === 'cmyk' ? colourText(job.colour) : 'RGB, tagged sRGB'],
@@ -315,12 +315,12 @@ export async function buildProofPdf(job: PrintJob, proofSheets: LabelImage[][]):
       y -= 12.5 * lines.length + 6;
     }
     y -= 10;
-    ops.push(text('On the sheet pages', left, y, 11, PROOF.ink, 'bold'));
+    ops.push(text('Key', left, y, 11, PROOF.ink, 'bold'));
     y -= 20;
     const legend: [number[], string, boolean][] = [
-      [PROOF.cut, 'Cut line (trim): where the label is cut', false],
-      [PROOF.bleed, 'Bleed edge: artwork stops here', true],
-      [PROOF.safe, 'Safe zone: text stays inside', true],
+      [PROOF.cut, 'Cut line', false],
+      [PROOF.bleed, 'Bleed edge', true],
+      [PROOF.safe, 'Safe zone', true],
     ];
     for (const [colour, label, dashed] of legend) {
       ops.push(`q ${rgb(colour, false)} 1 w ${dashed ? '[3 2] 0 d' : ''} ${num(left)} ${num(y + 3)} m ${num(left + 22)} ${num(y + 3)} l S Q`);
@@ -329,7 +329,7 @@ export async function buildProofPdf(job: PrintJob, proofSheets: LabelImage[][]):
     }
     if (job.warnings.length) {
       y -= 10;
-      ops.push(text('Check before sending', left, y, 11, PROOF.warn, 'bold'));
+      ops.push(text('Warnings', left, y, 11, PROOF.warn, 'bold'));
       y -= 18;
       for (const w of job.warnings) {
         for (const [i, l] of wrap(w, 9.5, right - left - 12).entries()) {
@@ -342,7 +342,7 @@ export async function buildProofPdf(job: PrintJob, proofSheets: LabelImage[][]):
     }
     ops.push(`q ${rgb(PROOF.rule, false)} 0.5 w ${num(left)} ${num(22 * MM)} m ${num(right)} ${num(22 * MM)} l S Q`);
     ops.push(
-      text('Proof only. The print file is the one without these marks: send that one to the shop.', left, 15 * MM, 8.5, PROOF.muted),
+      text('Proof. Not for printing.', left, 15 * MM, 8.5, PROOF.muted),
     );
     const content = await pdf.addDeflated('', ops.join('\n'));
     pageIds.push(pdf.add(`<< /Type /Page /Parent ${ref(pagesId)} /MediaBox ${box} /TrimBox ${box} /Resources << >> /Contents ${ref(content)} >>`));

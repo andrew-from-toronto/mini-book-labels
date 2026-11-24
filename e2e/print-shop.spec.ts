@@ -40,7 +40,7 @@ test('makes a print shop PDF and its proof, with bleed and cut lines', async ({ 
   await expect
     .poll(() => page.locator('.sheet .slot canvas.label').first().evaluate((c: HTMLCanvasElement) => [c.width, c.height]), { timeout: 30_000 })
     .toEqual([Math.round(45 * 24) + 2 * Math.round(3.175 * 24), Math.round(30 * 24) + 2 * Math.round(3.175 * 24)]);
-  await page.getByLabel('Crop marks').check();
+  await page.getByRole('checkbox', { name: 'Crop marks' }).check();
   await expect(page.locator('.sheet-marks line').first()).toBeAttached();
 
   await page.getByRole('button', { name: 'Make print file and proof' }).click();
@@ -64,7 +64,7 @@ test('makes a CMYK print file with the GRACoL profile', async ({ page }) => {
   test.setTimeout(180_000);
   const errors = await start(page);
   await page.getByRole('combobox', { name: 'Print with' }).selectOption('shop');
-  await page.getByRole('combobox', { name: 'Colour', exact: true }).selectOption('cmyk');
+  await page.getByRole('combobox', { name: 'Colour mode' }).selectOption('cmyk');
   await page.getByRole('button', { name: 'Make print file and proof' }).click();
   await expect(page.getByRole('link', { name: /-print\.pdf$/ })).toBeVisible({ timeout: 150_000 });
   const print = await download(page, (await page.getByRole('link', { name: /-print\.pdf$/ }).textContent())!);

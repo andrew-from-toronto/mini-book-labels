@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Check, Field, InfoTip } from './InfoTip';
 import { saveCustomProfile, savedCustomProfile } from '../lib/cmyk';
 import type { CoverResult } from '../lib/covers';
 import { PAPER, sheetLayout } from '../lib/layout';
 import {
   applyPreset,
   cutterSettings,
-  formatMm,
   leavesPreset,
   outputMode,
   SHEETS,
@@ -33,12 +33,12 @@ interface Props {
 
 const MODES: [OutputMode, string][] = [
   ['home', 'My printer'],
-  ['shop', 'A print shop (PDF)'],
+  ['shop', 'Print shop (PDF)'],
   ['cricut', 'Cricut Print Then Cut'],
   ['silhouette', 'Silhouette Print & Cut'],
 ];
 
-const cutSummary = (line: CutLine) => (line.ink === 'spot' ? `${line.name} spot colour` : `100% ${line.ink}`);
+const cutSummary = (line: CutLine) => (line.ink === 'spot' ? line.name : `100% ${line.ink}`);
 
 const megabytes = (n: number) => `${(n / 1024 / 1024).toFixed(n < 1024 * 1024 ? 2 : 1)} MB`;
 
@@ -101,17 +101,31 @@ export function OutputPanel({ settings, onChange, pages, labelCount, coverOf, cu
     }
   }
 
-  const num = (label: ReactNode, value: number, onValue: (v: number) => void, min = 0, step = 0.1) => (
-    <label>
-      {label}
-      <input type="number" min={min} step={step} value={Number(value.toFixed(2))} onChange={(e) => onValue(Math.max(min, Number(e.target.value) || 0))} />
-    </label>
+  const num = (label: string, value: number, onValue: (v: number) => void, min = 0, step = 0.1, tip?: ReactNode) => (
+    <Field label={label} tip={tip}>
+      {(id) => (
+        <input id={id} type="number" min={min} step={step} value={Number((value + 1e-9).toFixed(2))} onChange={(e) => onValue(Math.max(min, Number(e.target.value) || 0))} />
+      )}
+    </Field>
   );
-  const check = (key: 'cropMarks' | 'slug' | 'sheetCut' | 'pullIn' | 'warnings', label: string) => (
-    <label className="check">
-      <input type="checkbox" checked={shop[key]} onChange={(e) => setShop({ [key]: e.target.checked })} />
-      {label}
-    </label>
+  const select = <T extends string>(label: string, value: T, options: [T, string, boolean?][], onValue: (v: T) => void, tip?: ReactNode) => (
+    <Field label={label} tip={tip}>
+      {(id) => (
+        <select id={id} value={value} onChange={(e) => onValue(e.target.value as T)}>
+          {options.map(([v, text, disabled]) => (
+            <option key={v} value={v} disabled={disabled}>
+              {text}
+            </option>
+          ))}
+        </select>
+      )}
+    </Field>
+  );
+  const text = (label: string, value: string, onValue: (v: string) => void) => (
+    <Field label={label}>{(id) => <input id={id} type="text" value={value} onChange={(e) => onValue(e.target.value)} />}</Field>
+  );
+  const check = (key: 'cropMarks' | 'slug' | 'sheetCut' | 'pullIn' | 'warnings', label: string, tip?: ReactNode) => (
+    <Check label={label} checked={shop[key]} onChange={(on) => setShop({ [key]: on })} tip={tip} />
   );
   const cutLine = (which: 'kiss' | 'thru', title: string) => {
     const line = shop[which];
@@ -120,47 +134,42 @@ export function OutputPanel({ settings, onChange, pages, labelCount, coverOf, cu
       <div className="cut-line-fields">
         <span className="field-title">{title}</span>
         <div className="row">
-          <label>
-            Marked as
-            <select value={line.ink} onChange={(e) => set({ ink: e.target.value as CutLine['ink'] })}>
-              <option value="spot">Spot colour</option>
-              <option value="magenta">100% magenta</option>
-              <option value="cyan">100% cyan</option>
-            </select>
-          </label>
-          {line.ink === 'spot' && (
-            <label>
-              Spot colour name
-              <input type="text" value={line.name} onChange={(e) => set({ name: e.target.value })} />
-            </label>
+          {select(
+            'Marked as',
+            line.ink,
+            [
+              ['spot', 'Spot colour'],
+              ['magenta', '100% magenta'],
+              ['cyan', '100% cyan'],
+            ],
+            (ink) => set({ ink }),
+            'How the cutter finds the line. Most shops look for a named spot colour, often CutContour. Some want a plain magenta or cyan line instead.',
           )}
+          {line.ink === 'spot' && text('Spot colour name', line.name, (name) => set({ name }))}
         </div>
         <div className="row">
-          <label>
-            Layer
-            <input type="text" value={line.layer} onChange={(e) => set({ layer: e.target.value })} />
-          </label>
-          {num('Line (pt)', line.weight, (v) => set({ weight: v }), 0.05, 0.05)}
+          {text('Layer', line.layer, (layer) => set({ layer }))}
+          {num('Line (pt)', line.weight, (weight) => set({ weight }), 0.05, 0.05)}
         </div>
       </div>
     );
   };
 
   const sheets = pages.length;
+  const per = mode === 'cricut' ? 'image' : 'sheet';
   const summary =
     layout.perPage === 0 ? (
       <p className="error">A label does not fit with these sizes and margins.</p>
     ) : (
       <p className="muted">
-        {labelCount} labels on {sheets} {mode === 'cricut' ? (sheets === 1 ? 'image' : 'images') : sheets === 1 ? 'sheet' : 'sheets'} ({layout.cols} × {layout.rows} a{' '}
-        {mode === 'cricut' ? 'image' : 'sheet'}).
+        {labelCount} labels on {sheets} {sheets === 1 ? per : `${per}s`} ({layout.cols} × {layout.rows} a {per})
       </p>
     );
 
-  const downloadButton = (text: string) => (
+  const downloadButton = (label: string) => (
     <>
       <button className="primary" disabled={pages.length === 0 || busy !== null} onClick={() => void make()}>
-        {busy ? `Drawing label ${Math.min(busy.done + 1, busy.total)} of ${busy.total}…` : text}
+        {busy ? `Drawing label ${Math.min(busy.done + 1, busy.total)} of ${busy.total}…` : label}
       </button>
       {error && <p className="error">{error}</p>}
       {made.length > 0 && (
@@ -178,18 +187,11 @@ export function OutputPanel({ settings, onChange, pages, labelCount, coverOf, cu
     </>
   );
 
+  const bleedTip = 'Extra artwork past the cut line. If a cut lands a little outside the line, you see more of the cover instead of a white edge. It gets trimmed off.';
+
   return (
     <div className="fields output-panel">
-      <label>
-        Print with
-        <select value={mode} onChange={(e) => setMode(e.target.value as OutputMode)}>
-          {MODES.map(([m, label]) => (
-            <option key={m} value={m}>
-              {label}
-            </option>
-          ))}
-        </select>
-      </label>
+      {select('Print with', mode, MODES, setMode)}
 
       {mode === 'home' && (
         <>
@@ -209,144 +211,156 @@ export function OutputPanel({ settings, onChange, pages, labelCount, coverOf, cu
 
       {mode === 'shop' && (
         <>
-          <label>
-            Shop setup
-            <select
-              value={shop.preset}
-              onChange={(e) => onChange(withOutput(settings, { shop: applyPreset(shop, e.target.value as ShopSettings['preset']) }))}
-            >
-              {Object.entries(SHOP_PRESETS).map(([k, p]) => (
-                <option key={k} value={k}>
-                  {p.label}
-                </option>
-              ))}
-              <option value="custom">Custom</option>
-            </select>
-          </label>
-          <label>
-            Cut
-            <select value={shop.cut} onChange={(e) => setShop({ cut: e.target.value as ShopSettings['cut'] })}>
-              <option value="kiss">Kiss cut: a sheet of peel-off labels</option>
-              <option value="die">Die cut: loose labels</option>
-            </select>
-          </label>
+          {select(
+            'Shop setup',
+            shop.preset,
+            [...Object.entries(SHOP_PRESETS).map(([k, p]): [ShopSettings['preset'], string] => [k as ShopSettings['preset'], p.label]), ['custom', 'Custom']],
+            (preset) => onChange(withOutput(settings, { shop: applyPreset(shop, preset) })),
+            'Shops expect cut lines set up their own way. Generic suits most local print shops. Changing a detail below makes it Custom.',
+          )}
+          {select(
+            'Cut',
+            shop.cut,
+            [
+              ['kiss', 'Kiss cut'],
+              ['die', 'Die cut'],
+            ],
+            (cut) => setShop({ cut }),
+            'Kiss cut goes through the label but not the backing, so you get a sheet to peel labels off. Die cut goes through both, so every label comes loose.',
+          )}
           <div className="row">
-            <label>
-              Sheet
-              <select value={shop.sheet} onChange={(e) => setShop({ sheet: e.target.value as ShopSettings['sheet'] })}>
-                {Object.entries(SHEETS).map(([k, s]) => (
-                  <option key={k} value={k}>
-                    {s.label}
-                  </option>
-                ))}
-                <option value="custom">Custom size</option>
-              </select>
-            </label>
-            {num('Margin (mm)', shop.margin, (v) => setShop({ margin: v }))}
+            {select(
+              'Sheet',
+              shop.sheet,
+              [...Object.entries(SHEETS).map(([k, v]): [ShopSettings['sheet'], string] => [k as ShopSettings['sheet'], v.label]), ['custom', 'Custom']],
+              (sheet) => setShop({ sheet }),
+            )}
+            {num('Margin (mm)', shop.margin, (margin) => setShop({ margin }))}
           </div>
           {shop.sheet === 'custom' && (
             <div className="row">
-              {num('Sheet width (mm)', shop.sheetW, (v) => setShop({ sheetW: v }), 20)}
-              {num('Sheet height (mm)', shop.sheetH, (v) => setShop({ sheetH: v }), 20)}
+              {num('Width (mm)', shop.sheetW, (sheetW) => setShop({ sheetW }), 20)}
+              {num('Height (mm)', shop.sheetH, (sheetH) => setShop({ sheetH }), 20)}
             </div>
           )}
           <div className="row">
-            {num('Bleed (mm)', shop.bleed, (v) => setShop({ bleed: v }))}
-            {num('Safe zone (mm)', shop.safe, (v) => setShop({ safe: v }))}
+            {num('Bleed (mm)', shop.bleed, (bleed) => setShop({ bleed }), 0, 0.1, bleedTip)}
+            {num(
+              'Safe zone (mm)',
+              shop.safe,
+              (safe) => setShop({ safe }),
+              0,
+              0.1,
+              "A cut can land a little inside the line too. Text closer to the edge than this could get trimmed. The label isn't made any smaller.",
+            )}
           </div>
           <div className="row">
-            <label>
-              Spacing
-              <select value={shop.spacing} onChange={(e) => setShop({ spacing: e.target.value as ShopSettings['spacing'] })}>
-                <option value="gap">Apart</option>
-                <option value="shared" disabled={shop.minSpacing > 0}>
-                  Touching
-                </option>
-              </select>
-            </label>
-            {shop.spacing === 'gap' && num('Gap (mm)', shopGap(shop), (v) => setShop({ gap: v }), Math.max(2 * shop.bleed, shop.minSpacing))}
+            {select(
+              'Spacing',
+              shop.spacing,
+              [
+                ['gap', 'Apart'],
+                ['shared', 'Touching', shop.minSpacing > 0],
+              ],
+              (spacing) => setShop({ spacing }),
+              "Apart leaves room for each label's bleed. Touching fits more on a sheet, with one cut between neighbours, but a cut that's slightly off can show a sliver of the next label.",
+            )}
+            {shop.spacing === 'gap' && num('Gap (mm)', shopGap(shop), (gap) => setShop({ gap }), Math.max(2 * shop.bleed, shop.minSpacing))}
           </div>
-          <label>
-            Bleed fill
-            <select value={shop.bleedFill} onChange={(e) => setShop({ bleedFill: e.target.value as ShopSettings['bleedFill'] })}>
-              <option value="extend">Extend the artwork</option>
-              <option value="mirror">Mirror the edges</option>
-              <option value="stretch">Stretch the edges</option>
-            </select>
-          </label>
+          {select(
+            'Bleed fill',
+            shop.bleedFill,
+            [
+              ['extend', 'Extend artwork'],
+              ['mirror', 'Mirror'],
+              ['stretch', 'Stretch'],
+            ],
+            (bleedFill) => setShop({ bleedFill }),
+            "Extend uses more of the cover where the picture has it. Mirror reflects the label's edge outwards. Stretch repeats the edge colours.",
+          )}
 
           <details className="output-details">
-            <summary>
-              Cut lines: {cutSummary(labelCut(shop))}
-            </summary>
+            <summary>Cut lines: {cutSummary(labelCut(shop))}</summary>
             {cutLine('kiss', 'Kiss cut')}
-            {cutLine('thru', 'Thru-cut (die cut and sheet edge)')}
-            <label>
-              Artwork layer
-              <input type="text" value={shop.artworkLayer} onChange={(e) => setShop({ artworkLayer: e.target.value })} />
-            </label>
+            {cutLine('thru', 'Thru-cut')}
+            {text('Artwork layer', shop.artworkLayer, (artworkLayer) => setShop({ artworkLayer }))}
           </details>
 
           <fieldset>
             <legend>Colour</legend>
             <div className="row">
-              <label>
-                Colour
-                <select value={shop.colour} onChange={(e) => setShop({ colour: e.target.value as ShopSettings['colour'] })}>
-                  <option value="rgb">RGB</option>
-                  <option value="cmyk">CMYK</option>
-                </select>
-              </label>
-              {shop.colour === 'rgb' ? (
-                <label>
-                  Images
-                  <select value={shop.images} onChange={(e) => setShop({ images: e.target.value as ShopSettings['images'] })}>
-                    <option value="jpeg">JPEG</option>
-                    <option value="lossless">Lossless</option>
-                  </select>
-                </label>
-              ) : (
-                <label>
-                  Profile
-                  <select value={shop.profile} onChange={(e) => setShop({ profile: e.target.value as ShopSettings['profile'] })}>
-                    <option value="gracol">GRACoL 2013 (North America)</option>
-                    <option value="fogra39">FOGRA39 (Europe)</option>
-                    <option value="custom">The shop's own</option>
-                  </select>
-                </label>
+              {select(
+                'Colour mode',
+                shop.colour,
+                [
+                  ['rgb', 'RGB'],
+                  ['cmyk', 'CMYK'],
+                ],
+                (colour) => setShop({ colour }),
+                'RGB works for most shops: they convert it for their press. Pick CMYK if the shop asks for it.',
               )}
+              {shop.colour === 'rgb'
+                ? select(
+                    'Images',
+                    shop.images,
+                    [
+                      ['jpeg', 'JPEG'],
+                      ['lossless', 'Lossless'],
+                    ],
+                    (images) => setShop({ images }),
+                    'JPEG keeps the file small. Lossless is bigger, with the crispest small text.',
+                  )
+                : select(
+                    'Profile',
+                    shop.profile,
+                    [
+                      ['gracol', 'GRACoL 2013 (North America)'],
+                      ['fogra39', 'FOGRA39 (Europe)'],
+                      ['custom', "The shop's own"],
+                    ],
+                    (profile) => setShop({ profile }),
+                    'Matches the colours to the press. If the shop gave you a profile file, use that.',
+                  )}
             </div>
-            <p className="muted">{shop.colour === 'cmyk' ? 'Coated stock, lossless, 400 dpi.' : 'Tagged sRGB, about 600 dpi. The shop converts to CMYK.'}</p>
             {shop.colour === 'cmyk' && shop.profile === 'custom' && (
-              <label className="file-field">
-                {customName ? `Profile: ${customName}. Choose another .icc file` : 'Choose the .icc file'}
-                <input
-                  type="file"
-                  accept=".icc,.icm"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    e.target.value = '';
-                    if (!file) return;
-                    saveCustomProfile(file).then(
-                      (p) => {
-                        setCustomName(p.name);
-                        setError('');
-                      },
-                      (err) => setError(err instanceof Error ? err.message : String(err)),
-                    );
-                  }}
-                />
-              </label>
+              <Field label="Profile file">
+                {(id) => (
+                  <>
+                    <input
+                      id={id}
+                      type="file"
+                      accept=".icc,.icm"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = '';
+                        if (!file) return;
+                        saveCustomProfile(file).then(
+                          (p) => {
+                            setCustomName(p.name);
+                            setError('');
+                          },
+                          (err) => setError(err instanceof Error ? err.message : String(err)),
+                        );
+                      }}
+                    />
+                    {customName && <span className="muted">{customName}</span>}
+                  </>
+                )}
+              </Field>
             )}
           </fieldset>
 
           <fieldset>
-            <legend>Marks and checks</legend>
-            {check('cropMarks', 'Crop marks')}
-            {check('slug', 'Slug line with the sheet details')}
-            {check('sheetCut', "Thru-cut round the sheet's edge")}
-            {check('pullIn', 'Keep text inside the safe zone')}
-            {check('warnings', 'Show checks')}
+            <legend>Marks</legend>
+            {check('cropMarks', 'Crop marks', 'Short lines in the margin that line up with each cut.')}
+            {check('slug', 'Slug line', "A line of small print in the margin saying what's on the sheet.")}
+            {check('sheetCut', 'Cut round the sheet', 'Cuts the sheet out too, for shops that print on bigger paper.')}
+            {check(
+              'pullIn',
+              'Pull text in from the edge',
+              "Moves the spine title, blurb and barcode inside the safe zone. Lettering that's part of a cover picture stays where it is.",
+            )}
+            {check('warnings', 'Warnings')}
           </fieldset>
 
           {warnings.length > 0 && (
@@ -357,26 +371,28 @@ export function OutputPanel({ settings, onChange, pages, labelCount, coverOf, cu
             </ul>
           )}
           {summary}
-          <p className="muted">
-            Bleed {formatMm(shop.bleed)}. The print file goes to the shop; the proof is for checking.
-          </p>
           {downloadButton('Make print file and proof')}
         </>
       )}
 
       {mode === 'cricut' && (
         <>
-          <p className="note">Untested on a real Cricut.</p>
-          {num('Gap between labels (mm)', cutter.gap, (v) => setCutter({ gap: v }), 2)}
+          {num('Gap (mm)', cutter.gap, (gap) => setCutter({ gap }), 2)}
           {summary}
           {pages.length > 0 && (
-            <p className="muted">
-              Widths to set in Design Space:{' '}
-              {cricutWidths(settings, pages)
-                .map((w, i) => `image ${i + 1}, ${Number(w.toFixed(1))} mm (${(w / 25.4).toFixed(2)} in)`)
-                .join('; ')}
-              . Design Space adds the bleed.
-            </p>
+            <div className="field">
+              <span className="field-label">
+                <span>Width in Design Space</span>
+                <InfoTip about="width in Design Space">Design Space resizes uploads. Set each image to this width before you print. It adds its own bleed.</InfoTip>
+              </span>
+              <ul className="made-files">
+                {cricutWidths(settings, pages).map((w, i) => (
+                  <li key={i}>
+                    Image {i + 1}: {Number(w.toFixed(1))} mm ({(w / 25.4).toFixed(2)} in)
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
           {downloadButton('Make Cricut images')}
         </>
@@ -384,26 +400,20 @@ export function OutputPanel({ settings, onChange, pages, labelCount, coverOf, cu
 
       {mode === 'silhouette' && (
         <>
-          <p className="note">Untested on a real Silhouette.</p>
           <div className="row">
-            <label>
-              Paper
-              <select value={settings.paper} onChange={(e) => onChange({ ...settings, paper: e.target.value as PaperKey })}>
-                {Object.entries(PAPER).map(([k, p]) => (
-                  <option key={k} value={k}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {num('Margin (mm)', cutter.margin, (v) => setCutter({ margin: v }))}
+            {select(
+              'Paper',
+              settings.paper,
+              Object.entries(PAPER).map(([k, p]): [PaperKey, string] => [k as PaperKey, p.label]),
+              (paper) => onChange({ ...settings, paper }),
+            )}
+            {num('Margin (mm)', cutter.margin, (margin) => setCutter({ margin }), 0, 0.1, 'Room for the registration marks Silhouette Studio prints in the corners.')}
           </div>
           <div className="row">
-            {num('Bleed (mm)', cutter.bleed, (v) => setCutter({ bleed: v }))}
-            {num('Gap (mm)', cutter.gap, (v) => setCutter({ gap: v }))}
+            {num('Bleed (mm)', cutter.bleed, (bleed) => setCutter({ bleed }), 0, 0.1, bleedTip)}
+            {num('Gap (mm)', cutter.gap, (gap) => setCutter({ gap }))}
           </div>
           {summary}
-          <p className="muted">A PNG of each page, its cut lines as DXF, and both together as SVG.</p>
           {downloadButton('Make Silhouette files')}
         </>
       )}

@@ -96,7 +96,7 @@ type PresetFields = Pick<ShopSettings, 'bleed' | 'safe' | 'minSpacing' | 'kiss' 
 
 export const SHOP_PRESETS: Record<Exclude<ShopPresetKey, 'custom'>, { label: string; values: PresetFields }> = {
   generic: {
-    label: 'Generic (CutContour spot colour)',
+    label: 'Generic',
     values: {
       bleed: INCH / 8,
       safe: INCH / 16,
@@ -107,7 +107,7 @@ export const SHOP_PRESETS: Record<Exclude<ShopPresetKey, 'custom'>, { label: str
     },
   },
   uprinting: {
-    label: 'UPrinting style (magenta kiss cut, cyan thru-cut)',
+    label: 'UPrinting',
     values: {
       bleed: INCH / 8,
       safe: INCH / 16,
@@ -118,7 +118,7 @@ export const SHOP_PRESETS: Record<Exclude<ShopPresetKey, 'custom'>, { label: str
     },
   },
   jukebox: {
-    label: 'Jukebox style (Kiss Cut, Thru-Cut, Artwork layers)',
+    label: 'Jukebox',
     values: {
       bleed: INCH / 16,
       safe: INCH / 16,
@@ -129,7 +129,7 @@ export const SHOP_PRESETS: Record<Exclude<ShopPresetKey, 'custom'>, { label: str
     },
   },
   stickermule: {
-    label: 'Sticker Mule style (magenta cut line)',
+    label: 'Sticker Mule',
     values: {
       bleed: INCH / 16,
       safe: INCH / 16,
