@@ -4,7 +4,7 @@ import { flipScale, focusAt, resolveBack, type BackOptions } from './back';
 import type { BackStyle, Book, Crop, LabelStyle, Settings, WrapSpine } from './types';
 
 /** About 610 DPI, enough for crisp spine text on a home printer. */
-const PRINT_PX_PER_MM = 24;
+export const PRINT_PX_PER_MM = 24;
 const FONT = '"Helvetica Neue", Helvetica, Arial, sans-serif';
 const WHITE: Rgb = [250, 250, 250];
 
@@ -152,6 +152,36 @@ function drawCoverFit(ctx: Ctx, img: HTMLImageElement, crop: Crop, x: number, y:
   ctx.drawImage(img, src.x + (src.w - sw) / 2, src.y + (src.h - sh) / 2, sw, sh, x, y, w, h);
 }
 
+/**
+ * The front cover's artwork carried into the bleed (top, bottom and fore-edge), where the image has more
+ * than the front panel shows. `ctx` is the bleed canvas, the label's trim at (b, b); `coverW`, `spineW`
+ * and `h` are the label's panels in pixels. Only image inside the crop is used, so trimmed borders stay out.
+ */
+export function drawFrontBleed(ctx: Ctx, img: HTMLImageElement, crop: Crop | undefined, coverW: number, spineW: number, h: number, b: number) {
+  const src = sourceRect(img, crop ?? NO_CROP);
+  const scale = Math.max(coverW / src.w, h / src.h);
+  const sw = coverW / scale;
+  const sh = h / scale;
+  const sx = src.x + (src.w - sw) / 2;
+  const sy = src.y + (src.h - sh) / 2;
+  const extra = b / scale;
+  // The spine side is left alone: past the front's left edge is the spine, not more cover.
+  const x0 = sx;
+  const x1 = Math.min(sx + sw + extra, src.x + src.w);
+  const y0 = Math.max(sy - extra, src.y);
+  const y1 = Math.min(sy + sh + extra, src.y + src.h);
+  if (x1 <= sx + sw + 0.5 / scale && y0 >= sy - 0.5 / scale && y1 <= sy + sh + 0.5 / scale) return;
+  const frontX = b + coverW + spineW;
+  ctx.save();
+  // Only the bleed: the label itself is already drawn.
+  ctx.beginPath();
+  ctx.rect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  ctx.rect(b, b, ctx.canvas.width - 2 * b, ctx.canvas.height - 2 * b);
+  ctx.clip('evenodd');
+  ctx.drawImage(img, x0, y0, x1 - x0, y1 - y0, frontX, b + (y0 - sy) * scale, (x1 - x0) * scale, (y1 - y0) * scale);
+  ctx.restore();
+}
+
 /** Average colour of the cover's left edge, where it meets the spine. Null if the image is not CORS-readable. */
 function edgeColor(img: HTMLImageElement, crop: Crop): Rgb | null {
   const c = document.createElement('canvas');
@@ -217,9 +247,9 @@ function drawGeneratedCover(ctx: Ctx, book: Book, bg: Rgb, x: number, w: number,
   ctx.fillText(truncate(ctx, firstAuthor(book.authors), maxWidth), x + w / 2, h * 0.82);
 }
 
-function drawSpine(ctx: Ctx, book: Book, ink: Rgb, x: number, w: number, h: number, overArtwork = false) {
+function drawSpine(ctx: Ctx, book: Book, ink: Rgb, x: number, w: number, h: number, overArtwork = false, safe = 0) {
   const surname = firstAuthor(book.authors).split(/\s+/).at(-1) ?? '';
-  const pad = h * 0.05;
+  const pad = Math.max(h * 0.05, safe);
   const avail = h - 2 * pad;
 
   ctx.save();
@@ -278,11 +308,11 @@ function drawSpine(ctx: Ctx, book: Book, ink: Rgb, x: number, w: number, h: numb
 }
 
 /** Placeholder blurb bars: enough, with a barcode, to read as a back cover at a glance. */
-function drawBlurb(ctx: Ctx, ink: Rgb, seed: number, w: number, h: number) {
+function drawBlurb(ctx: Ctx, ink: Rgb, seed: number, w: number, h: number, safe = 0) {
   const rnd = mulberry32(seed);
-  const mx = w * 0.14;
+  const mx = Math.max(w * 0.14, safe);
   const step = h * 0.065;
-  let y = h * 0.14;
+  let y = Math.max(h * 0.14, safe);
   ctx.fillStyle = css(ink, 0.3);
   for (const paragraph of [4, 3]) {
     for (let i = 0; i < paragraph; i++) {
@@ -296,12 +326,12 @@ function drawBlurb(ctx: Ctx, ink: Rgb, seed: number, w: number, h: number) {
 }
 
 /** A white barcode box in the back cover's bottom corner, `size` of its width across. */
-function drawBarcode(ctx: Ctx, rnd: () => number, w: number, h: number, size: number) {
-  const mx = w * 0.14;
+function drawBarcode(ctx: Ctx, rnd: () => number, w: number, h: number, size: number, safe = 0) {
+  const mx = Math.max(w * 0.14, safe);
   const bw = w * size;
   const bh = h * size * 0.34;
   const bx = w - mx - bw;
-  const by = h * 0.92 - bh;
+  const by = Math.min(h * 0.92, h - safe) - bh;
   ctx.fillStyle = '#fff';
   ctx.fillRect(bx, by, bw, bh);
   ctx.fillStyle = '#111';
@@ -573,6 +603,8 @@ export interface LabelOptions {
   back?: BackStyle;
   /** Fine control of the back and spine; defaults for anything not given. */
   backOptions?: Partial<BackOptions>;
+  /** Keeps spine text, blurb and barcode at least this far (mm) inside the label's edges. */
+  safe?: number;
 }
 
 export function drawLabel(
@@ -585,6 +617,7 @@ export function drawLabel(
 ) {
   const { wrapSpine, crop = NO_CROP, pxPerMm = PRINT_PX_PER_MM, back = 'blurb' } = options;
   const o = resolveBack(back, options.backOptions);
+  const safe = (options.safe ?? 0) * pxPerMm;
   const coverW = Math.round(dims.width * pxPerMm);
   const spineW = Math.round(dims.spine * pxPerMm);
   const h = Math.round(dims.height * pxPerMm);
@@ -642,11 +675,11 @@ export function drawLabel(
   if (back === 'mirror' && cover) drawArtworkBack(ctx, cover, crop, artSpine ? frontX : coverW, h, seed, o, coverW);
   else if (back === 'notes') drawNotes(ctx, book, ink, coverW, h, o);
   else if (back === 'blurb' || back === 'mirror') {
-    if (o.blurb) drawBlurb(ctx, ink, seed, coverW, h);
+    if (o.blurb) drawBlurb(ctx, ink, seed, coverW, h, safe);
   }
   // Smaller over artwork, where it should not take over.
-  if (o.barcode) drawBarcode(ctx, mulberry32(seed + 1), coverW, h, back === 'mirror' ? 0.3 : 0.38);
-  if (o.spineText) drawSpine(ctx, book, ink, coverW, spineW, h, artSpine);
+  if (o.barcode) drawBarcode(ctx, mulberry32(seed + 1), coverW, h, back === 'mirror' ? 0.3 : 0.38, safe);
+  if (o.spineText) drawSpine(ctx, book, ink, coverW, spineW, h, artSpine, safe);
 
   // Faint fold guides on both spine edges.
   ctx.fillStyle = css(ink, 0.15);

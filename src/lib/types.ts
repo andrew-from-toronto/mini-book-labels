@@ -88,4 +88,13 @@ export interface Settings {
   /** Thickness in mm of the alignment guide lines, which are centred on the folds. */
   guideWidth: number;
   model: ModelOptions;
+  /** Where the sheet goes (lib/output.ts); missing means a home printer. */
+  output?: OutputSettings;
+}
+
+/** Saved output choices; anything missing takes its default from lib/output.ts. */
+export interface OutputSettings {
+  mode: import('./output').OutputMode;
+  shop?: Partial<import('./output').ShopSettings>;
+  cutter?: Partial<import('./output').CutterSettings>;
 }
